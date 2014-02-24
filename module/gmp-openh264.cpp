@@ -12,22 +12,27 @@
 #include "gmp-video-frame-i420.h"
 #include "gmp-video-frame-encoded.h"
 
+#include "codec_def.h"
+#include "codec_app_def.h"
+#include "codec_api.h"
+#include "param_svc.h"
+
 #if defined(_MSC_VER)
 #define PUBLIC_FUNC __declspec(dllexport)
 #else
 #define PUBLIC_FUNC
 #endif
 
-class FakeVideoEncoder : public GMPVideoEncoder
+class OpenH264VideoEncoder : public GMPVideoEncoder
 {
 public:
-  FakeVideoEncoder(GMPVideoHost *hostAPI) {
+  OpenH264VideoEncoder(GMPVideoHost *hostAPI) {
     printf("%s\n", __PRETTY_FUNCTION__);
     mHostAPI = hostAPI;
     mCallback = nullptr;
   }
 
-  virtual ~FakeVideoEncoder() {
+  virtual ~OpenH264VideoEncoder() {
     printf("%s\n", __PRETTY_FUNCTION__);
   }
 
@@ -35,7 +40,13 @@ public:
                                  GMPEncoderCallback* aCallback,
                                  int32_t aNumberOfCores,
                                  uint32_t aMaxPayloadSize) override {
-    printf("%s\n", __PRETTY_FUNCTION__);
+    max_payload_size_ = aMaxPayloadSize;
+
+    int rv = CreateSVCEncoder(&encoder_);
+    if (rv) {
+      return GMPVideoGenericErr;
+    }
+
     mCallback = aCallback;
     return GMPVideoNoErr;
   }
@@ -72,7 +83,7 @@ public:
     mCallback->Encoded(*f, aCodecSpecificInfo);
     f->Destroy();
     return GMPVideoNoErr;
-  }
+             }
 
   virtual GMPVideoErr SetChannelParameters(uint32_t aPacketLoss, uint32_t aRTT) override {
     printf("%s\n", __PRETTY_FUNCTION__);
@@ -95,21 +106,24 @@ public:
   }
 
 private:
+  ISVCEncoder *encoder_;
+  uint32_t max_payload_size_;
+
   //XXXJOSH ownership of all this stuff?
   GMPVideoHost *mHostAPI;
   GMPEncoderCallback* mCallback;
 };
 
-class FakeVideoDecoder : public GMPVideoDecoder
+class OpenH264VideoDecoder : public GMPVideoDecoder
 {
 public:
-  FakeVideoDecoder(GMPVideoHost *hostAPI) {
+  OpenH264VideoDecoder(GMPVideoHost *hostAPI) {
     printf("%s\n", __PRETTY_FUNCTION__);
     mHostAPI = hostAPI;
     mCallback = nullptr;
   }
 
-  virtual ~FakeVideoDecoder() {
+  virtual ~OpenH264VideoDecoder() {
     printf("%s\n", __PRETTY_FUNCTION__);
   }
 
@@ -189,10 +203,10 @@ GMPInit(void) {
 PUBLIC_FUNC GMPErr
 GMPGetAPI(const char* aApiName, void* aHostAPI, void** aPluginApi) {
   if (!strcmp(aApiName, "decode-video")) {
-    *aPluginApi = new FakeVideoDecoder(static_cast<GMPVideoHost*>(aHostAPI));
+    *aPluginApi = new OpenH264VideoDecoder(static_cast<GMPVideoHost*>(aHostAPI));
     return GMPNoErr;
   } else if (!strcmp(aApiName, "encode-video")) {
-    *aPluginApi = new FakeVideoEncoder(static_cast<GMPVideoHost*>(aHostAPI));
+    *aPluginApi = new OpenH264VideoEncoder(static_cast<GMPVideoHost*>(aHostAPI));
     return GMPNoErr;
   }
   return GMPGenericErr;

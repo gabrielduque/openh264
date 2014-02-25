@@ -7,8 +7,6 @@
 #include <iostream>
 #include <memory>
 
-#include <prthread.h>
-
 #include "gmp-general.h"
 #include "gmp-video-host.h"
 #include "gmp-video-encode.h"
@@ -49,13 +47,6 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
                                  GMPEncoderCallback* callback,
                                  int32_t numberOfCores,
                                  uint32_t maxPayloadSize) override {
-    thread_ = PR_CreateThread(PR_USER_THREAD,
-                              &OpenH264VideoEncoder::ThreadMain,
-                              this,
-                              PR_PRIORITY_NORMAL,
-                              PR_GLOBAL_THREAD,
-                              PR_JOINABLE_THREAD,
-                              0);
 
     GMPLOG(GL_INFO, "PID " << getpid());
 
@@ -173,7 +164,6 @@ private:
     // ctx->ThreadMain();
   }
 
-  PRThread* thread_;
   GMPVideoHost* host_;
   ISVCEncoder* encoder_;
   uint32_t max_payload_size_;

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <iostream>
 
 #include "gmp-general.h"
 #include "gmp-video-host.h"
@@ -23,31 +24,78 @@
 #define PUBLIC_FUNC
 #endif
 
+
+#define GMPLOG(c, x) std::cerr << c << ":" << x << std::endl;
+#define GL_ERROR "Error"
+#define GL_INFO  "Info"
+
 class OpenH264VideoEncoder : public GMPVideoEncoder
 {
-public:
-  OpenH264VideoEncoder(GMPVideoHost *hostAPI) {
-    printf("%s\n", __PRETTY_FUNCTION__);
-    mHostAPI = hostAPI;
-    mCallback = nullptr;
-  }
+ public:
+  OpenH264VideoEncoder(GMPVideoHost *hostAPI) :
+      host_(hostAPI),
+      encoder_(nullptr),
+      max_payload_size_(0),
+      callback_(nullptr) {}
 
-  virtual ~OpenH264VideoEncoder() {
-    printf("%s\n", __PRETTY_FUNCTION__);
-  }
+  virtual ~OpenH264VideoEncoder() {}
 
-  virtual GMPVideoErr InitEncode(const GMPVideoCodec& aCodecSettings,
-                                 GMPEncoderCallback* aCallback,
-                                 int32_t aNumberOfCores,
-                                 uint32_t aMaxPayloadSize) override {
-    max_payload_size_ = aMaxPayloadSize;
+  virtual GMPVideoErr InitEncode(const GMPVideoCodec& codecSettings,
+                                 GMPEncoderCallback* callback,
+                                 int32_t numberOfCores,
+                                 uint32_t maxPayloadSize) override {
+    GMPLOG(GL_INFO, "PID " << getpid());
 
     int rv = CreateSVCEncoder(&encoder_);
     if (rv) {
       return GMPVideoGenericErr;
     }
 
-    mCallback = aCallback;
+    SEncParamExt param;
+    memset(&param, 0, sizeof(param));
+
+    GMPLOG(GL_INFO, "Initializing encoder at "
+            << codecSettings.mWidth
+            << "x"
+            << codecSettings.mHeight
+            << "@"
+            << static_cast<int>(codecSettings.mMaxFramerate));
+
+    // Translate parameters.
+    param.iPicWidth = codecSettings.mWidth;
+    param.iPicHeight = codecSettings.mHeight;
+    param.iTargetBitrate = codecSettings.mStartBitrate * 1000;
+    param.iTemporalLayerNum = 1;
+    param.iSpatialLayerNum = 1;
+
+    // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
+    param.fMaxFrameRate = codecSettings.mMaxFramerate;
+    param.iInputCsp = videoFormatI420;
+
+    // Set up layers. Currently we have one layer.
+    auto layer = &param.sSpatialLayers[0];
+
+    layer->iVideoWidth = codecSettings.mWidth;
+    layer->iVideoHeight = codecSettings.mHeight;
+    layer->iSpatialBitrate = param.iTargetBitrate;
+    layer->fFrameRate = param.fMaxFrameRate;
+
+    // Based on guidance from Cisco.
+    layer->sSliceCfg.sSliceArgument.uiSliceMbNum[0] = 1000;
+    layer->sSliceCfg.sSliceArgument.uiSliceNum = 1;
+    layer->sSliceCfg.sSliceArgument.uiSliceSizeConstraint = 1000;
+
+    rv = encoder_->InitializeExt(&param);
+    if (rv) {
+      GMPLOG(GL_ERROR, "Couldn't initialize encoder");
+      return GMPVideoGenericErr;
+    }
+
+    max_payload_size_ = maxPayloadSize;
+    callback_ = callback;
+
+    GMPLOG(GL_INFO, "Initialized encoder");
+
     return GMPVideoNoErr;
   }
 
@@ -71,7 +119,7 @@ public:
 
     // Create an output frame full of 0x4.
     GMPVideoEncodedFrame* f;
-    mHostAPI->CreateEncodedFrame(&f);
+    host_->CreateEncodedFrame(&f);
     f->CreateEmptyFrame(1000);
     uint8_t* outBuffer = f->Buffer();
     if (!outBuffer) {
@@ -80,7 +128,7 @@ public:
     }
     memset(outBuffer, 0x4, 1000);
 
-    mCallback->Encoded(*f, aCodecSpecificInfo);
+    callback_->Encoded(*f, aCodecSpecificInfo);
     f->Destroy();
     return GMPVideoNoErr;
              }
@@ -106,12 +154,10 @@ public:
   }
 
 private:
-  ISVCEncoder *encoder_;
+  GMPVideoHost* host_;
+  ISVCEncoder* encoder_;
   uint32_t max_payload_size_;
-
-  //XXXJOSH ownership of all this stuff?
-  GMPVideoHost *mHostAPI;
-  GMPEncoderCallback* mCallback;
+  GMPEncoderCallback* callback_;
 };
 
 class OpenH264VideoDecoder : public GMPVideoDecoder

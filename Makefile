@@ -41,7 +41,7 @@ CFLAGS += -DNO_DYNAMIC_VP
 LDFLAGS +=
 
 FIREFOX_DIR=/Users/ekr/dev/gecko/gmp
-
+FIREFOX_OBJ=/Users/ekr/dev/gecko/gmp/obj-x86_64-apple-darwin12.5.0/
 
 #### No user-serviceable parts below this line
 ifneq ($(V),Yes)
@@ -89,7 +89,7 @@ H264ENC_DEPS = $(LIBPREFIX)encoder.$(LIBSUFFIX) $(LIBPREFIX)processing.$(LIBSUFF
 CODEC_UNITTEST_LDFLAGS = -L. $(call LINK_LIB,gtest) $(call LINK_LIB,decoder) $(call LINK_LIB,encoder) $(call LINK_LIB,processing) $(call LINK_LIB,common) $(CODEC_UNITTEST_LDFLAGS_SUFFIX)
 CODEC_UNITTEST_DEPS = $(LIBPREFIX)gtest.$(LIBSUFFIX) $(LIBPREFIX)decoder.$(LIBSUFFIX) $(LIBPREFIX)encoder.$(LIBSUFFIX) $(LIBPREFIX)processing.$(LIBSUFFIX) $(LIBPREFIX)common.$(LIBSUFFIX)
 
-MODULE_INCLUDES = -I$(FIREFOX_DIR)/content/media/gmp/gmp-api $(ENCODER_INCLUDES) $(DECODER_INCLUDES)
+MODULE_INCLUDES = -I$(FIREFOX_DIR)/content/media/gmp/gmp-api -I$(FIREFOX_OBJ)/dist/include/nspr $(ENCODER_INCLUDES) $(DECODER_INCLUDES)
 MODULE_CFLAGS = -arch x86_64 -std=c++11
 
 .PHONY: test gtest-bootstrap clean

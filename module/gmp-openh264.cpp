@@ -1,10 +1,13 @@
 // Written by Josh Aas and Eric Rescorla
 // TODO(ekr@rtfm.com): Need license.
 
-#include <stdio.h>
-#include <string.h>
 #include <stdint.h>
+#include <cstdio>
+#include <cstring>
 #include <iostream>
+#include <memory>
+
+#include <prthread.h>
 
 #include "gmp-general.h"
 #include "gmp-video-host.h"
@@ -38,12 +41,22 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
       max_payload_size_(0),
       callback_(nullptr) {}
 
-  virtual ~OpenH264VideoEncoder() {}
+  virtual ~OpenH264VideoEncoder() {
+    // TODO(ekr@rtfm.com)
+  }
 
   virtual GMPVideoErr InitEncode(const GMPVideoCodec& codecSettings,
                                  GMPEncoderCallback* callback,
                                  int32_t numberOfCores,
                                  uint32_t maxPayloadSize) override {
+    thread_ = PR_CreateThread(PR_USER_THREAD,
+                              &OpenH264VideoEncoder::ThreadMain,
+                              this,
+                              PR_PRIORITY_NORMAL,
+                              PR_GLOBAL_THREAD,
+                              PR_JOINABLE_THREAD,
+                              0);
+
     GMPLOG(GL_INFO, "PID " << getpid());
 
     int rv = CreateSVCEncoder(&encoder_);
@@ -154,6 +167,13 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
   }
 
 private:
+  static void ThreadMain(void *ctx) {
+    GMPVideoEncoder* encoder = reinterpret_cast<GMPVideoEncoder*>(ctx);
+
+    // ctx->ThreadMain();
+  }
+
+  PRThread* thread_;
   GMPVideoHost* host_;
   ISVCEncoder* encoder_;
   uint32_t max_payload_size_;

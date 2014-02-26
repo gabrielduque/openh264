@@ -30,6 +30,29 @@
 #define GL_ERROR "Error"
 #define GL_INFO  "Info"
 
+class OpenH264VideoEncoder;
+
+class GMPEncodeFrameTask : public GMPTask {
+ public:
+  GMPEncodeFrameTask(OpenH264VideoEncoder* encoder,
+                     GMPVideoi420Frame* frame,
+                     GMPVideoFrameType type) :
+      encoder_(encoder),
+      frame_(frame),
+      type_(type) {}
+
+  virtual ~GMPEncodeFrameTask() {
+    frame_->Destroy();
+  }
+
+  virtual void Run();
+
+ private:
+  OpenH264VideoEncoder* encoder_;
+  GMPVideoi420Frame* frame_;
+  GMPVideoFrameType type_;
+};
+
 class OpenH264VideoEncoder : public GMPVideoEncoder
 {
  public:
@@ -40,6 +63,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
       callback_(nullptr) {}
 
   virtual ~OpenH264VideoEncoder() {
+    thread_->Join();
     // TODO(ekr@rtfm.com)
   }
 
@@ -47,8 +71,21 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
                                  GMPEncoderCallback* callback,
                                  int32_t numberOfCores,
                                  uint32_t maxPayloadSize) override {
+    
 
     GMPLOG(GL_INFO, "PID " << getpid());
+
+    GMPVideoErr err = host_->CreateThread(&thread_);
+    if (err != GMPVideoNoErr) {
+      GMPLOG(GL_ERROR, "Couldn't create new thread");
+      return err;
+    }
+
+    err = host_->CreateMutex(&mutex_);
+    if (err != GMPVideoNoErr) {
+      GMPLOG(GL_ERROR, "Couldn't create mutex");
+      return err;
+    }
 
     int rv = CreateSVCEncoder(&encoder_);
     if (rv) {
@@ -103,40 +140,85 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     return GMPVideoNoErr;
   }
 
-  virtual GMPVideoErr Encode(GMPVideoi420Frame& aInputFrame,
-                             const GMPCodecSpecificInfo& aCodecSpecificInfo,
-                             const std::vector<GMPVideoFrameType>* aFrameTypes) override {
-    printf("%s\n", __PRETTY_FUNCTION__);
+  virtual GMPVideoErr Encode(GMPVideoi420Frame& inputImage,
+                             const GMPCodecSpecificInfo& codecSpecificInfo,
+                             const std::vector<GMPVideoFrameType>* frameTypes) override {
+    GMPLOG(GL_INFO,"Encoding frame");
 
-    // Print out the contents of the input buffer just so
-    // we can see that the memory was sent properly.
-    // Should be full of 0x3.
-    const uint8_t* inBuffer = aInputFrame.Buffer(kGMPYPlane);
-    if (!inBuffer) {
-      printf("No buffer for i420 frame!\n");
+    assert(!frameTypes->empty());
+    if (frameTypes->empty())
       return GMPVideoGenericErr;
-    }
-    for (uint32_t i = 0; i < 1000; i++) {
-      printf("%i", inBuffer[i]);
-    }
-    printf("\n");
+    
+    GMPVideoFrame* frameCopyGen;
+    GMPVideoErr err = host_->CreateFrame(kGMPI420VideoFrame, &frameCopyGen);
+    if (err != GMPVideoNoErr)
+      return err;
 
-    // Create an output frame full of 0x4.
-    GMPVideoEncodedFrame* f;
-    host_->CreateEncodedFrame(&f);
-    f->CreateEmptyFrame(1000);
-    uint8_t* outBuffer = f->Buffer();
-    if (!outBuffer) {
-      printf("No buffer for encoded frame!\n");
-      return GMPVideoGenericErr;
+    GMPVideoi420Frame* frameCopy = static_cast<GMPVideoi420Frame*>(frameCopyGen);
+    inputImage.SwapFrame(frameCopy);
+
+    thread_->Post(new GMPEncodeFrameTask(this, frameCopy, (*frameTypes)[0]));
+
+    return GMPVideoGenericErr;
+  }
+
+  void Encode_w(GMPVideoi420Frame* inputImage,
+                GMPVideoFrameType frame_type) {
+    SFrameBSInfo encoded;
+
+    SSourcePicture src;
+
+    src.iColorFormat = videoFormatI420;
+    src.iStride[0] = inputImage->Stride(kGMPYPlane);
+    src.pData[0] = reinterpret_cast<unsigned char*>(
+        const_cast<uint8_t *>(inputImage->Buffer(kGMPYPlane)));
+    src.iStride[1] = inputImage->Stride(kGMPUPlane);
+    src.pData[1] = reinterpret_cast<unsigned char*>(
+        const_cast<uint8_t *>(inputImage->Buffer(kGMPUPlane)));
+    src.iStride[2] = inputImage->Stride(kGMPVPlane);
+    src.pData[2] = reinterpret_cast<unsigned char*>(
+        const_cast<uint8_t *>(inputImage->Buffer(kGMPVPlane)));
+    src.iStride[3] = 0;
+    src.pData[3] = nullptr;
+    src.iPicWidth = inputImage->Width();
+    src.iPicHeight = inputImage->Height();
+
+    const SSourcePicture* pics = &src;
+
+    int type = encoder_->EncodeFrame(pics, &encoded);
+
+    // Translate int to enum
+    switch (type) {
+      case videoFrameTypeIDR:
+      case videoFrameTypeI:
+      case videoFrameTypeP:
+        {
+#if 0
+          ScopedDeletePtr<EncodedFrame> encoded_frame(
+              EncodedFrame::Create(encoded,
+                                   inputImage->width(),
+                                   inputImage->height(),
+                                   inputImage->timestamp(),
+                                   frame_type));
+          callback_->Encoded(encoded_frame->image(), NULL, NULL);
+#endif
+        }
+        break;
+      case videoFrameTypeSkip:
+        //can skip the call back since not actual bit stream will be generated
+        break;
+      case videoFrameTypeIPMixed://this type is currently not suppported
+      case videoFrameTypeInvalid:
+        GMPLOG(GL_ERROR, "Couldn't encode frame. Error = " << type);
+        break;
+      default:
+        // The API is defined as returning a type.
+        assert(false);
+        break;
     }
-    memset(outBuffer, 0x4, 1000);
-
-    callback_->Encoded(*f, aCodecSpecificInfo);
-    f->Destroy();
-    return GMPVideoNoErr;
-             }
-
+    return;
+  }
+  
   virtual GMPVideoErr SetChannelParameters(uint32_t aPacketLoss, uint32_t aRTT) override {
     printf("%s\n", __PRETTY_FUNCTION__);
     return GMPVideoNoErr;
@@ -161,10 +243,12 @@ private:
   static void ThreadMain(void *ctx) {
     GMPVideoEncoder* encoder = reinterpret_cast<GMPVideoEncoder*>(ctx);
 
-    // ctx->ThreadMain();
+    sleep(1000);
   }
 
   GMPVideoHost* host_;
+  GMPThread* thread_;
+  GMPMutex* mutex_;
   ISVCEncoder* encoder_;
   uint32_t max_payload_size_;
   GMPEncoderCallback* callback_;
@@ -247,6 +331,11 @@ private:
   GMPVideoHost *mHostAPI;
   GMPDecoderCallback* mCallback;
 };
+
+
+void GMPEncodeFrameTask::Run() {
+  encoder_->Encode_w(frame_, type_);
+}
 
 extern "C" {
 

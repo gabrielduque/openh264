@@ -26,9 +26,10 @@
 #endif
 
 
-#define GMPLOG(c, x) std::cerr << c << ":" << x << std::endl;
+#define GMPLOG(c, x) std::cerr << c << ": " << x << std::endl;
 #define GL_ERROR "Error"
 #define GL_INFO  "Info"
+#define GL_DEBUG  "Debug"
 
 class OpenH264VideoEncoder;
 
@@ -42,7 +43,6 @@ class GMPEncodeFrameTask : public GMPTask {
       type_(type) {}
 
   virtual ~GMPEncodeFrameTask() {
-    frame_->Destroy();
   }
 
   virtual void Run();
@@ -52,6 +52,22 @@ class GMPEncodeFrameTask : public GMPTask {
   GMPVideoi420Frame* frame_;
   GMPVideoFrameType type_;
 };
+
+class GMPDestroyFrameTask : public GMPTask {
+ public:
+  GMPDestroyFrameTask(GMPVideoi420Frame* frame): 
+      frame_(frame) {}
+
+  virtual ~GMPDestroyFrameTask() {
+    frame_->Destroy();
+  }
+
+  virtual void Run() {}
+
+ private:
+  GMPVideoi420Frame* frame_;
+};
+
 
 class OpenH264VideoEncoder : public GMPVideoEncoder
 {
@@ -63,7 +79,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
       callback_(nullptr) {}
 
   virtual ~OpenH264VideoEncoder() {
-    thread_->Join();
+    worker_thread_->Join();
     // TODO(ekr@rtfm.com)
   }
 
@@ -71,11 +87,15 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
                                  GMPEncoderCallback* callback,
                                  int32_t numberOfCores,
                                  uint32_t maxPayloadSize) override {
-    
-
     GMPLOG(GL_INFO, "PID " << getpid());
 
-    GMPVideoErr err = host_->CreateThread(&thread_);
+   GMPVideoErr err = host_->GetThread(&main_thread_);
+    if (err != GMPVideoNoErr) {
+      GMPLOG(GL_ERROR, "Couldn't get main thread");
+      return err;
+    }
+
+    err = host_->CreateThread(&worker_thread_);
     if (err != GMPVideoNoErr) {
       GMPLOG(GL_ERROR, "Couldn't create new thread");
       return err;
@@ -143,12 +163,18 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
   virtual GMPVideoErr Encode(GMPVideoi420Frame& inputImage,
                              const GMPCodecSpecificInfo& codecSpecificInfo,
                              const std::vector<GMPVideoFrameType>* frameTypes) override {
-    GMPLOG(GL_INFO,"Encoding frame");
+    GMPLOG(GL_DEBUG,"Encoding frame");
 
-    assert(!frameTypes->empty());
-    if (frameTypes->empty())
+#if 0
+    // TODO(josh): this is empty.
+
+    //    assert(!frameTypes->empty());
+    if (frameTypes->empty()) {
+      GMPLOG(GL_ERROR, "No frame types provided");
       return GMPVideoGenericErr;
-    
+    }
+#endif
+
     GMPVideoFrame* frameCopyGen;
     GMPVideoErr err = host_->CreateFrame(kGMPI420VideoFrame, &frameCopyGen);
     if (err != GMPVideoNoErr)
@@ -157,13 +183,23 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     GMPVideoi420Frame* frameCopy = static_cast<GMPVideoi420Frame*>(frameCopyGen);
     inputImage.SwapFrame(frameCopy);
 
-    thread_->Post(new GMPEncodeFrameTask(this, frameCopy, (*frameTypes)[0]));
+    GMPLOG(GL_DEBUG,"Posting");
+
+    worker_thread_->Post(new GMPEncodeFrameTask(this, frameCopy,
+#if 0
+                                         (*frameTypes)[0]));
+#else
+    kGMPKeyFrame));
+#endif
+
+    GMPLOG(GL_DEBUG,"Frame posted");
 
     return GMPVideoGenericErr;
   }
 
   void Encode_w(GMPVideoi420Frame* inputImage,
                 GMPVideoFrameType frame_type) {
+    GMPLOG(GL_DEBUG, "Encoding frame on worker thread");
     SFrameBSInfo encoded;
 
     SSourcePicture src;
@@ -186,6 +222,8 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     const SSourcePicture* pics = &src;
 
     int type = encoder_->EncodeFrame(pics, &encoded);
+
+    GMPLOG(GL_DEBUG, "Encoding complete");
 
     // Translate int to enum
     switch (type) {
@@ -216,9 +254,12 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
         assert(false);
         break;
     }
+
+    // Post back to main thread for destruction.
+    main_thread_->Post(new GMPDestroyFrameTask(inputImage));
+
     return;
   }
-  
   virtual GMPVideoErr SetChannelParameters(uint32_t aPacketLoss, uint32_t aRTT) override {
     printf("%s\n", __PRETTY_FUNCTION__);
     return GMPVideoNoErr;
@@ -247,7 +288,8 @@ private:
   }
 
   GMPVideoHost* host_;
-  GMPThread* thread_;
+  GMPThread* worker_thread_;
+  GMPThread* main_thread_;
   GMPMutex* mutex_;
   ISVCEncoder* encoder_;
   uint32_t max_payload_size_;
@@ -320,7 +362,7 @@ public:
     printf("%s\n", __PRETTY_FUNCTION__);
     return GMPVideoNoErr;
   }
- 
+
   virtual void DecodingComplete() override {
     printf("%s\n", __PRETTY_FUNCTION__);
     delete this;

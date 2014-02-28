@@ -35,42 +35,6 @@
 
 class OpenH264VideoEncoder;
 
-class GMPEncodeFrameTask : public GMPTask {
- public:
-  GMPEncodeFrameTask(OpenH264VideoEncoder* encoder,
-                     GMPVideoi420Frame* frame,
-                     GMPVideoFrameType type) :
-      encoder_(encoder),
-      frame_(frame),
-      type_(type) {}
-
-  virtual ~GMPEncodeFrameTask() {
-  }
-
-  virtual void Run();
-
- private:
-  OpenH264VideoEncoder* encoder_;
-  GMPVideoi420Frame* frame_;
-  GMPVideoFrameType type_;
-};
-
-class GMPDestroyFrameTask : public GMPTask {
- public:
-  GMPDestroyFrameTask(GMPVideoi420Frame* frame): 
-      frame_(frame) {}
-
-  virtual ~GMPDestroyFrameTask() {
-    frame_->Destroy();
-  }
-
-  virtual void Run() {}
-
- private:
-  GMPVideoi420Frame* frame_;
-};
-
-
 class OpenH264VideoEncoder : public GMPVideoEncoder
 {
  public:
@@ -89,7 +53,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
                                  GMPEncoderCallback* callback,
                                  int32_t numberOfCores,
                                  uint32_t maxPayloadSize) override {
-    GMPLOG(GL_INFO, "PID " << getpid());
+   GMPLOG(GL_INFO, "PID " << getpid());
 
    GMPVideoErr err = host_->GetThread(&main_thread_);
     if (err != GMPVideoNoErr) {
@@ -187,11 +151,13 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
 
     GMPLOG(GL_DEBUG,"Posting");
 
-    worker_thread_->Post(new GMPEncodeFrameTask(this, frameCopy,
+    worker_thread_->Post(WrapTask(
+    this, &OpenH264VideoEncoder::Encode_w,
+        frameCopy,
 #if 0
-                                         (*frameTypes)[0]));
+        (*frameTypes)[0])));
 #else
-    kGMPKeyFrame));
+        kGMPKeyFrame));
 #endif
 
     GMPLOG(GL_DEBUG,"Frame posted");
@@ -225,24 +191,24 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
 
     int type = encoder_->EncodeFrame(pics, &encoded);
 
-    GMPLOG(GL_DEBUG, "Encoding complete");
+    GMPLOG(GL_DEBUG, "Encoding complete type = " << type);
 
     // Translate int to enum
+    GMPVideoFrameType encoded_type;
+    bool has_frame = false;
+
     switch (type) {
       case videoFrameTypeIDR:
+        encoded_type = kGMPDeltaFrame;
+        has_frame = true;
+        break;
       case videoFrameTypeI:
+        encoded_type = kGMPKeyFrame;
+        has_frame = true;
+        break;
       case videoFrameTypeP:
-        {
-#if 0
-          ScopedDeletePtr<EncodedFrame> encoded_frame(
-              EncodedFrame::Create(encoded,
-                                   inputImage->width(),
-                                   inputImage->height(),
-                                   inputImage->timestamp(),
-                                   frame_type));
-          callback_->Encoded(encoded_frame->image(), NULL, NULL);
-#endif
-        }
+        encoded_type = kGMPDeltaFrame;
+        has_frame = true;
         break;
       case videoFrameTypeSkip:
         //can skip the call back since not actual bit stream will be generated
@@ -257,11 +223,75 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
         break;
     }
 
-    // Post back to main thread for destruction.
-    main_thread_->Post(new GMPDestroyFrameTask(inputImage));
+    if (!has_frame)
+      return;
+
+    // Synchronously send this back to the main thread for delivery.
+    main_thread_->Post(WrapTask(
+        this,
+        &OpenH264VideoEncoder::Encode_m,
+        inputImage,
+        &encoded,
+        encoded_type));
 
     return;
   }
+
+  void Encode_m(GMPVideoi420Frame* frame, SFrameBSInfo* encoded,
+                GMPVideoFrameType frame_type) {
+    GMPLOG(GL_DEBUG, "Frame arrived on main thread");
+    // Now return the encoded data back to the parent.
+    GMPVideoEncodedFrame* f;
+    GMPVideoErr err = host_->CreateEncodedFrame(&f);
+
+    if (err != GMPVideoNoErr) {
+      GMPLOG(GL_ERROR, "Error creating encoded frame");
+      return;
+    }
+
+    // Buffer up the data.
+    uint32_t length = 0;
+    std::vector<uint32_t> lengths;
+
+    for (int i=0; i<encoded->iLayerNum; ++i) {
+      lengths.push_back(0);
+      for (int j=0; j<encoded->sLayerInfo[i].iNalCount; ++j) {
+        lengths[i] += encoded->sLayerInfo[i].iNalLengthInByte[j];
+        length += encoded->sLayerInfo[i].iNalLengthInByte[j];
+      }
+    }
+
+    err = f->CreateEmptyFrame(length);
+    if (err != GMPVideoNoErr) {
+      GMPLOG(GL_ERROR, "Error allocating frame data");
+      f->Destroy();
+      return;
+    }
+
+    // Copy the data.
+    uint8_t* tmp = f->Buffer();
+    for (int i=0; i<encoded->iLayerNum; ++i) {
+      // TODO(ekr@rtfm.com): This seems screwy, but I copied it from Cisco.
+      memcpy(tmp, encoded->sLayerInfo[i].pBsBuf, lengths[i]);
+      tmp += lengths[i];
+    }
+
+    f->SetEncodedWidth(frame->Width());
+    f->SetEncodedHeight(frame->Height());
+    f->SetTimeStamp(frame->Timestamp());
+    f->SetFrameType(frame_type);
+    f->SetCompleteFrame(true);
+
+    // Destroy the frame.
+    frame->Destroy();
+
+    // Return the encoded frame.
+    GMPCodecSpecificInfo info;
+    memset(&info, 0, sizeof(info));
+    callback_->Encoded(*f, info);
+    f->Destroy();
+  }
+
   virtual GMPVideoErr SetChannelParameters(uint32_t aPacketLoss, uint32_t aRTT) override {
     printf("%s\n", __PRETTY_FUNCTION__);
     return GMPVideoNoErr;
@@ -375,11 +405,6 @@ private:
   GMPVideoHost *mHostAPI;
   GMPDecoderCallback* mCallback;
 };
-
-
-void GMPEncodeFrameTask::Run() {
-  encoder_->Encode_w(frame_, type_);
-}
 
 extern "C" {
 

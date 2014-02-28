@@ -19,6 +19,8 @@
 #include "codec_api.h"
 #include "param_svc.h"
 
+#include "task_utils.h"
+
 #if defined(_MSC_VER)
 #define PUBLIC_FUNC __declspec(dllexport)
 #else

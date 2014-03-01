@@ -54,7 +54,6 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
                                  int32_t numberOfCores,
                                  uint32_t maxPayloadSize) override {
    GMPLOG(GL_INFO, "PID " << getpid());
-
    GMPVideoErr err = host_->GetThread(&main_thread_);
     if (err != GMPVideoNoErr) {
       GMPLOG(GL_ERROR, "Couldn't get main thread");
@@ -129,7 +128,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
   virtual GMPVideoErr Encode(GMPVideoi420Frame& inputImage,
                              const GMPCodecSpecificInfo& codecSpecificInfo,
                              const std::vector<GMPVideoFrameType>* frameTypes) override {
-    GMPLOG(GL_DEBUG,"Encoding frame");
+    GMPLOG(GL_DEBUG,"Encoding frame " << inputImage.Width() << "x" << inputImage.Height());
 
 #if 0
     // TODO(josh): this is empty.
@@ -148,6 +147,8 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
 
     GMPVideoi420Frame* frameCopy = static_cast<GMPVideoi420Frame*>(frameCopyGen);
     inputImage.SwapFrame(frameCopy);
+
+    GMPLOG(GL_DEBUG,"Encoding frame " << frameCopy->Width() << "x" << frameCopy->Height());
 
     GMPLOG(GL_DEBUG,"Posting");
 

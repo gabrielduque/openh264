@@ -40,6 +40,8 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
  public:
   OpenH264VideoEncoder(GMPVideoHost *hostAPI) :
       host_(hostAPI),
+      worker_thread_(nullptr),
+      main_thread_(nullptr),
       encoder_(nullptr),
       max_payload_size_(0),
       callback_(nullptr) {}
@@ -53,8 +55,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
                                  GMPEncoderCallback* callback,
                                  int32_t numberOfCores,
                                  uint32_t maxPayloadSize) override {
-   GMPLOG(GL_INFO, "PID " << getpid());
-   GMPVideoErr err = host_->GetThread(&main_thread_);
+    GMPVideoErr err = host_->GetThread(&main_thread_);
     if (err != GMPVideoNoErr) {
       GMPLOG(GL_ERROR, "Couldn't get main thread");
       return err;
@@ -63,12 +64,6 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     err = host_->CreateThread(&worker_thread_);
     if (err != GMPVideoNoErr) {
       GMPLOG(GL_ERROR, "Couldn't create new thread");
-      return err;
-    }
-
-    err = host_->CreateMutex(&mutex_);
-    if (err != GMPVideoNoErr) {
-      GMPLOG(GL_ERROR, "Couldn't create mutex");
       return err;
     }
 
@@ -153,7 +148,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     GMPLOG(GL_DEBUG,"Posting");
 
     worker_thread_->Post(WrapTask(
-    this, &OpenH264VideoEncoder::Encode_w,
+        this, &OpenH264VideoEncoder::Encode_w,
         frameCopy,
 #if 0
         (*frameTypes)[0])));
@@ -314,16 +309,9 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
   }
 
 private:
-  static void ThreadMain(void *ctx) {
-    GMPVideoEncoder* encoder = reinterpret_cast<GMPVideoEncoder*>(ctx);
-
-    sleep(1000);
-  }
-
   GMPVideoHost* host_;
   GMPThread* worker_thread_;
   GMPThread* main_thread_;
-  GMPMutex* mutex_;
   ISVCEncoder* encoder_;
   uint32_t max_payload_size_;
   GMPEncoderCallback* callback_;
@@ -332,21 +320,31 @@ private:
 class OpenH264VideoDecoder : public GMPVideoDecoder
 {
 public:
-  OpenH264VideoDecoder(GMPVideoHost *hostAPI) {
-    printf("%s\n", __PRETTY_FUNCTION__);
-    mHostAPI = hostAPI;
-    mCallback = nullptr;
-  }
+  OpenH264VideoDecoder(GMPVideoHost *hostAPI) :
+      host_(hostAPI),
+      worker_thread_(nullptr),
+      main_thread_(nullptr),
+      //decoder_(nullptr),
+      callback_(nullptr) {}
 
   virtual ~OpenH264VideoDecoder() {
-    printf("%s\n", __PRETTY_FUNCTION__);
   }
 
   virtual GMPVideoErr InitDecode(const GMPVideoCodec& codecSettings,
                                  GMPDecoderCallback* callback,
                                  int32_t coreCount) override {
-    printf("%s\n", __PRETTY_FUNCTION__);
-    mCallback = callback;
+    GMPVideoErr err = host_->GetThread(&main_thread_);
+    if (err != GMPVideoNoErr) {
+      GMPLOG(GL_ERROR, "Couldn't get main thread");
+      return err;
+    }
+
+    err = host_->CreateThread(&worker_thread_);
+    if (err != GMPVideoNoErr) {
+      GMPLOG(GL_ERROR, "Couldn't create new thread");
+      return err;
+    }
+    callback_ = callback;
     return GMPVideoNoErr;
   }
 
@@ -354,35 +352,23 @@ public:
                              bool missingFrames,
                              const GMPCodecSpecificInfo& codecSpecificInfo,
                              int64_t renderTimeMs = -1) override {
-    printf("%s\n", __PRETTY_FUNCTION__);
+    GMPVideoEncodedFrame* frameCopy;
+    GMPVideoErr err = host_->CreateEncodedFrame(&frameCopy);
+    if (err != GMPVideoNoErr)
+      return err;
+    // TODO(ekr@rtfm.com): Can we do this without a copy? Maybe
+    // Take ownership of the data...
+    frameCopy->CopyFrame(inputFrame);
 
-    // Print out the contents of the input buffer just so
-    // we can see that the memory was sent properly.
-    // Should be full of 0x2.
-    const uint8_t* inBuffer = inputFrame.Buffer();
-    if (!inBuffer) {
-      printf("No buffer for encoded frame!\n");
-      return GMPVideoGenericErr;
-    }
-    for (uint32_t i = 0; i < 1000; i++) {
-      printf("%i", inBuffer[i]);
-    }
-    printf("\n");
+    GMPLOG(GL_DEBUG,"Decoding frame " << frameCopy->EncodedWidth() << "x"
+           << frameCopy->EncodedHeight());
 
-    // Create an output frame full of 0x1.
-    GMPVideoFrame* f;
-    mHostAPI->CreateFrame(kGMPI420VideoFrame, &f);
-    auto vf = static_cast<GMPVideoi420Frame*>(f);
-    vf->CreateEmptyFrame(100, 100, 100, 100, 100);
-    uint8_t* outBuffer = vf->Buffer(kGMPYPlane);
-    if (!outBuffer) {
-      printf("No buffer for i420 frame!\n");
-      return GMPVideoGenericErr;
-    }
-    memset(outBuffer, 0x1, 1000);
+    worker_thread_->Post(WrapTask(
+        this, &OpenH264VideoDecoder::Decode_w,
+        frameCopy,
+        missingFrames,
+        renderTimeMs));
 
-    mCallback->Decoded(*vf);
-    f->Destroy();
     return GMPVideoNoErr;
   }
 
@@ -402,9 +388,19 @@ public:
   }
 
 private:
-  //XXXJOSH ownership of all this stuff?
-  GMPVideoHost *mHostAPI;
-  GMPDecoderCallback* mCallback;
+  virtual GMPVideoErr Decode_w(GMPVideoEncodedFrame* inputFrame,
+                               bool missingFrames,
+                               int64_t renderTimeMs = -1) {
+    GMPLOG(GL_DEBUG, "Frame decode on worker thread");
+
+    return GMPVideoNoErr;
+  }
+
+
+  GMPVideoHost* host_;
+  GMPThread* worker_thread_;
+  GMPThread* main_thread_;
+  GMPDecoderCallback* callback_;
 };
 
 extern "C" {

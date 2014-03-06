@@ -27,8 +27,12 @@
 #define PUBLIC_FUNC
 #endif
 
-
+#if 0
 #define GMPLOG(c, x) std::cerr << c << ": " << x << std::endl;
+#else
+#define GMPLOG(c, x)
+#endif
+
 #define GL_ERROR "Error"
 #define GL_INFO  "Info"
 #define GL_DEBUG  "Debug"

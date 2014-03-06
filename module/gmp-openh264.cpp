@@ -35,6 +35,26 @@
 
 class OpenH264VideoEncoder;
 
+template <typename T> class SelfDestruct {
+ public:
+  SelfDestruct(T* t) : t_(t) {}
+  ~SelfDestruct() {
+    if (t_) {
+      t_->Destroy();
+    }
+  }
+
+  T* forget() {
+    T* t = t_;
+    t_ = nullptr;
+
+    return t;
+  }
+
+ private:
+  T* t_;
+};
+
 class OpenH264VideoEncoder : public GMPVideoEncoder
 {
  public:
@@ -274,7 +294,9 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     GMPLOG(GL_DEBUG, "Encoding complete. type= "
            << f->FrameType()
            << " length="
-           << f->Size());
+           << f->Size()
+           << " timestamp="
+           << f->TimeStamp());
 
     // Destroy the frame.
     frame->Destroy();
@@ -383,7 +405,8 @@ public:
     frameCopy->CopyFrame(inputFrame);
 
     GMPLOG(GL_DEBUG, __FUNCTION__
-           << "frame size=" << frameCopy->Size());
+           << "Decoding frame size=" << frameCopy->Size()
+           << " timestamp=" << frameCopy->TimeStamp());
 
     worker_thread_->Post(WrapTask(
         this, &OpenH264VideoDecoder::Decode_w,
@@ -410,13 +433,14 @@ public:
   }
 
 private:
-  virtual GMPVideoErr Decode_w(GMPVideoEncodedFrame* inputFrame,
+  void Decode_w(GMPVideoEncodedFrame* inputFrame,
                                bool missingFrames,
                                int64_t renderTimeMs = -1) {
     GMPLOG(GL_DEBUG, "Frame decode on worker thread length = "
            << inputFrame->Size());
 
     SBufferInfo decoded;
+    bool valid = false;
     memset(&decoded, 0, sizeof(decoded));
     void *data[3] = {nullptr, nullptr, nullptr};
 
@@ -424,26 +448,81 @@ private:
                                     inputFrame->Size(),
                                     data,
                                     &decoded);
+
     if (rv) {
       GMPLOG(GL_ERROR, "Decoding error rv=" << rv);
-      return GMPVideoNoErr;
+    } else {
+      valid = true;
     }
 
-    int width;
-    int height;
-    int ystride;
-    int uvstride;
-
-    if (decoded.iBufferStatus == 1) {
-      GMPLOG(GL_DEBUG, "Video frame ready for display "
-             << decoded.UsrData.sSystemBuffer.iWidth
-             << "x"
-             << decoded.UsrData.sSystemBuffer.iHeight);
-    }
-
-    return GMPVideoNoErr;
+    main_thread_->Run(WrapTask(
+        this,
+        &OpenH264VideoDecoder::Decode_m,
+        inputFrame,
+        &decoded,
+        data,
+        renderTimeMs,
+        valid));
   }
 
+  // Return the decoded data back to the parent.
+  void Decode_m(GMPVideoEncodedFrame* inputFrame,
+                SBufferInfo* decoded,
+                void* data[3],
+                int64_t renderTimeMs,
+                bool valid) {
+    // Attach a self-destructor so that this dies on return.
+    SelfDestruct<GMPVideoEncodedFrame> ifd(inputFrame);
+
+    // If we don't actually have data, just abort.
+    if (!valid)
+      return;
+
+    // TODO(ekr@rtfm.com): still need to check for BUFFER_HOST?
+    if (decoded->iBufferStatus != 1)
+      return;
+
+    int width = decoded->UsrData.sSystemBuffer.iWidth;
+    int height = decoded->UsrData.sSystemBuffer.iHeight;
+    int ystride = decoded->UsrData.sSystemBuffer.iStride[0];
+    int uvstride = decoded->UsrData.sSystemBuffer.iStride[1];
+
+    GMPLOG(GL_DEBUG, "Video frame ready for display "
+           << width
+           << "x"
+           << height
+           << " timestamp="
+           << inputFrame->TimeStamp());
+
+    GMPVideoFrame* ftmp = nullptr;
+
+    // Translate the image.
+    GMPVideoErr err = host_->CreateFrame(kGMPI420VideoFrame, &ftmp);
+    if (err != GMPVideoNoErr) {
+      GMPLOG(GL_ERROR, "Couldn't allocate empty I420 frame");
+      return;
+    }
+
+
+    GMPVideoi420Frame* frame = static_cast<GMPVideoi420Frame*>(ftmp);
+    err = frame->CreateFrame(
+        ystride * height, static_cast<uint8_t *>(data[0]),
+        uvstride * height/2, static_cast<uint8_t *>(data[1]),
+        uvstride * height/2, static_cast<uint8_t *>(data[2]),
+        width, height,
+        ystride, uvstride, uvstride);
+    if (err != GMPVideoNoErr) {
+      GMPLOG(GL_ERROR, "Couldn't make decoded frame");
+      return;
+    }
+    SelfDestruct<GMPVideoi420Frame> fd(frame);
+
+    GMPLOG(GL_DEBUG, "Allocated size = "
+           << frame->AllocatedSize(kGMPYPlane));
+    frame->SetTimestamp(inputFrame->TimeStamp());
+    frame->SetRenderTime_ms(renderTimeMs);
+    callback_->Decoded(*frame);
+  }
 
   GMPVideoHost* host_;
   GMPThread* worker_thread_;

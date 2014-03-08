@@ -7,7 +7,7 @@
 #include <iostream>
 #include <memory>
 
-#include "gmp-general.h"
+#include "gmp-platform.h"
 #include "gmp-video-host.h"
 #include "gmp-video-encode.h"
 #include "gmp-video-decode.h"
@@ -27,7 +27,7 @@
 #define PUBLIC_FUNC
 #endif
 
-#if 0
+#if 1
 #define GMPLOG(c, x) std::cerr << c << ": " << x << std::endl;
 #else
 #define GMPLOG(c, x)
@@ -36,6 +36,8 @@
 #define GL_ERROR "Error"
 #define GL_INFO  "Info"
 #define GL_DEBUG  "Debug"
+
+static GMPPlatformAPI* g_platform_api = nullptr;
 
 class OpenH264VideoEncoder;
 
@@ -65,7 +67,6 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
   OpenH264VideoEncoder(GMPVideoHost *hostAPI) :
       host_(hostAPI),
       worker_thread_(nullptr),
-      main_thread_(nullptr),
       encoder_(nullptr),
       max_payload_size_(0),
       callback_(nullptr) {}
@@ -79,16 +80,10 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
                                  GMPEncoderCallback* callback,
                                  int32_t numberOfCores,
                                  uint32_t maxPayloadSize) override {
-    GMPVideoErr err = host_->GetThread(&main_thread_);
-    if (err != GMPVideoNoErr) {
-      GMPLOG(GL_ERROR, "Couldn't get main thread");
-      return err;
-    }
-
-    err = host_->CreateThread(&worker_thread_);
-    if (err != GMPVideoNoErr) {
+    GMPErr err = g_platform_api->createthread(&worker_thread_);
+    if (err != GMPNoErr) {
       GMPLOG(GL_ERROR, "Couldn't create new thread");
-      return err;
+      return GMPVideoGenericErr;
     }
 
     int rv = CreateSVCEncoder(&encoder_);
@@ -241,7 +236,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
       return;
 
     // Synchronously send this back to the main thread for delivery.
-    main_thread_->Run(WrapTask(
+    g_platform_api->syncrunonmainthread(WrapTask(
         this,
         &OpenH264VideoEncoder::Encode_m,
         inputImage,
@@ -335,7 +330,6 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
 private:
   GMPVideoHost* host_;
   GMPThread* worker_thread_;
-  GMPThread* main_thread_;
   ISVCEncoder* encoder_;
   uint32_t max_payload_size_;
   GMPEncoderCallback* callback_;
@@ -347,7 +341,6 @@ public:
   OpenH264VideoDecoder(GMPVideoHost *hostAPI) :
       host_(hostAPI),
       worker_thread_(nullptr),
-      main_thread_(nullptr),
       callback_(nullptr),
       decoder_(nullptr) {}
 
@@ -358,16 +351,11 @@ public:
                                  GMPDecoderCallback* callback,
                                  int32_t coreCount) override {
     GMPLOG(GL_INFO, "InitDecode");
-    GMPVideoErr err = host_->GetThread(&main_thread_);
-    if (err != GMPVideoNoErr) {
-      GMPLOG(GL_ERROR, "Couldn't get main thread");
-      return err;
-    }
 
-    err = host_->CreateThread(&worker_thread_);
-    if (err != GMPVideoNoErr) {
+    GMPErr err = g_platform_api->createthread(&worker_thread_);
+    if (err != GMPNoErr) {
       GMPLOG(GL_ERROR, "Couldn't create new thread");
-      return err;
+      return GMPVideoGenericErr;
     }
 
     if (CreateDecoder(&decoder_)) {
@@ -396,25 +384,17 @@ public:
     return GMPVideoNoErr;
   }
 
-  virtual GMPVideoErr Decode(GMPVideoEncodedFrame& inputFrame,
+  virtual GMPVideoErr Decode(GMPVideoEncodedFrame* inputFrame,
                              bool missingFrames,
                              const GMPCodecSpecificInfo& codecSpecificInfo,
                              int64_t renderTimeMs = -1) override {
-    GMPVideoEncodedFrame* frameCopy;
-    GMPVideoErr err = host_->CreateEncodedFrame(&frameCopy);
-    if (err != GMPVideoNoErr)
-      return err;
-    // TODO(ekr@rtfm.com): Can we do this without a copy? Maybe
-    // Take ownership of the data...
-    frameCopy->CopyFrame(inputFrame);
-
     GMPLOG(GL_DEBUG, __FUNCTION__
-           << "Decoding frame size=" << frameCopy->Size()
-           << " timestamp=" << frameCopy->TimeStamp());
+           << "Decoding frame size=" << inputFrame->Size()
+           << " timestamp=" << inputFrame->TimeStamp());
 
     worker_thread_->Post(WrapTask(
         this, &OpenH264VideoDecoder::Decode_w,
-        frameCopy,
+        inputFrame,
         missingFrames,
         renderTimeMs));
 
@@ -438,8 +418,8 @@ public:
 
 private:
   void Decode_w(GMPVideoEncodedFrame* inputFrame,
-                               bool missingFrames,
-                               int64_t renderTimeMs = -1) {
+                bool missingFrames,
+                int64_t renderTimeMs = -1) {
     GMPLOG(GL_DEBUG, "Frame decode on worker thread length = "
            << inputFrame->Size());
 
@@ -459,7 +439,7 @@ private:
       valid = true;
     }
 
-    main_thread_->Run(WrapTask(
+    g_platform_api->syncrunonmainthread(WrapTask(
         this,
         &OpenH264VideoDecoder::Decode_m,
         inputFrame,
@@ -519,18 +499,16 @@ private:
       GMPLOG(GL_ERROR, "Couldn't make decoded frame");
       return;
     }
-    SelfDestruct<GMPVideoi420Frame> fd(frame);
 
     GMPLOG(GL_DEBUG, "Allocated size = "
            << frame->AllocatedSize(kGMPYPlane));
     frame->SetTimestamp(inputFrame->TimeStamp());
     frame->SetRenderTime_ms(renderTimeMs);
-    callback_->Decoded(*frame);
+    callback_->Decoded(frame);
   }
 
   GMPVideoHost* host_;
   GMPThread* worker_thread_;
-  GMPThread* main_thread_;
   GMPDecoderCallback* callback_;
   ISVCDecoder* decoder_;
 };
@@ -538,8 +516,8 @@ private:
 extern "C" {
 
 PUBLIC_FUNC GMPErr
-GMPInit(void) {
-  printf("GMP: Initialized.\n");
+GMPInit(GMPPlatformAPI* aPlatformAPI) {
+  g_platform_api = aPlatformAPI;
   return GMPNoErr;
 }
 
@@ -557,7 +535,7 @@ GMPGetAPI(const char* aApiName, void* aHostAPI, void** aPluginApi) {
 
 PUBLIC_FUNC void
 GMPShutdown(void) {
-  printf("GMP: Shutting down.\n");
+  g_platform_api = nullptr;
 }
 
 } // extern "C"

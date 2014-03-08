@@ -27,7 +27,7 @@
 #define PUBLIC_FUNC
 #endif
 
-#if 1
+#if 0
 #define GMPLOG(c, x) std::cerr << c << ": " << x << std::endl;
 #else
 #define GMPLOG(c, x)
@@ -139,7 +139,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     return GMPVideoNoErr;
   }
 
-  virtual GMPVideoErr Encode(GMPVideoi420Frame& inputImage,
+  virtual GMPVideoErr Encode(GMPVideoi420Frame* inputImage,
                              const GMPCodecSpecificInfo& codecSpecificInfo,
                              const std::vector<GMPVideoFrameType>* frameTypes) override {
     GMPLOG(GL_DEBUG,
@@ -157,17 +157,9 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     }
 #endif
 
-    GMPVideoFrame* frameCopyGen;
-    GMPVideoErr err = host_->CreateFrame(kGMPI420VideoFrame, &frameCopyGen);
-    if (err != GMPVideoNoErr)
-      return err;
-
-    GMPVideoi420Frame* frameCopy = static_cast<GMPVideoi420Frame*>(frameCopyGen);
-    inputImage.SwapFrame(frameCopy);
-
     worker_thread_->Post(WrapTask(
         this, &OpenH264VideoEncoder::Encode_w,
-        frameCopy,
+        inputImage,
 #if 0
         (*frameTypes)[0])));
 #else
@@ -303,8 +295,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     // Return the encoded frame.
     GMPCodecSpecificInfo info;
     memset(&info, 0, sizeof(info));
-    callback_->Encoded(*f, info);
-    f->Destroy();
+    callback_->Encoded(f, info);
   }
 
   virtual GMPVideoErr SetChannelParameters(uint32_t aPacketLoss, uint32_t aRTT) override {

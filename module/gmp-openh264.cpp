@@ -27,7 +27,7 @@
 #define PUBLIC_FUNC
 #endif
 
-#if 0
+#if 1
 #define GMPLOG(c, x) std::cerr << c << ": " << x << std::endl;
 #else
 #define GMPLOG(c, x)
@@ -145,7 +145,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     GMPLOG(GL_DEBUG,
            __FUNCTION__
            << " size="
-           << inputImage.Width() << "x" << inputImage.Height());
+           << inputImage->Width() << "x" << inputImage->Height());
 
 #if 0
     // TODO(josh): this is empty.
@@ -241,14 +241,14 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
   void Encode_m(GMPVideoi420Frame* frame, SFrameBSInfo* encoded,
                 GMPVideoFrameType frame_type) {
     // Now return the encoded data back to the parent.
-    GMPVideoEncodedFrame* f;
-    GMPVideoErr err = host_->CreateEncodedFrame(&f);
-
+    GMPVideoFrame* ftmp;
+    GMPVideoErr err = host_->CreateFrame(kGMPEncodedVideoFrame, &ftmp);
     if (err != GMPVideoNoErr) {
       GMPLOG(GL_ERROR, "Error creating encoded frame");
       return;
     }
 
+    GMPVideoEncodedFrame* f = static_cast<GMPVideoEncodedFrame*>(ftmp);
     // Buffer up the data.
     uint32_t length = 0;
     std::vector<uint32_t> lengths;

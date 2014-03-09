@@ -83,18 +83,20 @@ class FrameStats {
       frames_in_(0),
       frames_out_(0),
       start_time_(time(0)),
+      last_time_(start_time_),
       type_(type) {}
 
   void FrameIn() {
     ++frames_in_;
     time_t now = time(0);
-    uint32_t deltat = now - start_time_;
 
-    if (!(frames_in_ % 30)) {
-      GMPLOG(GL_CRIT, type_ << ": Frame count "
+    if (!(frames_in_ % 10)) {
+      GMPLOG(GL_CRIT, type_ << ": " << now << " Frame count "
           << frames_in_
-          << "(" << (frames_in_ / deltat) << ")"
+          << "(" << (frames_in_ / (now - start_time_)) << "/"
+          << (10 / (now - last_time_)) << ")"
           << " -- " << frames_out_);
+      last_time_ = now;
     }
   }
 
@@ -106,6 +108,7 @@ class FrameStats {
   uint64_t frames_in_;
   uint64_t frames_out_;
   time_t start_time_;
+  time_t last_time_;
   const std::string type_;
 };
 

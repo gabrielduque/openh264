@@ -2,6 +2,7 @@
 // TODO(ekr@rtfm.com): Need license.
 
 #include <stdint.h>
+#include <time.h>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
@@ -27,15 +28,30 @@
 #define PUBLIC_FUNC
 #endif
 
-#if 1
-#define GMPLOG(c, x) std::cerr << c << ": " << x << std::endl;
-#else
-#define GMPLOG(c, x)
-#endif
+static int g_log_level = 2;
 
-#define GL_ERROR "Error"
-#define GL_INFO  "Info"
-#define GL_DEBUG  "Debug"
+#define GMPLOG(l, x) do { \
+        if (l <= g_log_level) { \
+        const char *log_string = "unknown"; \
+        if ((l >= 0) && (l <= 3)) {               \
+        log_string = kLogStrings[l];            \
+        } \
+        std::cerr << log_string << ": " << x << std::endl; \
+        } \
+    } while(0)
+
+#define GL_CRIT 0
+#define GL_ERROR 1
+#define GL_INFO  2
+#define GL_DEBUG 3
+
+const char *kLogStrings[] = {
+  "Critical",
+  "Error",
+  "Info",
+  "Debug"
+};
+
 
 static GMPPlatformAPI* g_platform_api = nullptr;
 
@@ -61,6 +77,38 @@ template <typename T> class SelfDestruct {
   T* t_;
 };
 
+class FrameStats {
+ public:
+  FrameStats(const char *type) :
+      frames_in_(0),
+      frames_out_(0),
+      start_time_(time(0)),
+      type_(type) {}
+
+  void FrameIn() {
+    ++frames_in_;
+    time_t now = time(0);
+    uint32_t deltat = now - start_time_;
+
+    if (!(frames_in_ % 30)) {
+      GMPLOG(GL_CRIT, type_ << ": Frame count "
+          << frames_in_
+          << "(" << (frames_in_ / deltat) << ")"
+          << " -- " << frames_out_);
+    }
+  }
+
+  void FrameOut() {
+    ++frames_out_;
+  }
+
+ private:
+  uint64_t frames_in_;
+  uint64_t frames_out_;
+  time_t start_time_;
+  const std::string type_;
+};
+
 class OpenH264VideoEncoder : public GMPVideoEncoder
 {
  public:
@@ -69,7 +117,8 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
       worker_thread_(nullptr),
       encoder_(nullptr),
       max_payload_size_(0),
-      callback_(nullptr) {}
+      callback_(nullptr),
+      stats_("Encoder") {}
 
   virtual ~OpenH264VideoEncoder() {
     worker_thread_->Join();
@@ -146,6 +195,8 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
            __FUNCTION__
            << " size="
            << inputImage->Width() << "x" << inputImage->Height());
+
+    stats_.FrameIn();
 
 #if 0
     // TODO(josh): this is empty.
@@ -234,8 +285,6 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
         inputImage,
         &encoded,
         encoded_type));
-
-    return;
   }
 
   void Encode_m(GMPVideoi420Frame* frame, SFrameBSInfo* encoded,
@@ -296,6 +345,8 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     GMPCodecSpecificInfo info;
     memset(&info, 0, sizeof(info));
     callback_->Encoded(f, info);
+
+    stats_.FrameOut();
   }
 
   virtual GMPVideoErr SetChannelParameters(uint32_t aPacketLoss, uint32_t aRTT) override {
@@ -324,16 +375,17 @@ private:
   ISVCEncoder* encoder_;
   uint32_t max_payload_size_;
   GMPEncoderCallback* callback_;
+  FrameStats stats_;
 };
 
-class OpenH264VideoDecoder : public GMPVideoDecoder
-{
+class OpenH264VideoDecoder : public GMPVideoDecoder {
 public:
   OpenH264VideoDecoder(GMPVideoHost *hostAPI) :
       host_(hostAPI),
       worker_thread_(nullptr),
       callback_(nullptr),
-      decoder_(nullptr) {}
+      decoder_(nullptr),
+      stats_("Decoder") {}
 
   virtual ~OpenH264VideoDecoder() {
   }
@@ -382,6 +434,7 @@ public:
     GMPLOG(GL_DEBUG, __FUNCTION__
            << "Decoding frame size=" << inputFrame->Size()
            << " timestamp=" << inputFrame->TimeStamp());
+    stats_.FrameIn();
 
     worker_thread_->Post(WrapTask(
         this, &OpenH264VideoDecoder::Decode_w,
@@ -496,12 +549,15 @@ private:
     frame->SetTimestamp(inputFrame->TimeStamp());
     frame->SetRenderTime_ms(renderTimeMs);
     callback_->Decoded(frame);
+
+    stats_.FrameOut();
   }
 
   GMPVideoHost* host_;
   GMPThread* worker_thread_;
   GMPDecoderCallback* callback_;
   ISVCDecoder* decoder_;
+  FrameStats stats_;
 };
 
 extern "C" {

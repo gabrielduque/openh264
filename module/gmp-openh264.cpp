@@ -90,11 +90,14 @@ class FrameStats {
     ++frames_in_;
     time_t now = time(0);
 
+    if (now == last_time_)
+      return;
+
     if (!(frames_in_ % 10)) {
       GMPLOG(GL_CRIT, type_ << ": " << now << " Frame count "
           << frames_in_
           << "(" << (frames_in_ / (now - start_time_)) << "/"
-          << (10 / (now - last_time_)) << ")"
+          << (30 / (now - last_time_)) << ")"
           << " -- " << frames_out_);
       last_time_ = now;
     }

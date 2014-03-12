@@ -148,13 +148,16 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
 
     SEncParamExt param;
     memset(&param, 0, sizeof(param));
+    encoder_->GetDefaultParams(&param);
 
     GMPLOG(GL_INFO, "Initializing encoder at "
             << codecSettings.mWidth
             << "x"
             << codecSettings.mHeight
             << "@"
-            << static_cast<int>(codecSettings.mMaxFramerate));
+            << static_cast<int>(codecSettings.mMaxFramerate)
+            << "max payload size="
+           << maxPayloadSize);
 
     // Translate parameters.
     param.iPicWidth = codecSettings.mWidth;
@@ -316,6 +319,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
       }
     }
 
+    GMPLOG(GL_CRIT, "Outputing frame of size = " << length);
     err = f->CreateEmptyFrame(length);
     if (err != GMPVideoNoErr) {
       GMPLOG(GL_ERROR, "Error allocating frame data");

@@ -94,7 +94,7 @@ class FrameStats {
       return;
 
     if (!(frames_in_ % 10)) {
-      GMPLOG(GL_DEBUG, type_ << ": " << now << " Frame count "
+      GMPLOG(GL_CRIT, type_ << ": " << now << " Frame count "
           << frames_in_
           << "(" << (frames_in_ / (now - start_time_)) << "/"
           << (30 / (now - last_time_)) << ")"
@@ -165,6 +165,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     param.iTargetBitrate = codecSettings.mStartBitrate * 1000;
     param.iTemporalLayerNum = 1;
     param.iSpatialLayerNum = 1;
+    param.bEnableRc=1;
 
     // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
     param.fMaxFrameRate = codecSettings.mMaxFramerate;

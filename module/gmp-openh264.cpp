@@ -94,7 +94,7 @@ class FrameStats {
       return;
 
     if (!(frames_in_ % 10)) {
-      GMPLOG(GL_CRIT, type_ << ": " << now << " Frame count "
+      GMPLOG(GL_DEBUG, type_ << ": " << now << " Frame count "
           << frames_in_
           << "(" << (frames_in_ / (now - start_time_)) << "/"
           << (30 / (now - last_time_)) << ")"
@@ -319,7 +319,6 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
       }
     }
 
-    GMPLOG(GL_CRIT, "Outputing frame of size = " << length);
     err = f->CreateEmptyFrame(length);
     if (err != GMPVideoNoErr) {
       GMPLOG(GL_ERROR, "Error allocating frame data");

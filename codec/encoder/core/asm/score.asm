@@ -166,9 +166,7 @@ SECTION .text
 ;***********************************************************************
 ;void WelsScan4x4DcAc_sse2( int16_t level[16], int16_t *pDct )
 ;***********************************************************************
-ALIGN 16
 WELS_EXTERN WelsScan4x4DcAc_sse2
-WelsScan4x4DcAc_sse2:
 	%ifdef X86_32
 	push r3
 	%assign push_num 1
@@ -176,7 +174,6 @@ WelsScan4x4DcAc_sse2:
 	%assign push_num 0
 	%endif
 	LOAD_2_PARA
-	;mov        eax, [esp+8]
 	movdqa     xmm0, [r1]			; 7 6 5 4 3 2 1 0
 	movdqa     xmm1, [r1+16]		; f e d c b a 9 8
 	pextrw     r2d, xmm0, 7			; ecx = 7
@@ -191,7 +188,6 @@ WelsScan4x4DcAc_sse2:
 	pshufd     xmm3, xmm1, 0xd8		; f e b 7 d c 9 a
 	pshufhw    xmm0, xmm2, 0x93		; 6 3 2 5 8 4 1 0
 	pshuflw    xmm1, xmm3, 0x39		; f e b 7 a d c 9
-	;mov        eax,  [esp+4]
 	movdqa     [r0],xmm0
 	movdqa     [r0+16], xmm1
 	%ifdef X86_32
@@ -202,12 +198,9 @@ WelsScan4x4DcAc_sse2:
 ;***********************************************************************
 ;void WelsScan4x4DcAc_ssse3( int16_t level[16], int16_t *pDct )
 ;***********************************************************************
-ALIGN 16
 WELS_EXTERN WelsScan4x4DcAc_ssse3
-WelsScan4x4DcAc_ssse3:
 	%assign push_num 0
 	LOAD_2_PARA
-	;mov        eax, [esp+8]
 	movdqa     xmm0, [r1]
 	movdqa     xmm1, [r1+16]
 	pextrw		r2d,  xmm0, 7			; ecx = [7]
@@ -217,19 +210,15 @@ WelsScan4x4DcAc_ssse3:
 	pshufb		xmm1, [pb_scanacdc_maskb]
 	pshufb		xmm0, [pb_scanacdc_maska]
 
-	;mov        eax,  [esp+4]
 	movdqa     [r0],xmm0
 	movdqa     [r0+16], xmm1
 	ret
 ;***********************************************************************
 ;void WelsScan4x4Ac_sse2( int16_t* zig_value, int16_t* pDct )
 ;***********************************************************************
-ALIGN 16
 WELS_EXTERN WelsScan4x4Ac_sse2
-WelsScan4x4Ac_sse2:
 	%assign push_num 0
 	LOAD_2_PARA
-	;mov        eax, [esp+8]
 	movdqa     xmm0, [r1]
 	movdqa     xmm1, [r1+16]
 	movdqa     xmm2, xmm0
@@ -256,7 +245,6 @@ WelsScan4x4Ac_sse2:
     pslldq     xmm3, 14
     por        xmm1, xmm3
     psrldq     xmm2, 2
-	;mov        eax,  [esp+4]
 	movdqa     [r0],xmm1
 	movdqa     [r0+16], xmm2
 	ret
@@ -265,11 +253,7 @@ WelsScan4x4Ac_sse2:
 ;***********************************************************************
 ;void int32_t WelsCalculateSingleCtr4x4_sse2( int16_t *pDct );
 ;***********************************************************************
-ALIGN 16
 WELS_EXTERN WelsCalculateSingleCtr4x4_sse2
-WelsCalculateSingleCtr4x4_sse2:
-	;push      ebx
-	;mov       eax,  [esp+8]
 	%ifdef X86_32
 	push r3
 	%assign push_num 1
@@ -321,19 +305,15 @@ WelsCalculateSingleCtr4x4_sse2:
 	%else
 	mov retrd, r0d
 	%endif
-	;pop       ebx
 	ret
 
 
 ;***********************************************************************
 ; int32_t WelsGetNoneZeroCount_sse2(int16_t* level);
 ;***********************************************************************
-ALIGN 16
 WELS_EXTERN WelsGetNoneZeroCount_sse2
-WelsGetNoneZeroCount_sse2:
 	%assign push_num 0
 	LOAD_1_PARA
-	;mov       eax,  [esp+4]
 	movdqa    xmm0, [r0]
 	movdqa    xmm1, [r0+16]
 	pxor      xmm2, xmm2

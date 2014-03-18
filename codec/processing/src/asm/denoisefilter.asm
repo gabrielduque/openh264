@@ -163,8 +163,6 @@ SECTION .text
 		paddw		%3,	%2
 %endmacro
 
-ALIGN 16
-WELS_EXTERN BilateralLumaFilter8_sse2
 ;***********************************************************************
 ;  BilateralLumaFilter8_sse2(uint8_t *pixels, int stride);
 ;***********************************************************************
@@ -172,17 +170,13 @@ WELS_EXTERN BilateralLumaFilter8_sse2
 ;	4	0	5
 ;	6	7	8
 ;	0:	the center point
-%define		pushsize	4
-;%define		pixel		esp + pushsize + 4
-;%define		stride		esp + pushsize + 8
-;%define         pixel  r0
-;%define         stride r1
 
-BilateralLumaFilter8_sse2:
+WELS_EXTERN BilateralLumaFilter8_sse2
 
         push r3
         %assign push_num 1
         LOAD_2_PARA
+        PUSH_XMM 8
 
 		pxor		xmm7,	xmm7
 
@@ -219,12 +213,12 @@ BilateralLumaFilter8_sse2:
 		movq		[r3],	xmm5
 
 
+		POP_XMM
 		pop r3
 		%assign push_num 0
 
 		ret
 
-WELS_EXTERN WaverageChromaFilter8_sse2
 ;***********************************************************************
 ; void		WaverageChromaFilter8_sse2(uint8_t *pixels, int stride);
 ;***********************************************************************
@@ -235,8 +229,7 @@ WELS_EXTERN WaverageChromaFilter8_sse2
 ;1	2	4	2	1
 ;1	1	2	1	1
 
-ALIGN 16
-WaverageChromaFilter8_sse2:
+WELS_EXTERN WaverageChromaFilter8_sse2
 
         push r3
 

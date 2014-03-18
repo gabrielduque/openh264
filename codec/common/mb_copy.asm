@@ -54,12 +54,6 @@
 
 SECTION .text
 
-WELS_EXTERN WelsCopy16x16_sse2
-WELS_EXTERN WelsCopy16x16NotAligned_sse2
-WELS_EXTERN WelsCopy8x8_mmx
-WELS_EXTERN WelsCopy16x8NotAligned_sse2	;
-WELS_EXTERN WelsCopy8x16_mmx		;
-WELS_EXTERN UpdateMbMv_sse2		;
 
 ;***********************************************************************
 ; void WelsCopy16x16_sse2(	uint8_t* Dst,
@@ -67,13 +61,13 @@ WELS_EXTERN UpdateMbMv_sse2		;
 ;							uint8_t* Src,
 ;							int32_t  iStrideS )
 ;***********************************************************************
-ALIGN 16
-WelsCopy16x16_sse2:
+WELS_EXTERN WelsCopy16x16_sse2
 
 	push r4
 	push r5
 	%assign  push_num 2
     LOAD_4_PARA
+    PUSH_XMM 8
 
 	lea r4, [r1+2*r1]	;ebx, [eax+2*eax]	; x3
 	lea r5, [r3+2*r3]	;edx, [ecx+2*ecx]	; x3
@@ -119,6 +113,7 @@ WelsCopy16x16_sse2:
 	movdqa [r0+r1], xmm5
 	movdqa [r0+2*r1], xmm6
 	movdqa [r0+r4], xmm7
+	POP_XMM
 	LOAD_4_PARA_POP
 	pop r5
 	pop r4
@@ -130,22 +125,13 @@ WelsCopy16x16_sse2:
 ;							uint8_t* Src,
 ;							int32_t  iStrideS )
 ;***********************************************************************
-ALIGN 16
 ; dst can be align with 16 bytes, but not sure about pSrc, 12/29/2011
-WelsCopy16x16NotAligned_sse2:
-	;push esi
-	;push edi
-	;push ebx
-
-	;mov edi, [esp+16]	; Dst
-	;mov eax, [esp+20]	; iStrideD
-	;mov esi, [esp+24]	; Src
-	;mov ecx, [esp+28]	; iStrideS
-
+WELS_EXTERN WelsCopy16x16NotAligned_sse2
 	push r4
 	push r5
 	%assign  push_num 2
     LOAD_4_PARA
+    PUSH_XMM 8
 
 	lea r4, [r1+2*r1]	;ebx, [eax+2*eax]	; x3
 	lea r5, [r3+2*r3]	;edx, [ecx+2*ecx]	; x3
@@ -191,6 +177,7 @@ WelsCopy16x16NotAligned_sse2:
 	movdqa [r0+r1], xmm5
 	movdqa [r0+2*r1], xmm6
 	movdqa [r0+r4], xmm7
+	POP_XMM
 	LOAD_4_PARA_POP
 	pop r5
 	pop r4
@@ -203,21 +190,12 @@ WelsCopy16x16NotAligned_sse2:
 ;							uint8_t* Src,
 ;							int32_t  iStrideS )
 ;***********************************************************************
-ALIGN 16
-WelsCopy16x8NotAligned_sse2:
-	;push esi
-	;push edi
-	;push ebx
-
-	;mov edi, [esp+16]	; Dst
-	;mov eax, [esp+20]	; iStrideD
-	;mov esi, [esp+24]	; Src
-	;mov ecx, [esp+28]	; iStrideS
-
+WELS_EXTERN WelsCopy16x8NotAligned_sse2
 	push r4
 	push r5
 	%assign  push_num 2
     LOAD_4_PARA
+    PUSH_XMM 8
 
 	lea r4, [r1+2*r1]	;ebx, [eax+2*eax]	; x3
 	lea r5, [r3+2*r3]	;edx, [ecx+2*ecx]	; x3
@@ -241,6 +219,7 @@ WelsCopy16x8NotAligned_sse2:
 	movdqa [r0+r1], xmm5
 	movdqa [r0+2*r1], xmm6
 	movdqa [r0+r4], xmm7
+	POP_XMM
 	LOAD_4_PARA_POP
 	pop r5
 	pop r4
@@ -253,15 +232,7 @@ WelsCopy16x8NotAligned_sse2:
 ;                       uint8_t* Src,
 ;                       int32_t  iStrideS )
 ;***********************************************************************
-ALIGN 16
-WelsCopy8x16_mmx:
-	;push ebx
-
-	;mov eax, [esp + 8 ]           ;Dst
-	;mov ecx, [esp + 12]           ;iStrideD
-	;mov ebx, [esp + 16]           ;Src
-	;mov edx, [esp + 20]           ;iStrideS
-
+WELS_EXTERN WelsCopy8x16_mmx
 	%assign  push_num 0
     LOAD_4_PARA
 
@@ -325,15 +296,7 @@ WelsCopy8x16_mmx:
 ;                        uint8_t* Src,
 ;                        int32_t  iStrideS )
 ;***********************************************************************
-ALIGN 16
-WelsCopy8x8_mmx:
-	;push ebx
-	;push esi
-	;mov eax, [esp + 12]           ;Dst
-	;mov ecx, [esp + 16]           ;iStrideD
-	;mov esi, [esp + 20]           ;Src
-	;mov ebx, [esp + 24]           ;iStrideS
-
+WELS_EXTERN WelsCopy8x8_mmx
 	push r4
 	%assign  push_num 1
     LOAD_4_PARA
@@ -373,8 +336,6 @@ WelsCopy8x8_mmx:
 	movq [r0+r1], mm7
 
 	WELSEMMS
-	;pop esi
-	;pop ebx
 	LOAD_4_PARA_POP
 	pop r4
 	ret
@@ -383,14 +344,11 @@ WelsCopy8x8_mmx:
 ;***********************************************************************
 ; void UpdateMbMv_sse2( SMVUnitXY *pMvBuffer, const SMVUnitXY sMv )
 ;***********************************************************************
-ALIGN 16
-UpdateMbMv_sse2:
+WELS_EXTERN UpdateMbMv_sse2
 
     %assign  push_num 0
     LOAD_2_PARA
 
-	;mov eax, [esp+4]	; mv_buffer
-	;movd xmm0, [esp+8]	; _mv
 	movd xmm0, r1d	; _mv
 	pshufd xmm1, xmm0, $00
 	movdqa [r0     ], xmm1
@@ -404,50 +362,29 @@ UpdateMbMv_sse2:
 ;*******************************************************************************
 
 ;*******************************************************************************
-; Local Data (Read Only)
-;*******************************************************************************
-
-;SECTION .rodata data align=16
-
-;*******************************************************************************
-; Various memory constants (trigonometric values or rounding values)
-;*******************************************************************************
-
-ALIGN 16
-
-;*******************************************************************************
 ; Code
 ;*******************************************************************************
 
 SECTION .text
 
-WELS_EXTERN PixelAvgWidthEq4_mmx
-WELS_EXTERN PixelAvgWidthEq8_mmx
-WELS_EXTERN PixelAvgWidthEq16_sse2
-
-WELS_EXTERN McCopyWidthEq4_mmx
-WELS_EXTERN McCopyWidthEq8_mmx
-WELS_EXTERN McCopyWidthEq16_sse2
 
 
-ALIGN 16
+
 ;*******************************************************************************
 ; void PixelAvgWidthEq4_mmx( uint8_t *pDst,  int iDstStride,
 ;                           uint8_t *pSrcA, int iSrcAStride,
 ;                           uint8_t *pSrcB, int iSrcBStride,
 ;                           int iHeight );
 ;*******************************************************************************
-PixelAvgWidthEq4_mmx:
+WELS_EXTERN PixelAvgWidthEq4_mmx
 
     %assign  push_num 0
     LOAD_7_PARA
 
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r5, r5d
-	movsx	r6, r6d
-%endif
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r5, r5d
+	SIGN_EXTENSION	r6, r6d
 
 ALIGN 4
 .height_loop:
@@ -466,37 +403,20 @@ ALIGN 4
     ret
 
 
-ALIGN 16
 ;*******************************************************************************
 ; void PixelAvgWidthEq8_mmx( uint8_t *pDst,  int iDstStride,
 ;                           uint8_t *pSrcA, int iSrcAStride,
 ;                           uint8_t *pSrcB, int iSrcBStride,
 ;                           int iHeight );
 ;*******************************************************************************
-PixelAvgWidthEq8_mmx:
-
-    ;push        esi
-    ;push        edi
-    ;push        ebp
-    ;push        ebx
-
-    ;mov         edi, [esp+20]       ; pDst
-    ;mov         eax, [esp+24]       ; iDstStride
-    ;mov         esi, [esp+28]       ; pSrcA
-    ;mov         ecx, [esp+32]       ; iSrcAStride
-    ;mov         ebp, [esp+36]       ; pSrcB
-    ;mov         edx, [esp+40]       ; iSrcBStride
-    ;mov         ebx, [esp+44]       ; iHeight
-
+WELS_EXTERN PixelAvgWidthEq8_mmx
     %assign  push_num 0
     LOAD_7_PARA
 
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r5, r5d
-	movsx	r6, r6d
-%endif
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r5, r5d
+	SIGN_EXTENSION	r6, r6d
 
 ALIGN 4
 .height_loop:
@@ -520,23 +440,20 @@ ALIGN 4
 
 
 
-ALIGN 16
 ;*******************************************************************************
 ; void PixelAvgWidthEq16_sse2( uint8_t *pDst,  int iDstStride,
 ;                          uint8_t *pSrcA, int iSrcAStride,
 ;                          uint8_t *pSrcB, int iSrcBStride,
 ;                          int iHeight );
 ;*******************************************************************************
-PixelAvgWidthEq16_sse2:
+WELS_EXTERN PixelAvgWidthEq16_sse2
 
     %assign  push_num 0
     LOAD_7_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r5, r5d
-	movsx	r6, r6d
-%endif
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r5, r5d
+	SIGN_EXTENSION	r6, r6d
 ALIGN 4
 .height_loop:
 	movdqu      xmm0, [r2]
@@ -575,32 +492,18 @@ ALIGN 4
 	LOAD_7_PARA_POP
     ret
 
-ALIGN 16
 ;*******************************************************************************
 ;  void McCopyWidthEq4_mmx( uint8_t *pSrc, int iSrcStride,
 ;                          uint8_t *pDst, int iDstStride, int iHeight )
 ;*******************************************************************************
-McCopyWidthEq4_mmx:
-    ;push    esi
-    ;push    edi
-    ;push    ebx
-
-
-    ;mov esi,  [esp+16]
-    ;mov eax, [esp+20]
-    ;mov edi,  [esp+24]
-    ;mov ecx,  [esp+28]
-    ;mov edx,  [esp+32]
-
+WELS_EXTERN McCopyWidthEq4_mmx
     push	r5
     %assign  push_num 1
     LOAD_5_PARA
 
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-%endif
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
 
 ALIGN 4
 .height_loop:
@@ -616,28 +519,17 @@ ALIGN 4
     pop	   r5
     ret
 
-ALIGN 16
 ;*******************************************************************************
 ;   void McCopyWidthEq8_mmx( uint8_t *pSrc, int iSrcStride,
 ;                           uint8_t *pDst, int iDstStride, int iHeight )
 ;*******************************************************************************
-McCopyWidthEq8_mmx:
-    ;push  esi
-    ;push  edi
-	;mov  esi, [esp+12]
-	;mov eax, [esp+16]
-	;mov edi, [esp+20]
-	;mov ecx, [esp+24]
-	;mov edx, [esp+28]
-
+WELS_EXTERN McCopyWidthEq8_mmx
     %assign  push_num 0
     LOAD_5_PARA
 
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-%endif
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
 
 ALIGN 4
 .height_loop:
@@ -653,7 +545,6 @@ ALIGN 4
     ret
 
 
-ALIGN 16
 ;*******************************************************************************
 ;   void McCopyWidthEq16_sse2( uint8_t *pSrc, int iSrcStride, uint8_t *pDst, int iDstStride, int iHeight )
 ;*******************************************************************************
@@ -668,23 +559,12 @@ ALIGN 16
 	movq	[%1],	%2
 	movhps	[%1+8], %2
 %endmacro
-McCopyWidthEq16_sse2:
-    ;push    esi
-    ;push    edi
-
-    ;mov     esi, [esp+12]       ; pSrc
-    ;mov     eax, [esp+16]       ; iSrcStride
-    ;mov     edi, [esp+20]       ; pDst
-    ;mov     edx, [esp+24]       ; iDstStride
-    ;mov     ecx, [esp+28]       ; iHeight
-
+WELS_EXTERN McCopyWidthEq16_sse2
     %assign  push_num 0
     LOAD_5_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-%endif
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
 ALIGN 4
 .height_loop:
     SSE_READ_UNA	xmm0, r0

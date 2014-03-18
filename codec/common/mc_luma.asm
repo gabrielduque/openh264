@@ -71,10 +71,8 @@ h264_mc_hc_32:
 
 SECTION .text
 
-WELS_EXTERN McHorVer20WidthEq4_mmx
 
 
-ALIGN 16
 ;*******************************************************************************
 ; void McHorVer20WidthEq4_mmx( const uint8_t *pSrc,
 ;                       int iSrcStride,
@@ -82,23 +80,12 @@ ALIGN 16
 ;						int iDstStride,
 ;						int iHeight)
 ;*******************************************************************************
-McHorVer20WidthEq4_mmx:
-	;push esi
-	;push edi
-
-	;mov esi, [esp+12]
-	;mov eax, [esp+16]
-	;mov edi, [esp+20]
-	;mov ecx, [esp+24]
-	;mov edx, [esp+28]
-
+WELS_EXTERN McHorVer20WidthEq4_mmx
     %assign  push_num 0
     LOAD_5_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-%endif
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
 
 	sub r0, 2
 	WELS_Zero mm7
@@ -172,12 +159,7 @@ McHorVer20WidthEq4_mmx:
 ;*******************************************************************************
 
 SECTION .text
-WELS_EXTERN McHorVer22Width8HorFirst_sse2
-WELS_EXTERN McHorVer02WidthEq8_sse2
-WELS_EXTERN McHorVer20WidthEq8_sse2
-WELS_EXTERN McHorVer20WidthEq16_sse2
 
-ALIGN 16
 ;***********************************************************************
 ; void McHorVer22Width8HorFirst_sse2(const int16_t *pSrc,
 ;                       int16_t iSrcStride,
@@ -186,23 +168,13 @@ ALIGN 16
 ;						int32_t iHeight
 ;                       )
 ;***********************************************************************
-McHorVer22Width8HorFirst_sse2:
-	;push esi
-	;push edi
-	;push ebx
-	;mov esi, [esp+16]     ;pSrc
-	;mov eax, [esp+20]	;iSrcStride
-	;mov edi, [esp+24]		;pDst
-	;mov edx, [esp+28]	;iDstStride
-	;mov ebx, [esp+32]	;iHeight
-
+WELS_EXTERN McHorVer22Width8HorFirst_sse2
 	%assign  push_num 0
     LOAD_5_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-%endif
+    PUSH_XMM 8
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
 	pxor xmm7, xmm7
 
 	sub r0, r1				;;;;;;;;need more 5 lines.
@@ -236,10 +208,10 @@ McHorVer22Width8HorFirst_sse2:
 	add r2, r3
 	dec r4
 	jnz .yloop_width_8
+	POP_XMM
 	LOAD_5_PARA_POP
 	ret
 
-ALIGN 16
 ;*******************************************************************************
 ; void McHorVer20WidthEq8_sse2(  const uint8_t *pSrc,
 ;                       int iSrcStride,
@@ -248,23 +220,13 @@ ALIGN 16
 ;												int iHeight,
 ;                      );
 ;*******************************************************************************
-McHorVer20WidthEq8_sse2:
-	;push	esi
-	;push	edi
-
-	;mov esi, [esp + 12]         ;pSrc
-	;mov eax, [esp + 16]         ;iSrcStride
-	;mov edi, [esp + 20]         ;pDst
-	;mov ecx, [esp + 28]         ;iHeight
-	;mov edx, [esp + 24]			;iDstStride
-
+WELS_EXTERN McHorVer20WidthEq8_sse2
 	%assign  push_num 0
     LOAD_5_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-%endif
+    PUSH_XMM 8
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
 	lea r0, [r0-2]            ;pSrc -= 2;
 
 	pxor xmm7, xmm7
@@ -302,10 +264,10 @@ McHorVer20WidthEq8_sse2:
 	dec r4
 	jnz near .y_loop
 
+	POP_XMM
 	LOAD_5_PARA_POP
 	ret
 
-ALIGN 16
 ;*******************************************************************************
 ; void McHorVer20WidthEq16_sse2(  const uint8_t *pSrc,
 ;                       int iSrcStride,
@@ -314,22 +276,13 @@ ALIGN 16
 ;												int iHeight,
 ;                      );
 ;*******************************************************************************
-McHorVer20WidthEq16_sse2:
-	;push	esi
-	;push	edi
-	;mov esi, [esp + 12]         ;pSrc
-	;mov eax, [esp + 16]         ;iSrcStride
-	;mov edi, [esp + 20]         ;pDst
-	;mov ecx, [esp + 28]         ;iHeight
-	;mov edx, [esp + 24]			;iDstStride
-
+WELS_EXTERN McHorVer20WidthEq16_sse2
 	%assign  push_num 0
     LOAD_5_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-%endif
+    PUSH_XMM 8
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
 	lea r0, [r0-2]            ;pSrc -= 2;
 
 	pxor xmm7, xmm7
@@ -393,6 +346,7 @@ McHorVer20WidthEq16_sse2:
 	dec r4
 	jnz near .y_loop
 
+	POP_XMM
 	LOAD_5_PARA_POP
 	ret
 
@@ -404,23 +358,13 @@ McHorVer20WidthEq16_sse2:
 ;                       int iDstStride,
 ;                       int iHeight )
 ;*******************************************************************************
-ALIGN 16
-McHorVer02WidthEq8_sse2:
-	;push esi
-	;push edi
-	;mov esi, [esp + 12]           ;pSrc
-	;mov edx, [esp + 16]	          ;iSrcStride
-	;mov edi, [esp + 20]           ;pDst
-	;mov eax, [esp + 24]           ;iDstStride
-	;mov ecx, [esp + 28]           ;iHeight
-
+WELS_EXTERN McHorVer02WidthEq8_sse2
 	%assign  push_num 0
     LOAD_5_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-%endif
+    PUSH_XMM 8
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
 	sub r0, r1
 	sub r0, r1
 
@@ -487,6 +431,7 @@ McHorVer02WidthEq8_sse2:
 	jmp near .start
 
 .xx_exit:
+	POP_XMM
 	LOAD_5_PARA_POP
 	ret
 
@@ -496,11 +441,6 @@ McHorVer02WidthEq8_sse2:
 
 SECTION .text
 
-WELS_EXTERN McHorVer20Width9Or17_sse2
-WELS_EXTERN McHorVer02Height9Or17_sse2
-WELS_EXTERN McHorVer22Width8VerLastAlign_sse2
-WELS_EXTERN McHorVer22Width8VerLastUnAlign_sse2
-WELS_EXTERN McHorVer22HorFirst_sse2
 
 
 ;***********************************************************************
@@ -511,27 +451,14 @@ WELS_EXTERN McHorVer22HorFirst_sse2
 ;						int32_t iWidth,
 ;                       int32_t iHeight )
 ;***********************************************************************
-ALIGN 16
-McHorVer02Height9Or17_sse2:
-	;push esi
-	;push edi
-	;push ebx
-
-	;mov esi, [esp + 16]
-	;mov edx, [esp + 20]
-	;mov edi, [esp + 24]
-	;mov eax, [esp + 28]
-	;mov ecx, [esp + 36]
-	;mov ebx, [esp + 32]
-
+WELS_EXTERN McHorVer02Height9Or17_sse2
 	%assign  push_num 0
     LOAD_6_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-	movsx	r5, r5d
-%endif
+    PUSH_XMM 8
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
+	SIGN_EXTENSION	r5, r5d
 
 %ifndef X86_32
 	push r12
@@ -624,9 +551,6 @@ McHorVer02Height9Or17_sse2:
 .x_loop_dec:
 	dec r4
 	jz  near .xx_exit
-	;mov esi, [esp + 16]
-	;mov edi, [esp + 24]
-	;mov ecx, [esp + 36]
 %ifdef X86_32
 	mov	r0, arg1
 	mov r2, arg3
@@ -648,11 +572,11 @@ McHorVer02Height9Or17_sse2:
 	pop r13
 	pop r12
 %endif
+	POP_XMM
 	LOAD_6_PARA_POP
 	ret
 
 
-ALIGN 16
 ;***********************************************************************
 ; void McHorVer20Width9Or17_sse2(		const uint8_t *pSrc,
 ;                       int32_t iSrcStride,
@@ -662,25 +586,14 @@ ALIGN 16
 ;						int32_t iHeight
 ;                      );
 ;***********************************************************************
-McHorVer20Width9Or17_sse2:
-	;push esi
-	;push edi
-	;push ebx
-	;mov esi, [esp+16]
-	;mov eax, [esp+20]
-	;mov edi, [esp+24]
-	;mov edx, [esp+28]
-	;mov ecx, [esp+32]
-	;mov ebx, [esp+36]
-
+WELS_EXTERN McHorVer20Width9Or17_sse2
 	%assign  push_num 0
     LOAD_6_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-	movsx	r5, r5d
-%endif
+    PUSH_XMM 8
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
+	SIGN_EXTENSION	r5, r5d
 	sub r0, 2
 	pxor xmm7, xmm7
 
@@ -737,6 +650,7 @@ McHorVer20Width9Or17_sse2:
 	add r2, r3
 	dec r5
 	jnz .yloop_width_9
+	POP_XMM
 	LOAD_6_PARA_POP
 	ret
 
@@ -818,12 +732,12 @@ McHorVer20Width9Or17_sse2:
 	add r2, r3
 	dec r5
 	jnz .yloop_width_17
+	POP_XMM
 	LOAD_6_PARA_POP
 	ret
 
 
 
-ALIGN 16
 ;***********************************************************************
 ;void McHorVer22HorFirst_sse2
 ;							(const uint8_t *pSrc,
@@ -832,25 +746,14 @@ ALIGN 16
 ;							int32_t iTapStride,
 ;							int32_t iWidth,int32_t iHeight);
 ;***********************************************************************
-McHorVer22HorFirst_sse2:
-	;push esi
-	;push edi
-	;push ebx
-	;mov esi, [esp+16]
-	;mov eax, [esp+20]
-	;mov edi, [esp+24]
-	;mov edx, [esp+28]
-	;mov ecx, [esp+32]
-	;mov ebx, [esp+36]
-
+WELS_EXTERN McHorVer22HorFirst_sse2
 	%assign  push_num 0
     LOAD_6_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-	movsx	r5, r5d
-%endif
+    PUSH_XMM 8
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
+	SIGN_EXTENSION	r5, r5d
 	pxor xmm7, xmm7
 	sub r0, r1				;;;;;;;;need more 5 lines.
 	sub r0, r1
@@ -903,6 +806,7 @@ McHorVer22HorFirst_sse2:
 	add r2, r3
 	dec r5
 	jnz .yloop_width_9
+	POP_XMM
 	LOAD_6_PARA_POP
 	ret
 
@@ -977,6 +881,7 @@ McHorVer22HorFirst_sse2:
 	add r2, r3
 	dec r5
 	jnz .yloop_width_17
+	POP_XMM
 	LOAD_6_PARA_POP
 	ret
 
@@ -1011,27 +916,14 @@ McHorVer22HorFirst_sse2:
 ;											int32_t iHeight);
 ;***********************************************************************
 
- McHorVer22Width8VerLastAlign_sse2:
-	;push esi
-	;push edi
-	;push ebx
-	;push ebp
-
-	;mov esi, [esp+20]
-	;mov eax, [esp+24]
-	;mov edi, [esp+28]
-	;mov edx, [esp+32]
-	;mov ebx, [esp+36]
-	;mov ecx, [esp+40]
-
+WELS_EXTERN McHorVer22Width8VerLastAlign_sse2
 	%assign  push_num 0
     LOAD_6_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-	movsx	r5, r5d
-%endif
+    PUSH_XMM 8
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
+	SIGN_EXTENSION	r5, r5d
 %ifndef X86_32
 	push r12
 	push r13
@@ -1122,9 +1014,6 @@ McHorVer22HorFirst_sse2:
 .x_loop_dec:
 	dec r4
 	jz near .exit
-	;mov esi, [esp+20]
-	;mov edi, [esp+28]
-	;mov ecx, [esp+40]
 %ifdef X86_32
 	mov	r0, arg1
 	mov r2, arg3
@@ -1144,6 +1033,7 @@ McHorVer22HorFirst_sse2:
 	pop r13
 	pop r12
 %endif
+	POP_XMM
 	LOAD_6_PARA_POP
 	ret
 
@@ -1157,27 +1047,14 @@ McHorVer22HorFirst_sse2:
 ;											int32_t iHeight);
 ;***********************************************************************
 
- McHorVer22Width8VerLastUnAlign_sse2:
-	;push esi
-	;push edi
-	;push ebx
-	;push ebp
-
-	;mov esi, [esp+20]
-	;mov eax, [esp+24]
-	;mov edi, [esp+28]
-	;mov edx, [esp+32]
-	;mov ebx, [esp+36]
-	;mov ecx, [esp+40]
-
+WELS_EXTERN McHorVer22Width8VerLastUnAlign_sse2
 	%assign  push_num 0
     LOAD_6_PARA
-%ifndef X86_32
-	movsx	r1, r1d
-	movsx	r3, r3d
-	movsx	r4, r4d
-	movsx	r5, r5d
-%endif
+    PUSH_XMM 8
+	SIGN_EXTENSION	r1, r1d
+	SIGN_EXTENSION	r3, r3d
+	SIGN_EXTENSION	r4, r4d
+	SIGN_EXTENSION	r5, r5d
 %ifndef X86_32
 	push r12
 	push r13
@@ -1267,9 +1144,6 @@ McHorVer22HorFirst_sse2:
 .x_loop_dec:
 	dec r4
 	jz near .exit
-	;mov esi, [esp+20]
-	;mov edi, [esp+28]
-	;mov ecx, [esp+40]
 %ifdef X86_32
 	mov	r0, arg1
 	mov r2, arg3
@@ -1289,5 +1163,6 @@ McHorVer22HorFirst_sse2:
 	pop r13
 	pop r12
 %endif
+	POP_XMM
 	LOAD_6_PARA_POP
 	ret

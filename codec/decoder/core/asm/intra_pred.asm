@@ -177,25 +177,17 @@ sse2_wd_0x02: times 8 dw 0x02
 ;*******************************************************************************
 
 SECTION .text
-WELS_EXTERN WelsDecoderI4x4LumaPredH_sse2
-WELS_EXTERN WelsDecoderI4x4LumaPredDDR_mmx
-WELS_EXTERN WelsDecoderI16x16LumaPredPlane_sse2
 
 
-ALIGN 16
 ;*******************************************************************************
 ;   void WelsDecoderI4x4LumaPredH_sse2(uint8_t *pPred, const int32_t kiStride)
 ;
 ;	pPred must align to 16
 ;*******************************************************************************
-WelsDecoderI4x4LumaPredH_sse2:
+WELS_EXTERN WelsDecoderI4x4LumaPredH_sse2
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
-	;mov			eax,	[esp+4]			;pPred
-	;mov			ecx,	[esp+8]			;kiStride
+	SIGN_EXTENSION r1, r1d
 
 	movzx		r2,	byte [r0-1]
 	movd		xmm0,	r2d
@@ -226,19 +218,14 @@ WelsDecoderI4x4LumaPredH_sse2:
 ;*******************************************************************************
 ; void WelsDecoderI16x16LumaPredPlane_sse2(uint8_t *pPred, const int32_t kiStride);
 ;*******************************************************************************
-WelsDecoderI16x16LumaPredPlane_sse2:
-		;%define pushsize	4
+WELS_EXTERN WelsDecoderI16x16LumaPredPlane_sse2
 		push r3
 		push r4
 		%assign push_num 2
 		LOAD_2_PARA
-		%ifndef X86_32
-		movsx r1, r1d
-		%endif
+		PUSH_XMM 8
+		SIGN_EXTENSION r1, r1d
 		mov r4, r0 ; save r0 in r4
-		;push	esi
-		;mov		esi,	[esp + pushsize + 4]
-		;mov		ecx,	[esp + pushsize + 8]
 		sub		r0,	1
 		sub		r0,	r1
 
@@ -290,7 +277,6 @@ WelsDecoderI16x16LumaPredPlane_sse2:
 		sar		r2,	6				; c = (5 * V + 32) >> 6;
 		SSE2_Copy8Times	xmm4, r2d		; xmm4 = c,c,c,c,c,c,c,c
 
-		;mov		esi,	[esp + pushsize + 4]
 		mov r0, r4
 		add		r3,	16
 		imul	r2,	-7
@@ -317,7 +303,7 @@ get_i16x16_luma_pred_plane_sse2_1:
 		cmp		r2,	16
 		jnz get_i16x16_luma_pred_plane_sse2_1
 
-		;pop		esi
+		POP_XMM
 		pop r4
 		pop r3
 		ret
@@ -338,14 +324,9 @@ get_i16x16_luma_pred_plane_sse2_1:
 %endmacro
 
 WELS_EXTERN WelsDecoderI16x16LumaPredH_sse2
-WelsDecoderI16x16LumaPredH_sse2:
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
-    ;mov     eax, [esp+4]    ; pPred
-    ;mov     ecx, [esp+8]    ; kiStride
+	SIGN_EXTENSION r1, r1d
 
     COPY_16_TIMES r0,	xmm0
     movdqa  [r0],		xmm0
@@ -366,14 +347,9 @@ WelsDecoderI16x16LumaPredH_sse2:
 ; void WelsDecoderI16x16LumaPredV_sse2(uint8_t *pPred, const int32_t kiStride);
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderI16x16LumaPredV_sse2
-WelsDecoderI16x16LumaPredV_sse2:
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
-    ;mov     edx, [esp+4]    ; pPred
-    ;mov     ecx, [esp+8]    ; kiStride
+	SIGN_EXTENSION r1, r1d
 
     sub     r0, r1
     movdqa  xmm0, [r0]
@@ -409,19 +385,13 @@ WelsDecoderI16x16LumaPredV_sse2:
 ; void WelsDecoderIChromaPredPlane_sse2(uint8_t *pPred, const int32_t kiStride);
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderIChromaPredPlane_sse2
-WelsDecoderIChromaPredPlane_sse2:
-		;%define pushsize	4
 		push r3
 		push r4
 		%assign push_num 2
 		LOAD_2_PARA
-		%ifndef X86_32
-		movsx r1, r1d
-		%endif
+		PUSH_XMM 8
+		SIGN_EXTENSION r1, r1d
 		mov r4, r0
-		;push	esi
-		;mov		esi,	[esp + pushsize + 4]	;pPred
-		;mov		ecx,	[esp + pushsize + 8]	;kiStride
 		sub		r0,	1
 		sub		r0,	r1
 
@@ -476,7 +446,6 @@ WelsDecoderIChromaPredPlane_sse2:
 		sar		r2,	5				; c = (17 * V + 16) >> 5;
 		SSE2_Copy8Times	xmm4, r2d		; mm4 = c,c,c,c,c,c,c,c
 
-		;mov		esi,	[esp + pushsize + 4]
 		mov 	r0, r4
 		add		r3,	16
 		imul	r2,	-3
@@ -499,13 +468,12 @@ get_i_chroma_pred_plane_sse2_1:
 		cmp		r2,	8
 		jnz get_i_chroma_pred_plane_sse2_1
 
-		;pop		esi
+		POP_XMM
 		pop r4
 		pop r3
 		WELSEMMS
 		ret
 
-ALIGN 16
 ;*******************************************************************************
 ;	0 |1 |2 |3 |4 |
 ;	6 |7 |8 |9 |10|
@@ -518,16 +486,11 @@ ALIGN 16
 ;   void WelsDecoderI4x4LumaPredDDR_mmx(uint8_t *pPred, const int32_t kiStride)
 ;
 ;*******************************************************************************
-WelsDecoderI4x4LumaPredDDR_mmx:
+WELS_EXTERN WelsDecoderI4x4LumaPredDDR_mmx
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	mov r2, r0
-	;mov			edx,[esp+4]			;pPred
-	;mov         eax,edx
-	;mov			ecx,[esp+8]		;kiStride
 
 	movq        mm1,[r2+r1-8]		;get value of 11,decreasing 8 is trying to improve the performance of movq mm1[8] = 11
 	movq        mm2,[r2-8]			;get value of 6 mm2[8] = 6
@@ -569,7 +532,6 @@ WelsDecoderI4x4LumaPredDDR_mmx:
 	ret
 
 
-ALIGN 16
 ;*******************************************************************************
 ;	void WelsDecoderIChromaPredH_mmx(uint8_t *pPred, const int32_t kiStride)
 ;   copy 8 pixel of 8 line from left
@@ -593,16 +555,10 @@ ALIGN 16
 %endmacro
 
 WELS_EXTERN WelsDecoderIChromaPredH_mmx
-WelsDecoderIChromaPredH_mmx:
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	mov r2, r0
-	;mov			edx,	[esp+4]			;pPred
-	;mov         eax,	edx
-	;mov			ecx,	[esp+8]			;kiStride
 
 	movq		mm0,	[r2-8]
 	psrlq		mm0,	38h
@@ -635,20 +591,14 @@ WelsDecoderIChromaPredH_mmx:
 	ret
 
 
-ALIGN 16
 ;*******************************************************************************
 ;	void WelsDecoderIChromaPredV_mmx(uint8_t *pPred, const int32_t kiStride)
 ;   copy 8 pixels from top 8 pixels
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderIChromaPredV_mmx
-WelsDecoderIChromaPredV_mmx:
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
-	;mov			eax,		[esp+4]    ;pPred
-	;mov			ecx,		[esp+8]    ;kiStride
+	SIGN_EXTENSION r1, r1d
 
 	sub			r0,		r1
 	movq		mm0,		[r0]
@@ -669,7 +619,6 @@ WelsDecoderIChromaPredV_mmx:
 	ret
 
 
-	ALIGN 16
 ;*******************************************************************************
 ;	lt|t0|t1|t2|t3|
 ;	l0|
@@ -700,16 +649,10 @@ WelsDecoderIChromaPredV_mmx:
 ;   void WelsDecoderI4x4LumaPredHD_mmx(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderI4x4LumaPredHD_mmx
-WelsDecoderI4x4LumaPredHD_mmx:
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	mov r2, r0
-	;mov			edx, [esp+4]			; pPred
-	;mov         eax, edx
-	;mov			ecx, [esp+8]            ; kiStride
 	sub         r2, r1
 	movd        mm0, [r2-1]            ; mm0 = [xx xx xx xx t2 t1 t0 lt]
 	psllq       mm0, 20h                ; mm0 = [t2 t1 t0 lt xx xx xx xx]
@@ -761,7 +704,6 @@ WelsDecoderI4x4LumaPredHD_mmx:
 
 
 
-ALIGN 16
 ;*******************************************************************************
 ;	lt|t0|t1|t2|t3|
 ;	l0|
@@ -789,16 +731,10 @@ ALIGN 16
 ;   void WelsDecoderI4x4LumaPredHU_mmx(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderI4x4LumaPredHU_mmx
-WelsDecoderI4x4LumaPredHU_mmx:
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	mov r2, r0
-	;mov			edx, [esp+4]			; pPred
-	;mov         eax, edx
-	;mov			ecx, [esp+8]            ; kiStride
 
 	movd        mm0, [r2-4]            ; mm0[3] = l0
 	punpcklbw   mm0, [r2+r1-4]        ; mm0[7] = l1, mm0[6] = l0
@@ -851,7 +787,6 @@ WelsDecoderI4x4LumaPredHU_mmx:
 
 
 
-ALIGN 16
 ;*******************************************************************************
 ;	lt|t0|t1|t2|t3|
 ;	l0|
@@ -881,16 +816,10 @@ ALIGN 16
 ;   void WelsDecoderI4x4LumaPredVR_mmx(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderI4x4LumaPredVR_mmx
-WelsDecoderI4x4LumaPredVR_mmx:
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	mov r2, r0
-	;mov			edx, [esp+4]			; pPred
-	;mov         eax, edx
-	;mov			ecx, [esp+8]            ; kiStride
 	sub         r2, r1
 	movq        mm0, [r2-1]            ; mm0 = [xx xx xx t3 t2 t1 t0 lt]
 	psllq       mm0, 18h                ; mm0 = [t3 t2 t1 t0 lt xx xx xx]
@@ -946,7 +875,6 @@ WelsDecoderI4x4LumaPredVR_mmx:
 	WELSEMMS
 	ret
 
-ALIGN 16
 ;*******************************************************************************
 ;	lt|t0|t1|t2|t3|t4|t5|t6|t7
 ;	l0|
@@ -974,16 +902,10 @@ ALIGN 16
 ;   void WelsDecoderI4x4LumaPredDDL_mmx(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderI4x4LumaPredDDL_mmx
-WelsDecoderI4x4LumaPredDDL_mmx:
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	mov r2, r0
-	;mov			edx, [esp+4]			; pPred
-	;mov         eax, edx
-	;mov			ecx, [esp+8]            ; kiStride
 	sub         r2, r1
 	movq        mm0, [r2]              ; mm0 = [t7 t6 t5 t4 t3 t2 t1 t0]
 	movq        mm1, mm0
@@ -1018,7 +940,6 @@ WelsDecoderI4x4LumaPredDDL_mmx:
 	ret
 
 
-ALIGN 16
 ;*******************************************************************************
 ;	lt|t0|t1|t2|t3|t4|t5|t6|t7
 ;	l0|
@@ -1049,16 +970,10 @@ ALIGN 16
 ;   void WelsDecoderI4x4LumaPredVL_mmx(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderI4x4LumaPredVL_mmx
-WelsDecoderI4x4LumaPredVL_mmx:
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	mov r2, r0
-	;mov			edx, [esp+4]			; pPred
-	;mov         eax, edx
-	;mov			ecx, [esp+8]            ; kiStride
 
 	sub         r2, r1
 	movq        mm0, [r2]              ; mm0 = [t7 t6 t5 t4 t3 t2 t1 t0]
@@ -1090,24 +1005,17 @@ WelsDecoderI4x4LumaPredVL_mmx:
 	WELSEMMS
 	ret
 
-ALIGN 16
 ;*******************************************************************************
 ;
 ;   void WelsDecoderIChromaPredDc_sse2(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderIChromaPredDc_sse2
-WelsDecoderIChromaPredDc_sse2:
 	push 	r3
 	push 	r4
 	%assign push_num 2
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	mov r4, r0
-	;push        ebx
-	;mov         eax, [esp+8]			; pPred
-	;mov			ecx, [esp+12]           ; kiStride
 
 	sub         r0, r1
 	movq        mm0, [r0]
@@ -1172,8 +1080,6 @@ WelsDecoderIChromaPredDc_sse2:
 	psllq       mm1, 0x20
 	pxor        mm1, mm2                 ; mm2 = m_down
 
-	;mov         edx, [esp+8]			 ; pPred
-
 	movq        [r4],       mm0
 	movq        [r4+r1],   mm0
 	movq        [r4+2*r1], mm0
@@ -1187,7 +1093,6 @@ WelsDecoderIChromaPredDc_sse2:
 	lea         r4, [r4+2*r1]
 	movq        [r4+r1],   mm1
 
-	;pop         ebx
 	pop r4
 	pop r3
 	WELSEMMS
@@ -1195,23 +1100,16 @@ WelsDecoderIChromaPredDc_sse2:
 
 
 
-ALIGN 16
 ;*******************************************************************************
 ;
 ;   void WelsDecoderI16x16LumaPredDc_sse2(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderI16x16LumaPredDc_sse2
-WelsDecoderI16x16LumaPredDc_sse2:
-	;push        ebx
-	;mov         eax, [esp+8]			; pPred
-	;mov			ecx, [esp+12]           ; kiStride
 	push 	r3
 	push 	r4
 	%assign push_num 2
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	mov r4, r0
 	sub         r0, r1
 	movdqa      xmm0, [r0]             ; read one row
@@ -1240,8 +1138,6 @@ WelsDecoderI16x16LumaPredDc_sse2:
 	psrld       xmm0, 0x05
 	pmuludq     xmm0, [mmx_01bytes]
 	pshufd      xmm0, xmm0, 0
-
-	;mov         edx, [esp+8]			; pPred
 
 	movdqa      [r4],       xmm0
 	movdqa      [r4+r1],   xmm0
@@ -1274,7 +1170,6 @@ WelsDecoderI16x16LumaPredDc_sse2:
 
 	movdqa      [r4+r1],   xmm0
 
-	;pop         ebx
 	pop r4
 	pop r3
 
@@ -1284,21 +1179,14 @@ WelsDecoderI16x16LumaPredDc_sse2:
 ; for intra prediction as follows, 11/19/2010
 ;*******************************************************************************
 
-ALIGN 16
 ;*******************************************************************************
 ;	void WelsDecoderI16x16LumaPredDcTop_sse2(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderI16x16LumaPredDcTop_sse2
-WelsDecoderI16x16LumaPredDcTop_sse2:
-	;push ebx
-	;%define PUSH_SIZE 4
-	;mov eax, [esp+PUSH_SIZE+4]	; pPred
-	;mov ebx, [esp+PUSH_SIZE+8]	; kiStride
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	PUSH_XMM 8
+	SIGN_EXTENSION r1, r1d
 	mov r2, r0
 	sub r2, r1
 	movdqa xmm0, [r2]		; pPred-kiStride, top line
@@ -1360,27 +1248,16 @@ WelsDecoderI16x16LumaPredDcTop_sse2:
 	movdqa [r0+2*r1], xmm0
 	movdqa [r0+r2], xmm1
 
-	;%undef PUSH_SIZE
-	;pop ebx
+	POP_XMM
 	ret
 
-ALIGN 16
 ;*******************************************************************************
 ;	void WelsDecoderI16x16LumaPredDcNA_sse2(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderI16x16LumaPredDcNA_sse2
-WelsDecoderI16x16LumaPredDcNA_sse2:
-	;push ebx
-
-	;%define PUSH_SIZE	4
-
-	;mov eax, [esp+PUSH_SIZE+4]	; pPred
-	;mov ebx, [esp+PUSH_SIZE+8]	; kiStride
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	lea r2, [2*r1+r1]		; 3*kiStride
 
 	movdqa xmm0, [sse2_dc_0x80]
@@ -1405,30 +1282,17 @@ WelsDecoderI16x16LumaPredDcNA_sse2:
 	movdqa [r0+2*r1], xmm0
 	movdqa [r0+r2], xmm1
 
-	;%undef PUSH_SIZE
-
-	;pop ebx
 	ret
 
-ALIGN 16
 ;*******************************************************************************
 ;	void WelsDecoderIChromaPredDcLeft_mmx(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderIChromaPredDcLeft_mmx
-WelsDecoderIChromaPredDcLeft_mmx:
-	;push ebx
-	;push esi
-	;%define PUSH_SIZE 8
-	;mov esi, [esp+PUSH_SIZE+4]	; pPred
-	;mov ecx, [esp+PUSH_SIZE+8]	; kiStride
-	;mov eax, esi
 	push r3
 	push r4
 	%assign push_num 2
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	mov r4, r0
 	; for left
 	dec r0
@@ -1486,30 +1350,19 @@ WelsDecoderIChromaPredDcLeft_mmx:
 	movq [r4+r1], mm3
 	movq [r4+2*r1], mm2
 	movq [r4+r2], mm3
-	;pop esi
-	;pop ebx
 	pop r4
 	pop r3
 	emms
 	ret
 
-ALIGN 16
 ;*******************************************************************************
 ;	void WelsDecoderIChromaPredDcTop_sse2(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderIChromaPredDcTop_sse2
-WelsDecoderIChromaPredDcTop_sse2:
-	;push ebx
-	;%define PUSH_SIZE 4
-	;mov eax, [esp+PUSH_SIZE+4]	; pPred
-	;mov ecx, [esp+PUSH_SIZE+8]	; kiStride
-	;mov ebx, ecx
-	;neg ebx
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	PUSH_XMM 8
+	SIGN_EXTENSION r1, r1d
 	mov r2, r0
 	sub r2, r1
 	movq xmm0, [r2]		; top: 8x1 pixels
@@ -1538,25 +1391,16 @@ WelsDecoderIChromaPredDcTop_sse2:
 	movq [r0+r1], xmm0
 	movq [r0+2*r1], xmm0
 	movq [r0+r2], xmm0
-	;%undef PUSH_SIZE
-	;pop ebx
+	POP_XMM
 	ret
 
-ALIGN 16
 ;*******************************************************************************
 ;	void WelsDecoderIChromaPredDcNA_mmx(uint8_t *pPred, const int32_t kiStride)
 ;*******************************************************************************
 WELS_EXTERN WelsDecoderIChromaPredDcNA_mmx
-WelsDecoderIChromaPredDcNA_mmx:
-	;push ebx
-	;%define PUSH_SIZE 4
-	;mov eax, [esp+PUSH_SIZE+4]	; pPred
-	;mov ebx, [esp+PUSH_SIZE+8]	; kiStride
 	%assign push_num 0
 	LOAD_2_PARA
-	%ifndef X86_32
-	movsx r1, r1d
-	%endif
+	SIGN_EXTENSION r1, r1d
 	lea r2, [2*r1+r1]
 	movq mm0, [sse2_dc_0x80]
 	movq mm1, mm0
@@ -1569,8 +1413,6 @@ WelsDecoderIChromaPredDcNA_mmx:
 	movq [r0+r1], mm1
 	movq [r0+2*r1], mm0
 	movq [r0+r2], mm1
-	;%undef PUSH_SIZE
-	;pop ebx
 	emms
 	ret
 

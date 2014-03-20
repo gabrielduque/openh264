@@ -137,7 +137,7 @@ int ParseLayerConfig( CReadConfig & cRdLayerCfg, const int iLayer, SEncParamExt&
       } else if (strTag[0].compare ("FrameRateOut") == 0) {
         pDLayer->fFrameRate = (float)atof (strTag[1].c_str());
       }else if (strTag[0].compare ("ReconFile") == 0) {
-        const int kiLen = strTag[1].length();
+        const unsigned int kiLen = strTag[1].length();
         if (kiLen >= sizeof(sFileSet.sRecFileName[iLayer]))
           return -1;
         sFileSet.sRecFileName[iLayer][kiLen] = '\0';
@@ -303,7 +303,6 @@ int ParseConfig (CReadConfig& cRdCfg, SSourcePicture* pSrcPic, SEncParamExt& pSv
   assert (kiActualLayerNum <= MAX_DEPENDENCY_LAYER);
 
   for (int8_t iLayer = 0; iLayer < kiActualLayerNum; ++ iLayer) {
-    SSpatialLayerConfig* pDLayer = &pSvcParam.sSpatialLayers[iLayer];
     CReadConfig cRdLayerCfg (sFileSet.strLayerCfgFile[iLayer]);
     if (-1==ParseLayerConfig( cRdLayerCfg, iLayer, pSvcParam,sFileSet ))
     {
@@ -414,7 +413,6 @@ int ParseCommandLine (int argc, char** argv, SSourcePicture* pSrcPic, SEncParamE
   SLayerPEncCtx sLayerCtx[3];
   int n = 0;
   string str_ ("SlicesAssign");
-  const int kiSize = str_.size();
 
   while (n < argc) {
     pCommand = argv[n++];
@@ -489,7 +487,7 @@ int ParseCommandLine (int argc, char** argv, SSourcePicture* pSrcPic, SEncParamE
     }
     else if (!strcmp (pCommand, "-drec") && (n + 1 < argc)) {
       unsigned int	iLayer = atoi (argv[n++]);
-      const int iLen = strlen (argv[n]);
+      const unsigned int iLen = strlen (argv[n]);
       if (iLen >= sizeof(sFileSet.sRecFileName[iLayer]))
         return 1;
       sFileSet.sRecFileName[iLayer][iLen] = '\0';
@@ -761,13 +759,13 @@ int ProcessEncodingSvcWithParam (ISVCEncoder* pPtrEnc, int argc, char** argv) {
     iStart	= WelsTime();
     long iEncode = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
     iTotal += WelsTime() - iStart;
-    if (videoFrameTypeInvalid == iEncode) {
+    if (cmResultSuccess != iEncode) {
       fprintf (stderr, "EncodeFrame() failed: %ld.\n", iEncode);
       break;
     }
 
     /* Write bit-stream */
-    if (pFpBs != NULL && videoFrameTypeSkip != iEncode) {	// file handler to write bit stream
+    if (pFpBs != NULL && videoFrameTypeSkip != sFbi.eOutputFrameType) {	// file handler to write bit stream
       int iLayer = 0;
       while (iLayer < sFbi.iLayerNum) {
         SLayerBSInfo* pLayerBsInfo = &sFbi.sLayerInfo[iLayer];
@@ -827,7 +825,6 @@ int ProcessEncodingSvcWithConfig (ISVCEncoder* pPtrEnc, int argc, char** argv) {
   int32_t iActualFrameEncodedCount = 0;
   int32_t iFrameIdx = 0;
   int32_t	iTotalFrameMax = -1;
-  int8_t  iDlayerIdx = 0;
   uint8_t* pYUV= NULL;
   SSourcePicture* pSrcPic = NULL;
   int32_t iSourceWidth, iSourceHeight, kiPicResSize;
@@ -961,8 +958,6 @@ int ProcessEncodingSvcWithConfig (ISVCEncoder* pPtrEnc, int argc, char** argv) {
   iFrameIdx = 0;
   while (iFrameIdx < iTotalFrameMax && (((int32_t)sSvcParam.uiFrameToBeCoded <= 0)
                                         || (iFrameIdx < (int32_t)sSvcParam.uiFrameToBeCoded))) {
-    bool bOnePicAvailableAtLeast = false;
-    bool bSomeSpatialUnavailable	  = false;
 
 #ifdef ONLY_ENC_FRAMES_NUM
     // Only encoded some limited frames here
@@ -981,11 +976,11 @@ int ProcessEncodingSvcWithConfig (ISVCEncoder* pPtrEnc, int argc, char** argv) {
     iTotal += WelsTime() - iStart;
 
     // fixed issue in case dismatch source picture introduced by frame skipped, 1/12/2010
-    if (videoFrameTypeSkip == iEncFrames) {
+    if (videoFrameTypeSkip == sFbi.eOutputFrameType) {
       continue;
     }
 
-    if (iEncFrames != videoFrameTypeInvalid && iEncFrames != videoFrameTypeSkip) {
+    if (iEncFrames == cmResultSuccess) {
       int iLayer = 0;
       int iFrameSize = 0;
       while (iLayer < sFbi.iLayerNum) {

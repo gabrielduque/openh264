@@ -13,6 +13,7 @@ BUILDTYPE=Release
 V=Yes
 PREFIX=/usr/local
 SHARED=-shared
+OBJ=o
 
 ifeq (,$(wildcard ./gtest))
 HAVE_GTEST=No
@@ -56,9 +57,7 @@ ifneq ($(V),Yes)
 endif
 
 
-INCLUDES = -Icodec/api/svc -Icodec/common
-#ASM_INCLUDES = -Iprocessing/src/asm/
-ASM_INCLUDES = -Icodec/common/
+INCLUDES = -Icodec/api/svc -Icodec/common/inc
 
 DECODER_INCLUDES = \
     -Icodec/decoder/core/inc \
@@ -80,7 +79,7 @@ GTEST_INCLUDES += \
 CODEC_UNITTEST_INCLUDES += \
     -Igtest/include \
     -Icodec/processing/interface \
-    -Icodec/common \
+    -Icodec/common/inc \
     -Icodec/encoder/core/inc
 
 H264DEC_INCLUDES = $(DECODER_INCLUDES) -Icodec/console/dec/inc
@@ -99,7 +98,7 @@ CODEC_UNITTEST_DEPS = $(LIBPREFIX)gtest.$(LIBSUFFIX) $(LIBPREFIX)decoder.$(LIBSU
 all:	libraries binaries
 
 clean:
-	$(QUIET)rm -f $(OBJS) $(OBJS:.o=.d) $(LIBRARIES) $(BINARIES)
+	$(QUIET)rm -f $(OBJS) $(OBJS:.$(OBJ)=.d) $(LIBRARIES) $(BINARIES)
 
 gtest-bootstrap:
 	svn co https://googletest.googlecode.com/svn/trunk/ gtest
@@ -159,4 +158,4 @@ include build/gtest-targets.mk
 include test/targets.mk
 endif
 
--include $(OBJS:.o=.d)
+-include $(OBJS:.$(OBJ)=.d)

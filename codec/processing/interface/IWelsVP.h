@@ -122,7 +122,8 @@ typedef enum {
   METHOD_NULL              = 0,
   METHOD_COLORSPACE_CONVERT    ,//not support yet
   METHOD_DENOISE              ,
-  METHOD_SCENE_CHANGE_DETECTION ,
+  METHOD_SCENE_CHANGE_DETECTION_VIDEO ,
+  METHOD_SCENE_CHANGE_DETECTION_SCREEN ,
   METHOD_DOWNSAMPLE			  ,
   METHOD_VAA_STATISTICS        ,
   METHOD_BACKGROUND_DETECTION  ,
@@ -142,8 +143,17 @@ typedef enum {
   LARGE_CHANGED_SCENE,    //large changed scene
 } ESceneChangeIdc;
 
+typedef enum {
+  NO_STATIC,  // motion block
+  COLLOCATED_STATIC, // collocated static block
+  SCROLLED_STATIC,  // scrolled static block
+} EStaticBlockIdc;
+
 typedef struct {
   ESceneChangeIdc eSceneChangeIdc; // SIMILAR_SCENE, MEDIUM_CHANGED_SCENE, LARGE_CHANGED_SCENE
+  int             iMotionBlockNum; // Number of motion blocks
+  int             iFrameComplexity; // frame complexity
+  unsigned char * pStaticBlockIdc;  // static block idc
 } SSceneChangeResult;
 
 typedef struct {

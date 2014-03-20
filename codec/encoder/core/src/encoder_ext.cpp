@@ -78,11 +78,6 @@ int32_t ParamValidation (SWelsSvcCodingParam* pCfg) {
   float fMaxFrameRate = 0.0f;
   const float fEpsn = 0.000001f;
   int32_t i = 0;
-  int32_t iLastSpatialWidth	= 0;
-  int32_t	iLastSpatialHeight	= 0;
-  float fLastFrameRateIn	= 0.0f;
-  float fLastFrameRateOut	= 0.0f;
-  SDLayerParam* pLastSpatialParam = NULL;
 
   assert (pCfg != NULL);
 
@@ -116,16 +111,6 @@ int32_t ParamValidation (SWelsSvcCodingParam* pCfg) {
   if (fMaxFrameRate > fEpsn && (fMaxFrameRate - pCfg->fMaxFrameRate > fEpsn
                                 || fMaxFrameRate - pCfg->fMaxFrameRate < -fEpsn)) {
     pCfg->fMaxFrameRate	= fMaxFrameRate;
-  }
-
-  for (i = 0; i < pCfg->iSpatialLayerNum; ++ i) {
-    SDLayerParam* fDlp = &pCfg->sDependencyLayers[i];
-
-    pLastSpatialParam	= fDlp;
-    iLastSpatialWidth	= fDlp->iFrameWidth;
-    iLastSpatialHeight	= fDlp->iFrameHeight;
-    fLastFrameRateIn	= fDlp->fInputFrameRate;
-    fLastFrameRateOut	= fDlp->fOutputFrameRate;
   }
 
   return 0;
@@ -192,10 +177,10 @@ int32_t ParamValidationExt (sWelsEncCtx*pCtx,SWelsSvcCodingParam* pCodingParam) 
     SDLayerParam* fDlp = &pCodingParam->sDependencyLayers[i];
     const int32_t kiPicWidth = fDlp->iFrameWidth;
     const int32_t kiPicHeight = fDlp->iFrameHeight;
-    int32_t iMbWidth		= 0;
-    int32_t iMbHeight		= 0;
+    uint32_t iMbWidth		= 0;
+    uint32_t iMbHeight		= 0;
     int32_t iMbNumInFrame		= 0;
-    int32_t iMaxSliceNum		= MAX_SLICES_NUM;
+    uint32_t iMaxSliceNum		= MAX_SLICES_NUM;
     if (kiPicWidth <= 0 || kiPicHeight <= 0) {
       WelsLog (pCtx, WELS_LOG_ERROR, "ParamValidationExt(), invalid %d x %d in dependency layer settings!\n", kiPicWidth, kiPicHeight);
       return ENC_RETURN_UNSUPPORTED_PARA;
@@ -680,7 +665,6 @@ static inline int32_t InitDqLayers (sWelsEncCtx** ppCtx) {
   SSubsetSps* pSubsetSps			= NULL;
   SWelsPPS* pPps						= NULL;
   CMemoryAlign* pMa				= NULL;
-  SStrideTables* pStrideTab		= NULL;
   int32_t iDlayerCount					= 0;
   int32_t iDlayerIndex					= 0;
   uint32_t iSpsId					= 0;
@@ -696,7 +680,6 @@ static inline int32_t InitDqLayers (sWelsEncCtx** ppCtx) {
   iDlayerCount	= pParam->iSpatialLayerNum;
   iNumRef	= pParam->iNumRefFrame;
 //	highest_layers_in_temporal = 1 + WELS_MAX(pParam->iDecompStages, 1);
-  pStrideTab	= (*ppCtx)->pStrideTab;
 
   iDlayerIndex			= 0;
   while (iDlayerIndex < iDlayerCount) {
@@ -941,10 +924,10 @@ int32_t AllocStrideTables (sWelsEncCtx** ppCtx, const int32_t kiNumSpatialLayers
     int32_t iMbWidth;
     int32_t iCountMbNum;				// count number of SMB in each spatial
     int32_t iSizeAllMbAlignCache;	// cache line size aligned in each spatial
-  } sMbSizeMap[MAX_DEPENDENCY_LAYER] = {0};
-  int32_t iLineSizeY[MAX_DEPENDENCY_LAYER][2] = {0};
-  int32_t iLineSizeUV[MAX_DEPENDENCY_LAYER][2] = {0};
-  int32_t iMapSpatialIdx[MAX_DEPENDENCY_LAYER][2] = {0};
+  } sMbSizeMap[MAX_DEPENDENCY_LAYER] = {{ 0 }};
+  int32_t iLineSizeY[MAX_DEPENDENCY_LAYER][2] = {{ 0 }};
+  int32_t iLineSizeUV[MAX_DEPENDENCY_LAYER][2] = {{ 0 }};
+  int32_t iMapSpatialIdx[MAX_DEPENDENCY_LAYER][2] = {{ 0 }};
   int32_t iSizeDec		= 0;
   int32_t iSizeEnc		= 0;
   int32_t iCountLayersNeedCs[2]	= {0};
@@ -1685,7 +1668,7 @@ void FreeMemorySvc (sWelsEncCtx** ppCtx) {
 
 int32_t InitSliceSettings (SWelsSvcCodingParam* pCodingParam, const int32_t kiCpuCores, int16_t* pMaxSliceCount) {
   int32_t iSpatialIdx = 0, iSpatialNum = pCodingParam->iSpatialLayerNum;
-  int16_t iMaxSliceCount = 0;
+  uint16_t iMaxSliceCount = 0;
 
   do {
     SDLayerParam* pDlp				= &pCodingParam->sDependencyLayers[iSpatialIdx];
@@ -2555,14 +2538,14 @@ static inline void WelsSwapDqLayers (sWelsEncCtx* pCtx) {
 /*!
  * \brief	prefetch reference picture after WelsBuildRefList
  */
-static inline void PrefetchReferencePicture (sWelsEncCtx* pCtx, const EFrameType keFrameType) {
+static inline void PrefetchReferencePicture (sWelsEncCtx* pCtx, const EVideoFrameType keFrameType) {
   SSlice* pSliceBase = &pCtx->pCurDqLayer->sLayerInfo.pSliceInLayer[0];
   const int32_t kiSliceCount = GetCurrentSliceNum (pCtx->pCurDqLayer->pSliceEncCtx);
   int32_t iIdx = 0;
   uint8_t uiRefIdx = -1;
 
   assert (kiSliceCount > 0);
-  if (keFrameType != WELS_FRAME_TYPE_IDR) {
+  if (keFrameType != videoFrameTypeIDR) {
     assert (pCtx->iNumRef0 > 0);
     pCtx->pRefPic	= pCtx->pRefList0[0];	// always get item 0 due to reordering done
     pCtx->pCurDqLayer->pRefPic	= pCtx->pRefPic;
@@ -2876,7 +2859,7 @@ int32_t WelsEncoderEncodeParameterSets (sWelsEncCtx* pCtx, void* pDst) {
  * \pParam	pCtx			sWelsEncCtx*, encoder context
  * \pParam	pFbi			FrameBSInfo*
  * \pParam	pSrcPic			Source Picture
- * \return	EFrameType (WELS_FRAME_TYPE_IDR/WELS_FRAME_TYPE_I/WELS_FRAME_TYPE_P)
+ * \return	EFrameType (videoFrameTypeIDR/videoFrameTypeI/videoFrameTypeP)
  */
 int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo * pFbi, const SSourcePicture* pSrcPic) {
   SLayerBSInfo* pLayerBsInfo					= &pFbi->sLayerInfo[0];
@@ -2897,7 +2880,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo * pFbi, const SSou
   int32_t iNalLen[128]				= {0};
   int32_t iNalIdxInLayer			= 0;
   int32_t iCountNal					= 0;
-  EFrameType eFrameType				= WELS_FRAME_TYPE_AUTO;
+  EVideoFrameType eFrameType				= videoFrameTypeInvalid;
   int32_t iCurWidth					= 0;
   int32_t iCurHeight					= 0;
   EWelsNalUnitType eNalType			= NAL_UNIT_UNSPEC_0;
@@ -2920,12 +2903,12 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo * pFbi, const SSou
   iSpatialNum = pCtx->pVpp->BuildSpatialPicList (pCtx, pSrcPic);
   if (iSpatialNum < 1) {	// skip due to temporal layer settings (different frame rate)
     ++ pCtx->iCodingIndex;
-    pFbi->eOutputFrameType = WELS_FRAME_TYPE_SKIP;
+    pFbi->eOutputFrameType = videoFrameTypeSkip;
     return ENC_RETURN_SUCCESS;
   }
 
   eFrameType = DecideFrameType (pCtx, iSpatialNum);
-  if (eFrameType == WELS_FRAME_TYPE_SKIP) {
+  if (eFrameType == videoFrameTypeSkip) {
     pFbi->eOutputFrameType = eFrameType;
     return ENC_RETURN_SUCCESS;
   }
@@ -2938,7 +2921,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo * pFbi, const SSou
 
   pLayerBsInfo->pBsBuf	= pCtx->pFrameBs ;
 
-  if (eFrameType == WELS_FRAME_TYPE_IDR) {
+  if (eFrameType == videoFrameTypeIDR) {
     ++ pCtx->sPSOVector.uiIdrPicId;
     //if ( pSvcParam->bEnableSSEI )
 
@@ -3023,9 +3006,9 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo * pFbi, const SSou
                                  (pSvcParam->bPrefixNalAddingCtrl ||
                                   (pSvcParam->iSpatialLayerNum > 1)));
 
-    if (eFrameType == WELS_FRAME_TYPE_P) {
+    if (eFrameType == videoFrameTypeP) {
       eNalType	= bAvcBased ? NAL_UNIT_CODED_SLICE : NAL_UNIT_CODED_SLICE_EXT;
-    } else if (eFrameType == WELS_FRAME_TYPE_IDR) {
+    } else if (eFrameType == videoFrameTypeIDR) {
       eNalType	= bAvcBased ? NAL_UNIT_CODED_SLICE_IDR : NAL_UNIT_CODED_SLICE_EXT;
     }
     if (iCurTid == 0 || pCtx->eSliceType == I_SLICE)
@@ -3054,7 +3037,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo * pFbi, const SSou
       ForceCodingIDR (pCtx);
       WelsLog (pCtx, WELS_LOG_WARNING, "WelsEncoderEncodeExt(), WelsBuildRefList failed for P frames, pCtx->iNumRef0= %d. ForceCodingIDR!\n",
                pCtx->iNumRef0);
-      pFbi->eOutputFrameType = WELS_FRAME_TYPE_IDR;
+      pFbi->eOutputFrameType = videoFrameTypeIDR;
       pCtx->iEncoderError = ENC_RETURN_CORRECTED;
       return ENC_RETURN_CORRECTED;
     }
@@ -3355,7 +3338,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo * pFbi, const SSou
              (iSpatialIdx == 0) ? "#AU" : "   ",
              pCtx->iPOC,
              pCtx->iFrameNum,
-             (uiFrameType == WELS_FRAME_TYPE_I || uiFrameType == WELS_FRAME_TYPE_IDR) ? "I" : "P",
+             (uiFrameType == videoFrameTypeI || uiFrameType == videoFrameTypeIDR) ? "I" : "P",
              iCurTid,
              iCurDid,
              0,
@@ -3469,7 +3452,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo * pFbi, const SSou
     }
 
     if (pSvcParam->bEnableLongTermReference && ((pCtx->pLtr[pCtx->uiDependencyId].bLTRMarkingFlag
-        && (pCtx->pLtr[pCtx->uiDependencyId].iLTRMarkMode == LTR_DIRECT_MARK)) || eFrameType == WELS_FRAME_TYPE_IDR)) {
+        && (pCtx->pLtr[pCtx->uiDependencyId].iLTRMarkMode == LTR_DIRECT_MARK)) || eFrameType == videoFrameTypeIDR)) {
       pCtx->bLongTermRefFlag[d_idx][iCurTid] = true;
     }
   }

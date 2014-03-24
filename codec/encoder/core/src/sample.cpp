@@ -110,7 +110,7 @@ int32_t WelsSampleSad16x16_c (uint8_t* pSample1, int32_t iStride1, uint8_t* pSam
 
 int32_t WelsSampleSatd4x4_c (uint8_t* pSample1, int32_t iStride1, uint8_t* pSample2, int32_t iStride2) {
   int32_t iSatdSum = 0;
-  int32_t pSampleMix[4][4] = { 0 };
+  int32_t pSampleMix[4][4] = {{ 0 }};
   int32_t iSample0, iSample1, iSample2, iSample3;
   int32_t i = 0;
   uint8_t* pSrc1 = pSample1;
@@ -463,7 +463,7 @@ void WelsInitSampleSadFunc (SWelsFuncPtrList* pFuncList, uint32_t uiCpuFlag) {
     pFuncList->sSampleDealingFuncs.pfSampleSatd[BLOCK_8x16 ] = WelsSampleSatd8x16_sse2;
     pFuncList->sSampleDealingFuncs.pfSampleSatd[BLOCK_16x8 ] = WelsSampleSatd16x8_sse2;
     pFuncList->sSampleDealingFuncs.pfSampleSatd[BLOCK_16x16] = WelsSampleSatd16x16_sse2;
-    //pFuncList->sSampleDealingFuncs.pfIntra4x4Combined3Satd =  WelsSmpleSatdThree4x4_sse2;
+    //pFuncList->sSampleDealingFuncs.pfIntra4x4Combined3Satd = WelsSampleSatdThree4x4_sse2;
   }
 
   if (uiCpuFlag & WELS_CPU_SSSE3) {

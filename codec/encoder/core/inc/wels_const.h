@@ -167,18 +167,14 @@
 #define UNAVAILABLE_DQ_ID		((uint8_t)(-1))
 #define LAYER_NUM_EXCHANGEABLE	2
 
+#define NAL_HEADER_ADD_0X30BYTES 50
+
 #define MAX_NAL_UNIT_NUM_IN_AU	256	// predefined maximal number of NAL Units in an access unit
 #define MAX_ACCESS_UINT_CAPACITY	(1<<20)	// Maximal AU capacity in bytes: 1024 KB predefined
 #define MAX_ACCESS_UNIT_CACHE_NUM	2	// Maximal Access Unit(AU) cache number to be processed, denote current AU and the next coming AU.
 enum {
   CUR_AU_IDX	= 0,			// index symbol for current access unit
   SUC_AU_IDX	= 1				// index symbol for successive access unit
-};
-
-enum {
-  BASE_MB = 0,
-  AVC_REWRITE_ENHANCE_MB = 1,
-  NON_AVC_REWRITE_ENHANCE_MB = 2
 };
 
 enum {

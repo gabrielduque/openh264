@@ -17,7 +17,7 @@ else ifeq ($(ARCH), x86)
     APP_ABI = x86
     TOOLCHAINPREFIX = $(shell NDK_PROJECT_PATH=./codec/build/android/dec make --no-print-dir -f $(NDKROOT)/build/core/build-local.mk DUMP_TOOLCHAIN_PREFIX APP_ABI=x86)
   ifeq (Yes, $(USE_ASM))
-    ASMFLAGS += -DNOPREFIX -f elf32
+    ASMFLAGS += -f elf32
   endif
 else
     APP_ABI = $(ARCH)
@@ -57,7 +57,7 @@ encdemo: libraries
 	cd ./codec/build/android/enc && $(NDKROOT)/ndk-build -B APP_ABI=$(APP_ABI) && android update project -t $(TARGET) -p . && ant debug
 
 COMMON_INCLUDES += -I$(NDKROOT)/sources/android/cpufeatures
-COMMON_OBJS += $(COMMON_SRCDIR)/cpu-features.o
+COMMON_OBJS += $(COMMON_SRCDIR)/cpu-features.$(OBJ)
 
-codec/common/cpu-features.o: $(NDKROOT)/sources/android/cpufeatures/cpu-features.c
+codec/common/cpu-features.$(OBJ): $(NDKROOT)/sources/android/cpufeatures/cpu-features.c
 	$(QUIET_CC)$(CC) $(CFLAGS) $(INCLUDES) $(COMMON_CFLAGS) $(COMMON_INCLUDES) -c $(CXX_O) $<

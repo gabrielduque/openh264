@@ -33,7 +33,7 @@
 #ifdef HAVE_NEON
 .text
 #include "arm_arch_common_macro.S"
-#ifdef APPLE_IOS
+#ifdef __APPLE__
 
 .macro	ROW_TRANSFORM_1_STEP
 //	{	//	input: src_d[0]~[3], output: e_q[0]~[3]; working: $8 $9
@@ -116,54 +116,14 @@ WELS_ASM_FUNC_BEGIN SetNonZeroCount_neon
 WELS_ASM_FUNC_END
 
 
-//	r0 int16_t * block,
-//	r1	int32_t stride
-WELS_ASM_FUNC_BEGIN WelsResBlockZero16x16_neon// can use for 256*sizeof(int16_t)
-	push		{r2}
-	mov			r2, #16
-// each row 16 elements, 16*sizeof(int16_t)
-//	memset(ptr_dest, 0, 16*sizeof(int16_t));
-//	ptr_dest += stride;
-	lsl			r1, r1, #1	// r1 = 2*r1
-	veor.i16	q0, q0, q0
-	veor.i16	q1, q1, q1
-
-block_zero_16x16_luma_loop:
-	vst1.i16	{q0, q1}, [r0], r1
-	subs		r2,	r2, #2
-	vst1.i16	{q0, q1}, [r0], r1
-	bne			block_zero_16x16_luma_loop
-
-	pop		{r2}
-WELS_ASM_FUNC_END
-
-WELS_ASM_FUNC_BEGIN WelsResBlockZero8x8_neon// can use for 64*sizeof(int16_t)
-	push		{r2}
-	mov			r2, #8
-// each row 8 elements, 8*sizeof(int16_t)
-//	memset(ptr_dest, 0, 8*sizeof(int16_t));
-//	ptr_dest += stride;
-	lsl			r1, r1, #1
-	veor.i16	q0, q0, q0
-
-block_zero_8x8_chma_loop:
-	vst1.i16	{q0}, [r0], r1
-	subs		r2,	r2, #2
-	vst1.i16	{q0}, [r0], r1
-	bne			block_zero_8x8_chma_loop
-
-	pop		{r2}
-WELS_ASM_FUNC_END
-
-
 //	uint8_t *pred, const int32_t stride, int16_t *rs
 WELS_ASM_FUNC_BEGIN IdctResAddPred_neon
 
 	vld4.s16		{d0, d1, d2, d3}, [r2]		// cost 3 cycles!
 
-	ROW_TRANSFORM_1_STEP		d0, d1, d2, d3, q4, q5, q6, q7, d4, d5
+	ROW_TRANSFORM_1_STEP		d0, d1, d2, d3, q8, q9, q10, q11, d4, d5
 
-	TRANSFORM_4BYTES		q0, q1, q2, q3, q4, q5, q6, q7
+	TRANSFORM_4BYTES		q0, q1, q2, q3, q8, q9, q10, q11
 
 	// transform element 32bits
 	vtrn.s32		q0, q1				//[0 1 2 3]+[4 5 6 7]-->[0 4 2 6]+[1 5 3 7]
@@ -171,33 +131,33 @@ WELS_ASM_FUNC_BEGIN IdctResAddPred_neon
 	vswp			d1, d4				//[0 4 2 6]+[8 12 10 14]-->[0 4 8 12]+[2 6 10 14]
 	vswp			d3, d6				//[1 5 3 7]+[9 13 11 15]-->[1 5 9 13]+[3 7 11 15]
 
-	COL_TRANSFORM_1_STEP		q0, q1, q2, q3, q4, q5, q6, q7
+	COL_TRANSFORM_1_STEP		q0, q1, q2, q3, q8, q9, q10, q11
 
-	TRANSFORM_4BYTES		q0, q1, q2, q3, q4, q5, q6, q7
+	TRANSFORM_4BYTES		q0, q1, q2, q3, q8, q9, q10, q11
 
 	//after clip_table[MAX_NEG_CROP] into [0, 255]
 	mov			r2, r0
-	vld1.32		{d12[0]},[r0],r1
-	vld1.32		{d12[1]},[r0],r1
-	vld1.32		{d14[0]},[r0],r1
-	vld1.32		{d14[1]},[r0]
+	vld1.32		{d20[0]},[r0],r1
+	vld1.32		{d20[1]},[r0],r1
+	vld1.32		{d22[0]},[r0],r1
+	vld1.32		{d22[1]},[r0]
 
-	vrshrn.s32		d8, q0, #6
-	vrshrn.s32		d9, q1, #6
-	vrshrn.s32		d10, q2, #6
-	vrshrn.s32		d11, q3, #6
+	vrshrn.s32		d16, q0, #6
+	vrshrn.s32		d17, q1, #6
+	vrshrn.s32		d18, q2, #6
+	vrshrn.s32		d19, q3, #6
 
-	vmovl.u8		q0,d12
-	vmovl.u8		q1,d14
-	vadd.s16		q0,q4
-	vadd.s16		q1,q5
+	vmovl.u8		q0,d20
+	vmovl.u8		q1,d22
+	vadd.s16		q0,q8
+	vadd.s16		q1,q9
 
-	vqmovun.s16		d12,q0
-	vqmovun.s16		d14,q1
+	vqmovun.s16		d20,q0
+	vqmovun.s16		d22,q1
 
-	vst1.32		{d12[0]},[r2],r1
-	vst1.32		{d12[1]},[r2],r1
-	vst1.32		{d14[0]},[r2],r1
-	vst1.32		{d14[1]},[r2]
+	vst1.32		{d20[0]},[r2],r1
+	vst1.32		{d20[1]},[r2],r1
+	vst1.32		{d22[0]},[r2],r1
+	vst1.32		{d22[1]},[r2]
 WELS_ASM_FUNC_END
 #endif

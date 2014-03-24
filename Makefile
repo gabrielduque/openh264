@@ -13,6 +13,7 @@ BUILDTYPE=Release
 V=Yes
 PREFIX=/usr/local
 SHARED=-shared
+OBJ=o
 
 ifeq (,$(wildcard ./gtest))
 HAVE_GTEST=No
@@ -40,8 +41,15 @@ include build/platform-$(OS).mk
 CFLAGS += -DNO_DYNAMIC_VP
 LDFLAGS +=
 
+
 FIREFOX_DIR=/Users/ekr/dev/gecko/gmp
 FIREFOX_OBJ=/Users/ekr/dev/gecko/gmp/obj-x86_64-apple-darwin12.5.0/
+
+ifeq (Yes, $(GCOV))
+CFLAGS += -fprofile-arcs -ftest-coverage
+LDFLAGS += -lgcov
+endif
+
 
 #### No user-serviceable parts below this line
 ifneq ($(V),Yes)
@@ -54,9 +62,7 @@ ifneq ($(V),Yes)
 endif
 
 
-INCLUDES = -Icodec/api/svc -Icodec/common
-#ASM_INCLUDES = -Iprocessing/src/asm/
-ASM_INCLUDES = -Icodec/common/
+INCLUDES = -Icodec/api/svc -Icodec/common/inc
 
 DECODER_INCLUDES = \
     -Icodec/decoder/core/inc \
@@ -76,7 +82,10 @@ GTEST_INCLUDES += \
     -Igtest/include
 
 CODEC_UNITTEST_INCLUDES += \
-    -Igtest/include
+    -Igtest/include \
+    -Icodec/processing/interface \
+    -Icodec/common/inc \
+    -Icodec/encoder/core/inc
 
 H264DEC_INCLUDES = $(DECODER_INCLUDES) -Icodec/console/dec/inc
 H264DEC_LDFLAGS = -L. $(call LINK_LIB,decoder) $(call LINK_LIB,common)
@@ -97,7 +106,7 @@ MODULE_CFLAGS = -arch x86_64 -std=c++11
 all:	libraries binaries
 
 clean:
-	$(QUIET)rm -f $(OBJS) $(OBJS:.o=.d) $(LIBRARIES) $(BINARIES)
+	$(QUIET)rm -f $(OBJS) $(OBJS:.$(OBJ)=.d) $(LIBRARIES) $(BINARIES)
 
 gtest-bootstrap:
 	svn co https://googletest.googlecode.com/svn/trunk/ gtest
@@ -166,4 +175,4 @@ include build/gtest-targets.mk
 include test/targets.mk
 endif
 
--include $(OBJS:.o=.d)
+-include $(OBJS:.$(OBJ)=.d)

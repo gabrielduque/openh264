@@ -39,10 +39,26 @@
  */
 
 
-
+#include "sample.h"
 #include "svc_motion_estimate.h"
 
 namespace WelsSVCEnc {
+
+inline void UpdateMeResults( const SMVUnitXY ksBestMv, const uint32_t kiBestSadCost, uint8_t* pRef, SWelsME * pMe )
+{
+  pMe->sMv = ksBestMv;
+  pMe->pRefMb = pRef;
+  pMe->uiSadCost = kiBestSadCost;
+}
+inline void SvcMeEndSearch( SWelsME * pMe, const uint32_t kuiBestSadCost )
+{
+    /* -> qpel mv */
+    pMe->sMv.iMvX <<= 2;
+    pMe->sMv.iMvY <<= 2;
+    pMe->uiSatdCost = kuiBestSadCost;
+}
+
+
 /*!
  * \brief	BL mb motion estimate search
  *
@@ -52,7 +68,7 @@ namespace WelsSVCEnc {
  * \return	NONE
  */
 
-void WelsMotionEstimateSearchSatd (SWelsFuncPtrList* pFuncList, void* pLplayer, void* pLpme, void* pLpslice) {
+void WelsMotionEstimateSearch (SWelsFuncPtrList* pFuncList, void* pLplayer, void* pLpme, void* pLpslice) {
   SDqLayer* pCurDqLayer			= (SDqLayer*)pLplayer;
   SWelsME* pMe						= (SWelsME*)pLpme;
   SSlice* pSlice					= (SSlice*)pLpslice;
@@ -60,24 +76,11 @@ void WelsMotionEstimateSearchSatd (SWelsFuncPtrList* pFuncList, void* pLplayer, 
   int32_t iStrideRef = pCurDqLayer->pRefPic->iLineSize[0];
 
   //  Step 1: Initial point prediction
-  WelsMotionEstimateInitialPoint (pFuncList, pMe, pSlice, iStrideEnc, iStrideRef);
+  if ( !WelsMotionEstimateInitialPoint (pFuncList, pMe, pSlice, iStrideEnc, iStrideRef) ) {
+    WelsMotionEstimateIterativeSearch (pFuncList, pMe, iStrideEnc, iStrideRef, pMe->pRefMb);
+  }
 
-  pMe->uSadPredISatd.uiSatd = pFuncList->sSampleDealingFuncs.pfSampleSatd[pMe->uiPixel] (pMe->pEncMb, iStrideEnc,
-                              pMe->pRefMb, iStrideRef);
-  pMe->uiSatdCost = pMe->uSadPredISatd.uiSatd + COST_MVD (pMe->pMvdCost, pMe->sMv.iMvX - pMe->sMvp.iMvX,
-                    pMe->sMv.iMvY - pMe->sMvp.iMvY);
-}
-
-
-void WelsMotionEstimateSearchSad (SWelsFuncPtrList* pFuncList, void* pLplayer, void* pLpme, void* pLpslice) {
-  SDqLayer* pCurDqLayer			= (SDqLayer*)pLplayer;
-  SWelsME* pMe						= (SWelsME*)pLpme;
-  SSlice* slice					= (SSlice*)pLpslice;
-  int32_t iStrideEnc			= pCurDqLayer->iEncStride[0];
-  int32_t iStrideRef			= pCurDqLayer->pRefPic->iLineSize[0];
-
-  //  Step 1: Initial point prediction
-  WelsMotionEstimateInitialPoint (pFuncList, pMe, slice, iStrideEnc, iStrideRef);
+  pFuncList->pfCalculateSatd( pFuncList->sSampleDealingFuncs.pfSampleSatd[pMe->uiPixel], pMe, iStrideEnc, iStrideRef );
 }
 
 /*!
@@ -90,7 +93,7 @@ void WelsMotionEstimateSearchSad (SWelsFuncPtrList* pFuncList, void* pLplayer, v
  *
  * \return	NONE
  */
-void WelsMotionEstimateInitialPoint (SWelsFuncPtrList* pFuncList, SWelsME* pMe, SSlice* pSlice, int32_t iStrideEnc,
+bool WelsMotionEstimateInitialPoint (SWelsFuncPtrList* pFuncList, SWelsME* pMe, SSlice* pSlice, int32_t iStrideEnc,
                                      int32_t iStrideRef) {
   PSampleSadSatdCostFunc pSad		= pFuncList->sSampleDealingFuncs.pfSampleSad[pMe->uiPixel];
   const uint16_t* kpMvdCost	= pMe->pMvdCost;
@@ -103,15 +106,15 @@ void WelsMotionEstimateInitialPoint (SWelsFuncPtrList* pFuncList, SWelsME* pMe, 
   uint32_t i;
   const uint32_t kuiMvcNum		= pSlice->uiMvcNum;
   const SMVUnitXY* kpMvcList	= &pSlice->sMvc[0];
-  const SMVUnitXY ksMvMin		= pSlice->sMvMin;
-  const SMVUnitXY ksMvMax		= pSlice->sMvMax;
+  const SMVUnitXY ksMvStartMin		= pSlice->sMvStartMin;
+  const SMVUnitXY ksMvStartMax		= pSlice->sMvStartMax;
   const SMVUnitXY ksMvp		= pMe->sMvp;
   SMVUnitXY sMv;
 
   //  Step 1: Initial point prediction
   // init with sMvp
-  sMv.iMvX	= WELS_CLIP3 ((2 + ksMvp.iMvX) >> 2, ksMvMin.iMvX, ksMvMax.iMvX);
-  sMv.iMvY	= WELS_CLIP3 ((2 + ksMvp.iMvY) >> 2, ksMvMin.iMvY, ksMvMax.iMvY);
+  sMv.iMvX	= WELS_CLIP3 ((2 + ksMvp.iMvX) >> 2, ksMvStartMin.iMvX, ksMvStartMax.iMvX);
+  sMv.iMvY	= WELS_CLIP3 ((2 + ksMvp.iMvY) >> 2, ksMvStartMin.iMvY, ksMvStartMax.iMvY);
 
   pRefMb = &pMe->pRefMb[sMv.iMvY * iStrideRef + sMv.iMvX];
 
@@ -120,8 +123,8 @@ void WelsMotionEstimateInitialPoint (SWelsFuncPtrList* pFuncList, SWelsME* pMe, 
 
   for (i = 0; i < kuiMvcNum; i++) {
     //clipping here is essential since some pOut-of-range MVC may happen here (i.e., refer to baseMV)
-    iMvc0 = WELS_CLIP3 ((2 + kpMvcList[i].iMvX) >> 2, ksMvMin.iMvX, ksMvMax.iMvX);
-    iMvc1 = WELS_CLIP3 ((2 + kpMvcList[i].iMvY) >> 2, ksMvMin.iMvY, ksMvMax.iMvY);
+    iMvc0 = WELS_CLIP3 ((2 + kpMvcList[i].iMvX) >> 2, ksMvStartMin.iMvX, ksMvStartMax.iMvX);
+    iMvc1 = WELS_CLIP3 ((2 + kpMvcList[i].iMvY) >> 2, ksMvStartMin.iMvY, ksMvStartMax.iMvY);
 
     if (((iMvc0 - sMv.iMvX) || (iMvc1 - sMv.iMvY))) {
       pFref2 = &pMe->pRefMb[iMvc1 * iStrideRef + iMvc0];
@@ -138,21 +141,20 @@ void WelsMotionEstimateInitialPoint (SWelsFuncPtrList* pFuncList, SWelsME* pMe, 
     }
   }
 
-  pMe->sMv = sMv;
-  pMe->uiSadCost = iBestSadCost;
-  if (iBestSadCost < pMe->uSadPredISatd.uiSadPred) {
-    //  Step 2: Initial early Stop
-    /* -> qpel mv */
-    pMe->sMv.iMvX <<= 2;
-    pMe->sMv.iMvY <<= 2;
-    /* -> pRef */
-    pMe->pRefMb = pRefMb;
-    /* compute the real cost */
-    pMe->uiSatdCost = iBestSadCost;
-  } else {
-    //  Step 3: Fast search pattern
-    WelsMotionEstimateIterativeSearch (pFuncList, pMe, iStrideEnc, iStrideRef, pRefMb);
+  if ( pFuncList->pfCheckDirectionalMv
+    (pSad, pMe, ksMvStartMin, ksMvStartMax, iStrideEnc, iStrideRef, iSadCost) ) {
+      sMv = pMe->sDirectionalMv;
+      pRefMb =  &pMe->pColoRefMb[sMv.iMvY * iStrideRef + sMv.iMvX];
+      iBestSadCost = iSadCost;
   }
+
+  UpdateMeResults( sMv, iBestSadCost, pRefMb, pMe );
+  if ( iBestSadCost < static_cast<int32_t>(pMe->uSadPredISatd.uiSadPred) ) {
+    //Initial point early Stop
+    SvcMeEndSearch(pMe, iBestSadCost);
+    return true;
+  }
+  return false;
 }
 
 bool WelsMeSadCostSelect (int32_t* iSadCost, const uint16_t* kpMvdCost, int32_t* pBestCost, const int32_t kiDx,
@@ -229,6 +231,50 @@ void WelsMotionEstimateIterativeSearch (SWelsFuncPtrList* pFuncList, SWelsME* pM
   pMe->sMv.iMvY = (iMvDy + pMe->sMvp.iMvY) & 0xFFFC;
   pMe->uiSatdCost = pMe->uiSadCost = (iBestCost);
   pMe->pRefMb = pRefMb;
+}
+
+void CalculateSatdCost( PSampleSadSatdCostFunc pSatd, void * vpMe, const int32_t kiEncStride, const int32_t kiRefStride )
+{
+  SWelsME* pMe						 = static_cast<SWelsME *>(vpMe);
+  pMe->uSadPredISatd.uiSatd = pSatd(pMe->pEncMb, kiEncStride, pMe->pRefMb, kiRefStride);
+  pMe->uiSatdCost = pMe->uSadPredISatd.uiSatd + COST_MVD (pMe->pMvdCost, pMe->sMv.iMvX - pMe->sMvp.iMvX,
+                                                            pMe->sMv.iMvY - pMe->sMvp.iMvY);
+}
+void NotCalculateSatdCost( PSampleSadSatdCostFunc pSatd, void * vpMe, const int32_t kiEncStride, const int32_t kiRefStride )
+{
+}
+
+
+bool CheckDirectionalMv(PSampleSadSatdCostFunc pSad, void * vpMe,
+                      const SMVUnitXY ksMinMv, const SMVUnitXY ksMaxMv, const int32_t kiEncStride, const int32_t kiRefStride,
+                      int32_t& iBestSadCost)
+{
+  SWelsME* pMe						 = static_cast<SWelsME *>(vpMe);
+  const int16_t kiMvX = pMe->sDirectionalMv.iMvX;
+  const int16_t kiMvY = pMe->sDirectionalMv.iMvY;
+
+  //Check MV from scrolling detection
+  if ( (BLOCK_16x16!=pMe->uiPixel) //scrolled_MV with P16x16 is checked SKIP checking function
+    && ( kiMvX | kiMvY ) //(0,0) checked in ordinary initial point checking
+    && CheckMvInRange( pMe->sDirectionalMv, ksMinMv, ksMaxMv ) )
+  {
+    uint8_t* pRef = &pMe->pColoRefMb[kiMvY * kiRefStride + kiMvX];
+    uint32_t uiCurrentSadCost = pSad( pMe->pEncMb, kiEncStride,  pRef, kiRefStride ) +
+      COST_MVD(pMe->pMvdCost, (kiMvX<<2) - pMe->sMvp.iMvX, (kiMvY<<2) - pMe->sMvp.iMvY );
+    if( uiCurrentSadCost < pMe->uiSadCost )
+    {
+      iBestSadCost = uiCurrentSadCost;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool CheckDirectionalMvFalse(PSampleSadSatdCostFunc pSad, void * vpMe,
+                      const SMVUnitXY ksMinMv, const SMVUnitXY ksMaxMv, const int32_t kiEncStride, const int32_t kiRefStride,
+                      int32_t& iBestSadCost)
+{
+  return false;
 }
 
 } // namespace WelsSVCEnc

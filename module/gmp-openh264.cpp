@@ -146,9 +146,9 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
       return GMPVideoGenericErr;
     }
 
-    SEncParamExt param;
+    SEncParamBase param;
     memset(&param, 0, sizeof(param));
-    encoder_->GetDefaultParams(&param);
+    //encoder_->GetDefaultParams(&param);
 
     GMPLOG(GL_INFO, "Initializing encoder at "
             << codecSettings.mWidth
@@ -160,17 +160,17 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
            << maxPayloadSize);
 
     // Translate parameters.
+    param.iUsageType = 0;
     param.iPicWidth = codecSettings.mWidth;
     param.iPicHeight = codecSettings.mHeight;
     param.iTargetBitrate = codecSettings.mStartBitrate * 1000;
-    param.iTemporalLayerNum = 1;
-    param.iSpatialLayerNum = 1;
-    param.bEnableRc=1;
+    param.iRCMode = 1;
 
     // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
     param.fMaxFrameRate = codecSettings.mMaxFramerate;
     param.iInputCsp = videoFormatI420;
-
+    
+    /*
     // Set up layers. Currently we have one layer.
     auto layer = &param.sSpatialLayers[0];
 
@@ -183,8 +183,9 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     layer->sSliceCfg.sSliceArgument.uiSliceMbNum[0] = 1000;
     layer->sSliceCfg.sSliceArgument.uiSliceNum = 1;
     layer->sSliceCfg.sSliceArgument.uiSliceSizeConstraint = 1000;
+    */
 
-    rv = encoder_->InitializeExt(&param);
+    rv = encoder_->Initialize(&param);
     if (rv) {
       GMPLOG(GL_ERROR, "Couldn't initialize encoder");
       return GMPVideoGenericErr;

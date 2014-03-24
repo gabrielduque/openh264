@@ -160,16 +160,16 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
            << maxPayloadSize);
 
     // Translate parameters.
-    param.iUsageType = 0;
+    param.iUsageType = CAMERA_VIDEO_REAL_TIME;
     param.iPicWidth = codecSettings.mWidth;
     param.iPicHeight = codecSettings.mHeight;
     param.iTargetBitrate = codecSettings.mStartBitrate * 1000;
-    param.iRCMode = 1;
+    param.iRCMode = RC_BITRATE_MODE;
 
     // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
     param.fMaxFrameRate = codecSettings.mMaxFramerate;
     param.iInputCsp = videoFormatI420;
-    
+
     /*
     // Set up layers. Currently we have one layer.
     auto layer = &param.sSpatialLayers[0];
@@ -254,13 +254,17 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
 
     const SSourcePicture* pics = &src;
 
-    int type = encoder_->EncodeFrame(pics, &encoded);
+    int result = encoder_->EncodeFrame(pics, &encoded);
+    if (result != cmResultSuccess) {
+      GMPLOG(GL_ERROR, "Couldn't encode frame. Error = " << result);
+    }
+
 
     // Translate int to enum
     GMPVideoFrameType encoded_type;
     bool has_frame = false;
 
-    switch (type) {
+    switch (encoded.eOutputFrameType) {
       case videoFrameTypeIDR:
         encoded_type = kGMPDeltaFrame;
         has_frame = true;
@@ -278,7 +282,8 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
         break;
       case videoFrameTypeIPMixed://this type is currently not suppported
       case videoFrameTypeInvalid:
-        GMPLOG(GL_ERROR, "Couldn't encode frame. Error = " << type);
+        GMPLOG(GL_ERROR, "Couldn't encode frame. Type = "
+               << encoded.eOutputFrameType);
         break;
       default:
         // The API is defined as returning a type.

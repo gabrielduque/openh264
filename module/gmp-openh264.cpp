@@ -7,6 +7,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <sys/time.h>
 
 #include "gmp-platform.h"
 #include "gmp-video-host.h"
@@ -28,7 +29,7 @@
 #define PUBLIC_FUNC
 #endif
 
-static int g_log_level = 2;
+static int g_log_level = 3;
 
 #define GMPLOG(l, x) do { \
         if (l <= g_log_level) { \
@@ -86,9 +87,12 @@ class FrameStats {
       last_time_(start_time_),
       type_(type) {}
 
-  void FrameIn() {
+  void FrameIn(const int64_t timestamp) {
     ++frames_in_;
-    time_t now = time(0);
+    cur_frame_timestamp_ = timestamp;
+    gettimeofday(&cur_time_, NULL);
+    time_t now = cur_time_.tv_sec;//time(0);
+    GMPLOG(GL_DEBUG, type_ << ": Current Frame (t=" << timestamp << ") Input Time:" << now << " . " << cur_time_.tv_usec/1000);
 
     if (now == last_time_)
       return;
@@ -103,8 +107,17 @@ class FrameStats {
     }
   }
 
-  void FrameOut() {
+  void FrameOut(const int frame_type) {
     ++frames_out_;
+    
+    {
+      struct timeval end_time_;
+      gettimeofday(&end_time_, NULL);
+      GMPLOG(GL_DEBUG, type_ << ": Current Frame (t=" << cur_frame_timestamp_ << "f=" << frame_type << ")"
+             << "Elapse (ms):"
+             << ((end_time_.tv_sec - cur_time_.tv_sec)*1000 + (end_time_.tv_usec - cur_time_.tv_usec)/1000)
+             );
+    }
   }
 
  private:
@@ -113,6 +126,8 @@ class FrameStats {
   time_t start_time_;
   time_t last_time_;
   const std::string type_;
+  int64_t cur_frame_timestamp_;
+  struct timeval cur_time_;
 };
 
 class OpenH264VideoEncoder : public GMPVideoEncoder
@@ -207,7 +222,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
            << " size="
            << inputImage->Width() << "x" << inputImage->Height());
 
-    stats_.FrameIn();
+    stats_.FrameIn(inputImage->Timestamp());
 
 #if 0
     // TODO(josh): this is empty.
@@ -266,7 +281,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
 
     switch (encoded.eOutputFrameType) {
       case videoFrameTypeIDR:
-        encoded_type = kGMPDeltaFrame;
+        encoded_type = kGMPKeyFrame;
         has_frame = true;
         break;
       case videoFrameTypeI:
@@ -362,7 +377,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     memset(&info, 0, sizeof(info));
     callback_->Encoded(f, info);
 
-    stats_.FrameOut();
+    stats_.FrameOut(frame_type);
   }
 
   virtual GMPVideoErr SetChannelParameters(uint32_t aPacketLoss, uint32_t aRTT) override {
@@ -450,7 +465,7 @@ public:
     GMPLOG(GL_DEBUG, __FUNCTION__
            << "Decoding frame size=" << inputFrame->Size()
            << " timestamp=" << inputFrame->TimeStamp());
-    stats_.FrameIn();
+    stats_.FrameIn(inputFrame->TimeStamp());
 
     worker_thread_->Post(WrapTask(
         this, &OpenH264VideoDecoder::Decode_w,
@@ -566,7 +581,7 @@ private:
     frame->SetRenderTime_ms(renderTimeMs);
     callback_->Decoded(frame);
 
-    stats_.FrameOut();
+    stats_.FrameOut(inputFrame->FrameType());
   }
 
   GMPVideoHost* host_;

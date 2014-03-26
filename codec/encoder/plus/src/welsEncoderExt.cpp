@@ -1054,13 +1054,22 @@ int CWelsH264SVCEncoder::GetOption (ENCODER_OPTION eOptionId, void* pOption) {
              m_uiCountFrameNum, m_iCspInternal);
 #endif//REC_FRAME_COUNT
     SBitrateInfo*pInfo = (static_cast<SBitrateInfo *>(pOption));
-    if((pInfo->iLayer!=SPATIAL_LAYER_ALL)||(pInfo->iLayer!=SPATIAL_LAYER_0)||(pInfo->iLayer!=SPATIAL_LAYER_1)||(pInfo->iLayer!=SPATIAL_LAYER_2)||(pInfo->iLayer!=SPATIAL_LAYER_3))
+    printf("ENCODER_OPTION_BITRATE: layer=%d\n",pInfo->iLayer);
+    if((pInfo->iLayer!=SPATIAL_LAYER_ALL)
+       &&(pInfo->iLayer!=SPATIAL_LAYER_0)
+       &&(pInfo->iLayer!=SPATIAL_LAYER_1)
+       &&(pInfo->iLayer!=SPATIAL_LAYER_2)
+       &&(pInfo->iLayer!=SPATIAL_LAYER_3))
         return cmInitParaError;
+    printf("ENCODER_OPTION_BITRATE: before getting layer %d\n",pInfo->iLayer);
+
     if(pInfo->iLayer == SPATIAL_LAYER_ALL){
       pInfo->iBitrate = m_pEncContext->pSvcParam->iTargetBitrate;
     }else{
       pInfo->iBitrate = m_pEncContext->pSvcParam->sSpatialLayers[pInfo->iLayer].iSpatialBitrate;
 	}
+        printf("ENCODER_OPTION_BITRATE: getting br = %d\n",pInfo->iBitrate);
+
   }
   break;
   case ENCODER_OPTION_MAX_BITRATE: {	// Target bit-rate
@@ -1069,7 +1078,11 @@ int CWelsH264SVCEncoder::GetOption (ENCODER_OPTION eOptionId, void* pOption) {
 	          m_uiCountFrameNum, m_iCspInternal);
 #endif//REC_FRAME_COUNT
     SBitrateInfo*pInfo = (static_cast<SBitrateInfo *>(pOption));
-	if((pInfo->iLayer!=SPATIAL_LAYER_ALL)||(pInfo->iLayer!=SPATIAL_LAYER_0)||(pInfo->iLayer!=SPATIAL_LAYER_1)||(pInfo->iLayer!=SPATIAL_LAYER_2)||(pInfo->iLayer!=SPATIAL_LAYER_3))
+	if((pInfo->iLayer!=SPATIAL_LAYER_ALL)
+     &&(pInfo->iLayer!=SPATIAL_LAYER_0)
+     &&(pInfo->iLayer!=SPATIAL_LAYER_1)
+     &&(pInfo->iLayer!=SPATIAL_LAYER_2)
+     &&(pInfo->iLayer!=SPATIAL_LAYER_3))
 	  return cmInitParaError;
 	if(pInfo->iLayer == SPATIAL_LAYER_ALL){
       pInfo->iBitrate = m_pEncContext->pSvcParam->iMaxBitrate;

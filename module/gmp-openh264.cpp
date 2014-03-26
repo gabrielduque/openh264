@@ -178,7 +178,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     param.iUsageType = CAMERA_VIDEO_REAL_TIME;
     param.iPicWidth = codecSettings.mWidth;
     param.iPicHeight = codecSettings.mHeight;
-    param.iTargetBitrate = codecSettings.mMinBitrate * 1000;
+    param.iTargetBitrate = codecSettings.mStartBitrate * 1000;
     GMPLOG(GL_INFO, "Initializing Bit Rate at: Start: "
            << codecSettings.mStartBitrate
            << "; Min: "
@@ -402,20 +402,33 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     SBitrateInfo existEncoderBitRate;
     existEncoderBitRate.iLayer = SPATIAL_LAYER_ALL;
     int rv = encoder_->GetOption(ENCODER_OPTION_BITRATE, &existEncoderBitRate);
+    if (rv!=cmResultSuccess) {
+      GMPLOG(GL_ERROR, "Error in Getting Bit Rate: Layer"
+             << existEncoderBitRate.iLayer
+             << "; BR= "
+             << existEncoderBitRate.iBitrate );
+      return GMPVideoGenericErr;
+    }
     if ( rv==cmResultSuccess && existEncoderBitRate.iBitrate!=newBitRate ) {
       SBitrateInfo newEncoderBitRate;
       newEncoderBitRate.iLayer = SPATIAL_LAYER_ALL;
       newEncoderBitRate.iBitrate = newBitRate;
       rv = encoder_->SetOption(ENCODER_OPTION_BITRATE, &newEncoderBitRate);
-      GMPLOG(GL_INFO, "Update Encoder Bandwidth (AllLayers): ReturnValue: "
+      if (rv==cmResultSuccess) {
+        GMPLOG(GL_INFO, "Update Encoder Bandwidth (AllLayers): ReturnValue: "
                 << rv
                 << "BitRate(kbps): "
                 << aNewBitRate);
+      }
+      else {
+        GMPLOG(GL_ERROR, "Error in Setting Bit Rate: Layer"
+               << newEncoderBitRate.iLayer
+               << "; BR= "
+               << newEncoderBitRate.iBitrate );
+        return GMPVideoGenericErr;
+      }
     }
-    if (rv!=cmResultSuccess) {
-      GMPLOG(GL_ERROR, "Error in Setting Bit Rate");
-      return GMPVideoGenericErr;
-    }
+
     
     //update framerate if needed
     float existFrameRate = 0;

@@ -42,8 +42,8 @@ CFLAGS += -DNO_DYNAMIC_VP
 LDFLAGS +=
 
 
-FIREFOX_DIR=/Users/ekr/dev/gecko/gmp
-FIREFOX_OBJ=/Users/ekr/dev/gecko/gmp/obj-x86_64-apple-darwin12.5.0/
+FIREFOX_DIR=/Volumes/Work/sijia/gecko-dev
+FIREFOX_OBJ=/Volumes/Work/sijia/gecko-dev/obj-x86_64-apple-darwin12.5.0/
 
 ifeq (Yes, $(GCOV))
 CFLAGS += -fprofile-arcs -ftest-coverage

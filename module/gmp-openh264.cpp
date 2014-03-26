@@ -178,7 +178,9 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     param.iUsageType = CAMERA_VIDEO_REAL_TIME;
     param.iPicWidth = codecSettings.mWidth;
     param.iPicHeight = codecSettings.mHeight;
-    param.iTargetBitrate = codecSettings.mStartBitrate * 1000;
+    param.iTargetBitrate =
+        (codecSettings.mStartBitrate + codecSettings.mMaxBitrate) * 500;
+    
     param.iRCMode = RC_BITRATE_MODE;
 
     // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.

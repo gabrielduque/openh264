@@ -394,7 +394,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
 
   virtual GMPVideoErr SetRates(uint32_t aNewBitRate, uint32_t aFrameRate) override {
     printf("%s\n", __PRETTY_FUNCTION__);
-    GMPLOG(GL_INFO, "Begin SetRates with: "
+    GMPLOG(GL_INFO, "[SetRates] Begin with: "
            << aNewBitRate << " , "<< aFrameRate);
     
     //update bitrate if needed
@@ -403,10 +403,12 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
     existEncoderBitRate.iLayer = SPATIAL_LAYER_ALL;
     int rv = encoder_->GetOption(ENCODER_OPTION_BITRATE, &existEncoderBitRate);
     if (rv!=cmResultSuccess) {
-      GMPLOG(GL_ERROR, "Error in Getting Bit Rate: Layer"
+      GMPLOG(GL_ERROR, "[SetRates] Error in Getting Bit Rate at Layer:"
+             << rv
+             << " ; Layer = "
              << existEncoderBitRate.iLayer
-             << "; BR= "
-             << existEncoderBitRate.iBitrate );
+             << " ; BR = "
+             << existEncoderBitRate.iBitrate);
       return GMPVideoGenericErr;
     }
     if ( rv==cmResultSuccess && existEncoderBitRate.iBitrate!=newBitRate ) {
@@ -415,36 +417,41 @@ class OpenH264VideoEncoder : public GMPVideoEncoder
       newEncoderBitRate.iBitrate = newBitRate;
       rv = encoder_->SetOption(ENCODER_OPTION_BITRATE, &newEncoderBitRate);
       if (rv==cmResultSuccess) {
-        GMPLOG(GL_INFO, "Update Encoder Bandwidth (AllLayers): ReturnValue: "
-                << rv
-                << "BitRate(kbps): "
-                << aNewBitRate);
-      }
-      else {
-        GMPLOG(GL_ERROR, "Error in Setting Bit Rate: Layer"
+        GMPLOG(GL_INFO, "[SetRates] Update Encoder Bandwidth (AllLayers): ReturnValue: "
+                  << rv
+                  << "BitRate(kbps): "
+                  << aNewBitRate);
+      } else {
+        GMPLOG(GL_ERROR, "[SetRates] Error in Setting Bit Rate at Layer:"
+               << rv
+               << " ; Layer = "
                << newEncoderBitRate.iLayer
-               << "; BR= "
-               << newEncoderBitRate.iBitrate );
+               << " ; BR = "
+               << newEncoderBitRate.iBitrate);
         return GMPVideoGenericErr;
       }
     }
-
     
     //update framerate if needed
     float existFrameRate = 0;
     rv = encoder_->GetOption(ENCODER_OPTION_FRAME_RATE, &existFrameRate);
+    if (rv!=cmResultSuccess) {
+      GMPLOG(GL_ERROR, "[SetRates] Error in Getting Frame Rate:"
+             << rv << " FrameRate: " << existFrameRate);
+      return GMPVideoGenericErr;
+    }
     if ( rv==cmResultSuccess &&
         ( aFrameRate-existFrameRate>0.001f || existFrameRate-aFrameRate>0.001f ) ) {
       float newFrameRate = static_cast<float>(aFrameRate);
       rv = encoder_->SetOption(ENCODER_OPTION_FRAME_RATE, &newFrameRate);
-      GMPLOG(GL_INFO, "Update Encoder Frame Rate: ReturnValue: "
-                << rv
-                << " FrameRate: "
-                << aFrameRate);
-    }
-    if (rv!=cmResultSuccess) {
-      GMPLOG(GL_ERROR, "Error in Setting Frame Rate");
-      return GMPVideoGenericErr;
+      if (rv==cmResultSuccess) {
+        GMPLOG(GL_INFO, "[SetRates] Update Encoder Frame Rate: ReturnValue: "
+               << rv << " FrameRate: " << aFrameRate);
+      } else {
+        GMPLOG(GL_ERROR, "[SetRates] Error in Setting Frame Rate: ReturnValue: "
+               << rv << " FrameRate: " << aFrameRate);
+        return GMPVideoGenericErr;
+      }
     }
     
     return GMPVideoNoErr;

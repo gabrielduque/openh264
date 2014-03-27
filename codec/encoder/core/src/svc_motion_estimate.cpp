@@ -39,23 +39,23 @@
  */
 
 
-
+#include "sample.h"
 #include "svc_motion_estimate.h"
 
 namespace WelsSVCEnc {
 
-inline void UpdateMeResults( const SMVUnitXY ksBestMv, const uint32_t kiBestSadCost, uint8_t* pRef, SWelsME * pMe )
+static inline void UpdateMeResults( const SMVUnitXY ksBestMv, const uint32_t kiBestSadCost, uint8_t* pRef, SWelsME * pMe )
 {
   pMe->sMv = ksBestMv;
   pMe->pRefMb = pRef;
   pMe->uiSadCost = kiBestSadCost;
 }
-inline void SvcMeEndSearch( SWelsME * pMe, const uint32_t kuiBestSadCost )
+static inline void MeEndIntepelSearch( SWelsME * pMe )
 {
     /* -> qpel mv */
     pMe->sMv.iMvX <<= 2;
     pMe->sMv.iMvY <<= 2;
-    pMe->uiSatdCost = kuiBestSadCost;
+    pMe->uiSatdCost = pMe->uiSadCost;
 }
 
 
@@ -78,9 +78,10 @@ void WelsMotionEstimateSearch (SWelsFuncPtrList* pFuncList, void* pLplayer, void
   //  Step 1: Initial point prediction
   if ( !WelsMotionEstimateInitialPoint (pFuncList, pMe, pSlice, iStrideEnc, iStrideRef) ) {
     WelsMotionEstimateIterativeSearch (pFuncList, pMe, iStrideEnc, iStrideRef, pMe->pRefMb);
+    MeEndIntepelSearch(pMe);
   }
 
-  pFuncList->pfCalculateSatd( pFuncList->sSampleDealingFuncs.pfSampleSatd[pMe->uiPixel], pMe, iStrideEnc, iStrideRef );
+  pFuncList->pfCalculateSatd( pFuncList->sSampleDealingFuncs.pfSampleSatd[pMe->uiBlockSize], pMe, iStrideEnc, iStrideRef );
 }
 
 /*!
@@ -95,7 +96,7 @@ void WelsMotionEstimateSearch (SWelsFuncPtrList* pFuncList, void* pLplayer, void
  */
 bool WelsMotionEstimateInitialPoint (SWelsFuncPtrList* pFuncList, SWelsME* pMe, SSlice* pSlice, int32_t iStrideEnc,
                                      int32_t iStrideRef) {
-  PSampleSadSatdCostFunc pSad		= pFuncList->sSampleDealingFuncs.pfSampleSad[pMe->uiPixel];
+  PSampleSadSatdCostFunc pSad		= pFuncList->sSampleDealingFuncs.pfSampleSad[pMe->uiBlockSize];
   const uint16_t* kpMvdCost	= pMe->pMvdCost;
   uint8_t* const kpEncMb		= pMe->pEncMb;
   int16_t iMvc0, iMvc1;
@@ -141,10 +142,17 @@ bool WelsMotionEstimateInitialPoint (SWelsFuncPtrList* pFuncList, SWelsME* pMe, 
     }
   }
 
+  if ( pFuncList->pfCheckDirectionalMv
+    (pSad, pMe, ksMvStartMin, ksMvStartMax, iStrideEnc, iStrideRef, iSadCost) ) {
+      sMv = pMe->sDirectionalMv;
+      pRefMb =  &pMe->pColoRefMb[sMv.iMvY * iStrideRef + sMv.iMvX];
+      iBestSadCost = iSadCost;
+  }
+
   UpdateMeResults( sMv, iBestSadCost, pRefMb, pMe );
   if ( iBestSadCost < static_cast<int32_t>(pMe->uSadPredISatd.uiSadPred) ) {
     //Initial point early Stop
-    SvcMeEndSearch(pMe, iBestSadCost);
+    MeEndIntepelSearch(pMe);
     return true;
   }
   return false;
@@ -189,7 +197,7 @@ bool WelsMeSadCostSelect (int32_t* iSadCost, const uint16_t* kpMvdCost, int32_t*
 
 void WelsMotionEstimateIterativeSearch (SWelsFuncPtrList* pFuncList, SWelsME* pMe, const int32_t kiStrideEnc,
                                         const int32_t kiStrideRef, uint8_t* pFref) {
-  PSample4SadCostFunc			pSad					=  pFuncList->sSampleDealingFuncs.pfSample4Sad[pMe->uiPixel];
+  PSample4SadCostFunc			pSad					=  pFuncList->sSampleDealingFuncs.pfSample4Sad[pMe->uiBlockSize];
 
   uint8_t* const kpEncMb = pMe->pEncMb;
   const uint16_t* kpMvdCost = pMe->pMvdCost;
@@ -219,9 +227,9 @@ void WelsMotionEstimateIterativeSearch (SWelsFuncPtrList* pFuncList, SWelsME* pM
 
   }
 
-  /* -> qpel mv */
-  pMe->sMv.iMvX = (iMvDx + pMe->sMvp.iMvX) & 0xFFFC;
-  pMe->sMv.iMvY = (iMvDy + pMe->sMvp.iMvY) & 0xFFFC;
+  /* integer-pel mv */
+  pMe->sMv.iMvX = (iMvDx + pMe->sMvp.iMvX) >>2;
+  pMe->sMv.iMvY = (iMvDy + pMe->sMvp.iMvY) >>2;
   pMe->uiSatdCost = pMe->uiSadCost = (iBestCost);
   pMe->pRefMb = pRefMb;
 }
@@ -237,4 +245,114 @@ void NotCalculateSatdCost( PSampleSadSatdCostFunc pSatd, void * vpMe, const int3
 {
 }
 
+
+bool CheckDirectionalMv(PSampleSadSatdCostFunc pSad, void * vpMe,
+                      const SMVUnitXY ksMinMv, const SMVUnitXY ksMaxMv, const int32_t kiEncStride, const int32_t kiRefStride,
+                      int32_t& iBestSadCost)
+{
+  SWelsME* pMe						 = static_cast<SWelsME *>(vpMe);
+  const int16_t kiMvX = pMe->sDirectionalMv.iMvX;
+  const int16_t kiMvY = pMe->sDirectionalMv.iMvY;
+
+  //Check MV from scrolling detection
+  if ( (BLOCK_16x16!=pMe->uiBlockSize) //scrolled_MV with P16x16 is checked SKIP checking function
+    && ( kiMvX | kiMvY ) //(0,0) checked in ordinary initial point checking
+    && CheckMvInRange( pMe->sDirectionalMv, ksMinMv, ksMaxMv ) )
+  {
+    uint8_t* pRef = &pMe->pColoRefMb[kiMvY * kiRefStride + kiMvX];
+    uint32_t uiCurrentSadCost = pSad( pMe->pEncMb, kiEncStride,  pRef, kiRefStride ) +
+      COST_MVD(pMe->pMvdCost, (kiMvX<<2) - pMe->sMvp.iMvX, (kiMvY<<2) - pMe->sMvp.iMvY );
+    if( uiCurrentSadCost < pMe->uiSadCost )
+    {
+      iBestSadCost = uiCurrentSadCost;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool CheckDirectionalMvFalse(PSampleSadSatdCostFunc pSad, void * vpMe,
+                      const SMVUnitXY ksMinMv, const SMVUnitXY ksMaxMv, const int32_t kiEncStride, const int32_t kiRefStride,
+                      int32_t& iBestSadCost)
+{
+  return false;
+}
+
+void VerticalFullSearchUsingSSE41( void *pFunc, void *vpMe,
+														uint16_t* pMvdTable, const int32_t kiFixedMvd,
+														const int32_t kiEncStride, const int32_t kiRefStride,
+													const int32_t kiMinPos, const int32_t kiMaxPos,
+                          const bool bVerticalSearch )
+{
+  SWelsFuncPtrList *pFuncList      = static_cast<SWelsFuncPtrList *>(pFunc);
+  SWelsME *pMe				                    = static_cast<SWelsME *>(vpMe);
+}
+void LineFullSearch_c(	void *pFunc, void *vpMe,
+													uint16_t* pMvdTable, const int32_t kiFixedMvd,
+													const int32_t kiEncStride, const int32_t kiRefStride,
+													const int32_t kiMinPos, const int32_t kiMaxPos,
+                          const bool bVerticalSearch )
+{
+  SWelsFuncPtrList *pFuncList      = static_cast<SWelsFuncPtrList *>(pFunc);
+  SWelsME *pMe				                    = static_cast<SWelsME *>(vpMe);
+  PSampleSadSatdCostFunc pSad = pFuncList->sSampleDealingFuncs.pfSampleSad[pMe->uiBlockSize];
+  const int32_t kiCurMeBlockPix	= bVerticalSearch?pMe->iCurMeBlockPixY:pMe->iCurMeBlockPixX;
+  const int32_t kiStride = bVerticalSearch?kiRefStride:1;
+  uint8_t* pRef			      = &pMe->pColoRefMb[(kiMinPos - kiCurMeBlockPix)*kiStride];
+  uint16_t* pMvdCost  = &(pMvdTable[kiMinPos<<2]);
+  uint32_t uiBestCost	  = 0xFFFFFFFF;
+  int32_t iBestPos		   = 0;
+
+  for ( int32_t iTargetPos = kiMinPos; iTargetPos < kiMaxPos; ++ iTargetPos ) {
+    uint8_t* const kpEncMb	= pMe->pEncMb;
+    uint32_t uiSadCost = pSad( kpEncMb, kiEncStride, pRef, kiRefStride ) + (kiFixedMvd + *pMvdCost);
+    if (uiSadCost < uiBestCost) {
+      uiBestCost	= uiSadCost;
+      iBestPos	= iTargetPos;
+    }
+    pRef += kiStride;
+    pMvdCost+=4;
+  }
+
+  if (uiBestCost < pMe->uiSadCost) {
+    SMVUnitXY sBestMv;
+    sBestMv.iMvX = bVerticalSearch?0:(iBestPos - kiCurMeBlockPix);
+    sBestMv.iMvY = bVerticalSearch?(iBestPos - kiCurMeBlockPix):0;
+    UpdateMeResults( sBestMv, uiBestCost, &pMe->pColoRefMb[sBestMv.iMvY*kiStride], pMe );
+  }
+}
+
+void WelsMotionCrossSearch(SWelsFuncPtrList *pFuncList,  SDqLayer* pCurLayer, SWelsME * pMe,
+											const SSlice* pSlice)
+{
+  //TODO:
+  //PMOTION_VERFULL_SEARCH VerticalFullSearchFunc	= pFuncList->VerticalFullSearch_c;
+  //PMOTION_HORFULL_SEARCH HorizontalFullSearchFunc	= pFuncList->HorizontalFullSearch_c;
+  const int32_t kiEncStride = pCurLayer->iEncStride[0];
+  const int32_t kiRefStride = pCurLayer->pRefPic->iLineSize[0];
+
+  const int32_t iCurMeBlockPixX = pMe->iCurMeBlockPixX;
+  const int32_t iCurMeBlockQpelPixX = ((iCurMeBlockPixX)<<2);
+  const int32_t iCurMeBlockPixY = pMe->iCurMeBlockPixY;
+  const int32_t iCurMeBlockQpelPixY = ((iCurMeBlockPixY)<<2);
+  uint16_t* pMvdCostX = pMe->pMvdCost - iCurMeBlockQpelPixX - pMe->sMvp.iMvX;//do the offset here instead of in the search
+  uint16_t* pMvdCostY = pMe->pMvdCost - iCurMeBlockQpelPixY - pMe->sMvp.iMvY;//do the offset here instead of in the search
+
+  //vertical search
+  LineFullSearch_c( pFuncList, pMe,
+    pMvdCostY, pMvdCostX[ iCurMeBlockQpelPixX ],
+    kiEncStride, kiRefStride,
+    iCurMeBlockPixY + pSlice->sMvStartMin.iMvY,
+    iCurMeBlockPixY + pSlice->sMvStartMax.iMvY, true );
+
+  //horizontal search
+  if (pMe->uiSadCost >= pMe->uiSadCostThreshold) {
+    LineFullSearch_c( pFuncList, pMe,
+      pMvdCostX, pMvdCostY[ iCurMeBlockQpelPixY ],
+      kiEncStride, kiRefStride,
+      iCurMeBlockPixX + pSlice->sMvStartMin.iMvX,
+      iCurMeBlockPixX + pSlice->sMvStartMax.iMvX,
+      false );
+  }
+}
 } // namespace WelsSVCEnc

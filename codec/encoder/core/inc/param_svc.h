@@ -171,7 +171,7 @@ static void FillDefault (SEncParamExt& param, const bool kbEnableRc) {
  
   /* Rate Control */
   param.bEnableRc		= kbEnableRc;
-  param.iRCMode			= 0;
+  param.iRCMode			= RC_QUALITY_MODE;
   param.iPaddingFlag	= 0;
 
   param.bEnableDenoise				= false;	// denoise control
@@ -188,6 +188,7 @@ static void FillDefault (SEncParamExt& param, const bool kbEnableRc) {
   param.iMaxQp = 51;
   param.iMinQp = 0;
   param.iUsageType = CAMERA_VIDEO_REAL_TIME;
+  param.uiMaxNalSize = 0;
 
   for(int32_t iLayer = 0;iLayer< MAX_SPATIAL_LAYER_NUM;iLayer++){
     param.sSpatialLayers[iLayer].uiProfileIdc = PRO_BASELINE;
@@ -252,13 +253,8 @@ int32_t ParamBaseTranscode (const SEncParamBase& pCodingParam, const bool kbEnab
   SUsedPicRect.iWidth = ((iPicWidth >> 1) << 1);
   SUsedPicRect.iHeight = ((iPicHeight >> 1) << 1);
 
-   bEnableRc			= kbEnableRc;
-  if (pCodingParam.iRCMode != RC_MODE0 && pCodingParam.iRCMode != RC_MODE1)
-    iRCMode = RC_MODE1;
-  else
-    iRCMode = pCodingParam.iRCMode;    // rc mode
-
-
+  bEnableRc			= kbEnableRc;
+  iRCMode = pCodingParam.iRCMode;    // rc mode
 
   int8_t iIdxSpatial	= 0;
   uint8_t uiProfileIdc		= PRO_BASELINE;
@@ -332,15 +328,13 @@ int32_t ParamTranscode (const SEncParamExt& pCodingParam) {
 
   /* Rate Control */
   bEnableRc			= pCodingParam.bEnableRc;
-  if (pCodingParam.iRCMode != RC_MODE0 && pCodingParam.iRCMode != RC_MODE1)
-    iRCMode = RC_MODE1;
-  else
-    iRCMode = pCodingParam.iRCMode;    // rc mode
+  iRCMode = pCodingParam.iRCMode;    // rc mode
   iPaddingFlag = pCodingParam.iPaddingFlag;
 
   iTargetBitrate		= pCodingParam.iTargetBitrate;	// target bitrate
   iMaxBitrate           = pCodingParam.iMaxBitrate;
 
+  uiMaxNalSize          = pCodingParam.uiMaxNalSize;
   /* Denoise Control */
   bEnableDenoise = pCodingParam.bEnableDenoise ? true : false;    // Denoise Control  // only support 0 or 1 now
 

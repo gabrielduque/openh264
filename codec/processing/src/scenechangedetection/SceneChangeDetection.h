@@ -28,16 +28,16 @@
  *     ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *     POSSIBILITY OF SUCH DAMAGE.
  *
-* \file	        :  SceneChangeDetection.h
-*
-* \brief	    :  scene change detection class of wels video processor class
-*
-* \date         :  2011/03/14
-*
-* \description  :  1. rewrite the package code of scene change detection class
-*
-*************************************************************************************
-*/
+ * \file	        :  SceneChangeDetection.h
+ *
+ * \brief	    :  scene change detection class of wels video processor class
+ *
+ * \date         :  2011/03/14
+ *
+ * \description  :  1. rewrite the package code of scene change detection class
+ *
+ *************************************************************************************
+ */
 
 #ifndef WELSVP_SCENECHANGEDETECTION_H
 #define WELSVP_SCENECHANGEDETECTION_H
@@ -90,11 +90,11 @@ public:
   void operator() (uint8_t* pSrcY, int32_t iSrcStrideY, uint8_t* pRefY, int32_t iRefStrideY, uint8_t *& pStaticBlockIdc) {
     int32_t iSad = m_pfSad(pSrcY, iSrcStrideY, pRefY, iSrcStrideY);
     if( iSad == 0 ){
-      *pStaticBlockIdc ++ = NO_STATIC;
+      *pStaticBlockIdc ++ = COLLOCATED_STATIC;
     } else {
       m_sParam.iFrameComplexity += iSad;
       m_sParam.iMotionBlockNum += iSad > HIGH_MOTION_BLOCK_THRESHOLD;
-      *pStaticBlockIdc ++ = COLLOCATED_STATIC;
+      *pStaticBlockIdc ++ = NO_STATIC;
     }
   }
 };
@@ -119,7 +119,6 @@ class CSceneChangeDetection : public IStrategy {
     int32_t iBlock8x8Num       = iBlock8x8Width * iBlock8x8Height;
     int32_t iSceneChangeThresholdLarge = WelsStaticCast (int32_t, SCENE_CHANGE_MOTION_RATIO_LARGE * iBlock8x8Num + 0.5f + PESN);
     int32_t iSceneChangeThresholdMedium	= WelsStaticCast(int32_t, SCENE_CHANGE_MOTION_RATIO_MEDIUM * iBlock8x8Num + 0.5f + PESN);
-    int32_t iBlockSad = 0;
     uint8_t* pRefY = NULL, *pCurY = NULL;
     int32_t iRefStride = 0, iCurStride = 0;
     int32_t iRefRowStride = 0, iCurRowStride = 0;

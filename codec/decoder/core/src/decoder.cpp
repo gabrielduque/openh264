@@ -163,6 +163,7 @@ void WelsDecoderDefaults (PWelsDecoderContext pCtx) {
   pCtx->pPicBuff[LIST_1]		= NULL;
 
   pCtx->bAvcBasedFlag			= true;
+  pCtx->iErrorConMethod = ERROR_CON_DISABLE;
 
 }
 
@@ -172,7 +173,7 @@ void WelsDecoderDefaults (PWelsDecoderContext pCtx) {
 
 
 /*
- *	get size of reference picture list in target layer incoming, = (iNumRefFrames 
+ *	get size of reference picture list in target layer incoming, = (iNumRefFrames
  */
 static inline int32_t GetTargetRefListSize (PWelsDecoderContext pCtx) {
   int32_t iNumRefFrames	= 0;
@@ -530,6 +531,8 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
         return pCtx->iErrorCode;
       }
     }
+
+    //TODO error concealment here
 
     if ((IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType) || IS_SEI_NAL (pCtx->sCurNalHead.eNalUnitType))
         && pNalPayload) {

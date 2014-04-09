@@ -1,4 +1,5 @@
 #!/bin/sh
+cd "$(git rev-parse --show-toplevel 2>/dev/null)" >/dev/null 2>&1
 python build/mktargets.py --directory codec/decoder --library decoder
 python build/mktargets.py --directory codec/encoder --library encoder --exclude DllEntry.cpp
 python build/mktargets.py --directory codec/common --library common --exclude asm_inc.asm --exclude arm_arch_common_macro.S

@@ -38,7 +38,6 @@
  *************************************************************************************
  */
 
-#if defined(MT_ENABLED)
 
 #include <assert.h>
 #if !defined(_WIN32)
@@ -144,7 +143,6 @@ void CalcSliceComplexRatio (void* pRatio, SSliceCtx* pSliceCtx, uint32_t* pSlice
   }
 }
 
-#if defined(MT_ENABLED)
 int32_t NeedDynamicAdjust (void* pConsumeTime, const int32_t iSliceNum) {
   uint32_t* pSliceConsume	= (uint32_t*)pConsumeTime;
   uint32_t uiTotalConsume	= 0;
@@ -190,7 +188,6 @@ int32_t NeedDynamicAdjust (void* pConsumeTime, const int32_t iSliceNum) {
 
   return iNeedAdj;
 }
-#endif
 
 void DynamicAdjustSlicing (sWelsEncCtx* pCtx,
                            SDqLayer* pCurDqLayer,
@@ -208,7 +205,7 @@ void DynamicAdjustSlicing (sWelsEncCtx* pCtx,
 
   int32_t iNumMbInEachGom = 0;
   SWelsSvcRc* pWelsSvcRc = &pCtx->pWelsSvcRc[iCurDid];
-  if (pCtx->pSvcParam->bEnableRc) {
+  if (pCtx->pSvcParam->iRCMode != RC_OFF_MODE) {
     iNumMbInEachGom = pWelsSvcRc->iNumberMbGom;
 
     if (iNumMbInEachGom <= 0) {
@@ -240,7 +237,7 @@ void DynamicAdjustSlicing (sWelsEncCtx* pCtx,
     int32_t iNumMbAssigning = (int32_t) (kiCountNumMb * pSliceComplexRatio[iSliceIdx] + EPSN);
 
     // GOM boundary aligned
-    if (pCtx->pSvcParam->bEnableRc) {
+    if (pCtx->pSvcParam->iRCMode != RC_OFF_MODE) {
       iNumMbAssigning = (int32_t) (1.0f * iNumMbAssigning / iNumMbInEachGom + 0.5f + EPSN) * iNumMbInEachGom;
     }
 
@@ -954,29 +951,10 @@ WELS_THREAD_ROUTINE_TYPE CodingSliceThreadProc (void* arg) {
 int32_t CreateSliceThreads (sWelsEncCtx* pCtx) {
   const int32_t kiThreadCount = pCtx->pSvcParam->iCountThreadsNum;
   int32_t iIdx = 0;
-#if defined(_WIN32) && defined(BIND_CPU_CORES_TO_THREADS)
-  DWORD  dwProcessAffinity;
-  DWORD  dwSystemAffinity;
-  GetProcessAffinityMask (GetCurrentProcess(), &dwProcessAffinity, &dwSystemAffinity);
-#endif//WIN32 && BIND_CPU_CORES_TO_THREADS
 
   while (iIdx < kiThreadCount) {
     WelsThreadCreate (&pCtx->pSliceThreading->pThreadHandles[iIdx], CodingSliceThreadProc,
                       &pCtx->pSliceThreading->pThreadPEncCtx[iIdx], 0);
-#if defined(_WIN32) && defined(BIND_CPU_CORES_TO_THREADS)
-    if (dwProcessAffinity > 1
-        && pCtx->pSliceThreading->pThreadHandles[iIdx] != NULL) {	// multiple cores and thread created successfully
-      DWORD  dw = 0;
-      DWORD  dwAffinityMask = 1 << iIdx;
-      if (dwAffinityMask & dwProcessAffinity) { // check if cpu is available
-        dw = SetThreadAffinityMask (pCtx->pSliceThreading->pThreadHandles[iIdx], dwAffinityMask);  //1 << iIdx
-        if (dw == 0) {
-          char str[64] = {0};
-          WelsSnprintf (str, 64, "SetThreadAffinityMask iIdx:%d", iIdx);
-        }
-      }
-    }
-#endif//WIN32 && BIND_CPU_CORES_TO_THREADS
 
     ++ iIdx;
   }
@@ -1029,7 +1007,6 @@ int32_t DynamicDetectCpuCores() {
   return info.ProcessorCount;
 }
 
-#if defined(MT_ENABLED)
 int32_t AdjustBaseLayer (sWelsEncCtx* pCtx) {
   SDqLayer* pCurDq	= pCtx->ppDqLayerList[0];
   int32_t iNeedAdj	= 1;
@@ -1105,9 +1082,7 @@ int32_t AdjustEnhanceLayer (sWelsEncCtx* pCtx, int32_t iCurDid) {
   return iNeedAdj;
 }
 
-#endif//#if defined(MT_ENABLED)
 
-#if defined(MT_ENABLED)
 
 #if defined(MT_DEBUG)
 void TrackSliceComplexities (sWelsEncCtx* pCtx, const int32_t iCurDid) {
@@ -1166,7 +1141,5 @@ void TrackSliceConsumeTime (sWelsEncCtx* pCtx, int32_t* pDidList, const int32_t 
 }
 #endif//#if defined(MT_DEBUG)
 
-#endif//MT_ENABLED
 }
-#endif//MT_ENABLED
 

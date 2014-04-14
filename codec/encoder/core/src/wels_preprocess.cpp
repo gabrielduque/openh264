@@ -134,7 +134,7 @@ int32_t CWelsPreProcess::AllocSpatialPictures (sWelsEncCtx* pCtx, SWelsSvcCoding
     uint8_t i = 0;
 
     do {
-      SPicture* pPic = AllocPicture (pMa, kiPicWidth, kiPicHeight, false);
+      SPicture* pPic = AllocPicture (pMa, kiPicWidth, kiPicHeight, false, 0);
       WELS_VERIFY_RETURN_IF (1, (NULL == pPic))
       m_pSpatialPic[iDlayerIndex][i] = pPic;
       ++ i;
@@ -255,6 +255,8 @@ int32_t CWelsPreProcess::AnalyzeSpatialPic (sWelsEncCtx* pCtx, const int32_t kiD
 
 int32_t CWelsPreProcess::UpdateSpatialPictures (sWelsEncCtx* pCtx, SWelsSvcCodingParam* pParam,
     const int8_t iCurTid, const int32_t d_idx) {
+  if(pCtx->pSvcParam->iUsageType == SCREEN_CONTENT_REAL_TIME)
+      return 0;
   if (iCurTid < m_uiSpatialLayersInTemporal[d_idx] - 1 || pParam->iDecompStages == 0) {
     if ((iCurTid >= MAX_TEMPORAL_LEVEL) || (m_uiSpatialLayersInTemporal[d_idx] - 1 > MAX_TEMPORAL_LEVEL)) {
       InitLastSpatialPictures (pCtx);
@@ -433,7 +435,7 @@ int32_t  WelsInitScaledPic (SWelsSvcCodingParam* pParam,  Scaled_Picture*  pScal
   bool bInputPicNeedScaling = JudgeNeedOfScaling (pParam, pScaledPicture);
   if (bInputPicNeedScaling) {
     pScaledPicture->pScaledInputPicture = AllocPicture (pMemoryAlign, pParam->SUsedPicRect.iWidth,
-                                          pParam->SUsedPicRect.iHeight, false);
+                                          pParam->SUsedPicRect.iHeight, false, 0);
     if (pScaledPicture->pScaledInputPicture == NULL)
       return -1;
   }

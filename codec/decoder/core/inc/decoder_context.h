@@ -98,6 +98,12 @@ typedef struct TagMcFunc {
   PWelsMcFunc pMcChromaFunc;
 } SMcFunc;
 
+typedef void (*PCopyFunc) (uint8_t* pDst, int32_t iStrideD, uint8_t* pSrc, int32_t iStrideS);
+typedef struct TagCopyFunc {
+  PCopyFunc pCopyLumaFunc;
+  PCopyFunc pCopyChromaFunc;
+} SCopyFunc;
+
 //deblock module defination
 struct TagDeblockingFunc;
 
@@ -236,7 +242,6 @@ typedef struct TagWelsDecoderContext {
 
   PAccessUnit			pAccessUnitList;	// current access unit list to be performed
   PSps        pActiveLayerSps[MAX_LAYER_NUM];
-  PPps        pActiveLayerPps[MAX_LAYER_NUM];
   PSps				pSps;	// used by current AU
   PPps				pPps;	// used by current AU
   // Memory for pAccessUnitList is dynamically held till decoder destruction.
@@ -272,13 +277,16 @@ typedef struct TagWelsDecoderContext {
 
   uint16_t            uiCurIdrPicId;
 #endif
-
+  bool       bNewSeqBegin;
   int32_t iErrorConMethod; //
   PGetIntraPredFunc pGetI16x16LumaPredFunc[7];		//h264_predict_copy_16x16;
   PGetIntraPredFunc pGetI4x4LumaPredFunc[14];		// h264_predict_4x4_t
   PGetIntraPredFunc pGetIChromaPredFunc[7];		// h264_predict_8x8_t
   PIdctResAddPredFunc	pIdctResAddPredFunc;
   SMcFunc				sMcFunc;
+
+  //For error concealment
+  SCopyFunc sCopyFunc;
   /* For Deblocking */
   SDeblockingFunc     sDeblockingFunc;
   SExpandPicFunc	    sExpandPicFunc;
@@ -311,6 +319,11 @@ typedef struct TagWelsDecoderContext {
 
 } SWelsDecoderContext, *PWelsDecoderContext;
 
+static inline void ResetActiveSPSForEachLayer(PWelsDecoderContext pCtx) {
+  for(int i = 0; i < MAX_LAYER_NUM; i++) {
+    pCtx->pActiveLayerSps[i] = NULL;
+  }
+}
 //#ifdef __cplusplus
 //}
 //#endif//__cplusplus

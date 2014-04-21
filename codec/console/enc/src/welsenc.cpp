@@ -30,6 +30,7 @@
  *
  */
 
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -68,10 +69,8 @@
 #include "wels_const.h"
 #include "logging.h"
 
-#ifdef MT_ENABLED
 #include "mt_defs.h"
 #include "WelsThreadLib.h"
-#endif//MT_ENABLED
 
 #ifdef WIN32
 #ifdef WINAPI_FAMILY
@@ -113,7 +112,7 @@ int ParseLayerConfig( CReadConfig & cRdLayerCfg, const int iLayer, SEncParamExt&
   }
 
   SSpatialLayerConfig* pDLayer = &pSvcParam.sSpatialLayers[iLayer];
-  int iLeftTargetBitrate = (pSvcParam.bEnableRc)?pSvcParam.iTargetBitrate:0;
+  int iLeftTargetBitrate = (pSvcParam.iRCMode!=RC_OFF_MODE)?pSvcParam.iTargetBitrate:0;
   SLayerPEncCtx sLayerCtx;
   memset (&sLayerCtx, 0, sizeof (SLayerPEncCtx));
 
@@ -148,7 +147,7 @@ int ParseLayerConfig( CReadConfig & cRdLayerCfg, const int iLayer, SEncParamExt&
         //					pDLayer->frext_mode	= (bool)atoi(strTag[1].c_str());
       } else if (strTag[0].compare ("SpatialBitrate") == 0) {
         pDLayer->iSpatialBitrate	= 1000 * atoi (strTag[1].c_str());
-        if (pSvcParam.bEnableRc) {
+        if (pSvcParam.iRCMode!=RC_OFF_MODE) {
           if (pDLayer->iSpatialBitrate <= 0) {
             fprintf (stderr, "Invalid spatial bitrate(%d) in dependency layer #%d.\n", pDLayer->iSpatialBitrate, iLayer);
             return -1;
@@ -198,7 +197,10 @@ int ParseConfig (CReadConfig& cRdCfg, SSourcePicture* pSrcPic, SEncParamExt& pSv
     if (iRd > 0) {
       if (strTag[0].empty())
         continue;
-	  if (strTag[0].compare ("SourceWidth") == 0) {
+
+      if(strTag[0].compare ("UsageType") == 0){
+        pSvcParam.iUsageType = (EUsageType)atoi (strTag[1].c_str());
+      }else if (strTag[0].compare ("SourceWidth") == 0) {
         pSrcPic->iPicWidth = atoi (strTag[1].c_str());
       } else if (strTag[0].compare ("SourceHeight") == 0) {
         pSrcPic->iPicHeight = atoi (strTag[1].c_str());
@@ -247,13 +249,11 @@ int ParseConfig (CReadConfig& cRdCfg, SSourcePicture* pSrcPic, SEncParamExt& pSv
           pSvcParam.iMultipleThreadIdc = 0;
         else if (pSvcParam.iMultipleThreadIdc > MAX_THREADS_NUM)
           pSvcParam.iMultipleThreadIdc = MAX_THREADS_NUM;
-      } else if (strTag[0].compare ("EnableRC") == 0) {
-        pSvcParam.bEnableRc	= atoi (strTag[1].c_str()) ? true : false;
       } else if (strTag[0].compare ("RCMode") == 0) {
         pSvcParam.iRCMode	= (RC_MODES) atoi (strTag[1].c_str());
       } else if (strTag[0].compare ("TargetBitrate") == 0) {
         pSvcParam.iTargetBitrate	= 1000 * atoi (strTag[1].c_str());
-        if (pSvcParam.bEnableRc && pSvcParam.iTargetBitrate <= 0) {
+        if ((pSvcParam.iRCMode!=RC_OFF_MODE) && pSvcParam.iTargetBitrate <= 0) {
           fprintf (stderr, "Invalid target bitrate setting due to RC enabled. Check TargetBitrate field please!\n");
           return 1;
         }
@@ -269,6 +269,8 @@ int ParseConfig (CReadConfig& cRdCfg, SSourcePicture* pSrcPic, SEncParamExt& pSv
         pSvcParam.bEnableFrameSkip	= atoi (strTag[1].c_str()) ? true : false;
       } else if (strTag[0].compare ("EnableLongTermReference") == 0) {
         pSvcParam.bEnableLongTermReference	= atoi (strTag[1].c_str()) ? true : false;
+      } else if (strTag[0].compare ("LongTermReferenceNumber") == 0) {
+        pSvcParam.iLTRRefNum = atoi (strTag[1].c_str());
       } else if (strTag[0].compare ("LtrMarkPeriod") == 0) {
         pSvcParam.iLtrMarkPeriod	= (uint32_t)atoi (strTag[1].c_str());
       } else if (strTag[0].compare ("NumLayers") == 0) {
@@ -348,6 +350,9 @@ int ParseCommandLine (int argc, char** argv, SEncParamExt& sParam) {
     else if (!strcmp (pCmd, "-ltr") && (i < argc))
       sParam.bEnableLongTermReference = atoi (argv[i++]) ? true : false;
 
+    else if (!strcmp (pCmd, "-ltrnum") && (i< argc))
+      sParam.iLTRRefNum = atoi (argv[i++]);
+
     else if (!strcmp (pCmd, "-ltrper") && (i < argc))
       sParam.iLtrMarkPeriod = atoi (argv[i++]);
 
@@ -384,6 +389,8 @@ void PrintHelp() {
   printf ("\n Supported Options:\n");
   printf ("  -bf     Bit Stream File\n");
   printf ("  -org	  Original file, example: -org src.yuv\n");
+  printf ("  -sw     the source width\n");
+  printf ("  -sh     the source height\n");
   printf ("  -frms   Number of total frames to be encoded\n");
   printf ("  -gop    GOPSize - GOP size (1,2,4,8, default: 1)\n");
   printf ("  -iper   Intra period (default: -1) : must be a power of 2 of GOP size (or -1)\n");
@@ -393,7 +400,8 @@ void PrintHelp() {
   printf ("  -bgd    Control background detection (default: 0)\n");
   printf ("  -aq     Control adaptive quantization (default: 0)\n");
   printf ("  -ltr    Control long term reference (default: 0)\n");
-  printf ("  -rc	  Control rate control: 0-disable; 1-enable \n");
+  printf ("  -ltrnum Control the number of long term reference((1-4):screen LTR,(1-2):video LTR \n");
+  printf ("  -rc	  rate control mode: 0-quality mode; 1-bitrate mode; 2-bitrate limited mode; -1-rc off \n");
   printf ("  -tarb	  Overall target bitrate\n");
   printf ("  -numl   Number Of Layers: Must exist with layer_cfg file and the number of input layer_cfg file must equal to the value set by this command\n");
   printf ("  The options below are layer-based: (need to be set with layer id)\n");
@@ -419,6 +427,9 @@ int ParseCommandLine (int argc, char** argv, SSourcePicture* pSrcPic, SEncParamE
 
     if (!strcmp (pCommand, "-bf") && (n < argc))
       sFileSet.strBsFile.assign (argv[n++]);
+    else if (!strcmp (pCommand, "-utype") && (n < argc))
+      pSvcParam.iUsageType = (EUsageType)atoi (argv[n++]);
+
     else if (!strcmp (pCommand, "-org") && (n < argc))
       sFileSet.strSeqFile.assign (argv[n++]);
 
@@ -458,11 +469,14 @@ int ParseCommandLine (int argc, char** argv, SSourcePicture* pSrcPic, SEncParamE
     else if (!strcmp (pCommand, "-ltr") && (n < argc))
       pSvcParam.bEnableLongTermReference = atoi (argv[n++]) ? true : false;
 
+    else if (!strcmp (pCommand, "-ltrnum") && (n < argc))
+      pSvcParam.iLTRRefNum = atoi (argv[n++]);
+
     else if (!strcmp (pCommand, "-ltrper") && (n < argc))
       pSvcParam.iLtrMarkPeriod = atoi (argv[n++]);
 
     else if (!strcmp (pCommand, "-rc") && (n < argc))
-      pSvcParam.bEnableRc = atoi (argv[n++]) ? true : false;
+      pSvcParam.iRCMode = static_cast<RC_MODES>(atoi(argv[n++]));
 
     else if (!strcmp (pCommand, "-trace") && (n < argc))
       g_LevelSetting = atoi (argv[n++]);
@@ -576,6 +590,7 @@ int ParseCommandLine (int argc, char** argv, SSourcePicture* pSrcPic, SEncParamE
 
 int FillSpecificParameters (SEncParamExt& sParam) {
   /* Test for temporal, spatial, SNR scalability */
+  sParam.iUsageType = CAMERA_VIDEO_REAL_TIME;
   sParam.fMaxFrameRate	= 30.0f;		// input frame rate
   sParam.iPicWidth		= 1280;			// width of picture in samples
   sParam.iPicHeight	= 720;			// height of picture in samples
@@ -600,38 +615,30 @@ int FillSpecificParameters (SEncParamExt& sParam) {
   sParam.sSpatialLayers[iIndexLayer].iVideoHeight	= 90;
   sParam.sSpatialLayers[iIndexLayer].fFrameRate	= 7.5f;
   sParam.sSpatialLayers[iIndexLayer].iSpatialBitrate		= 64000;
-#ifdef MT_ENABLED
   sParam.sSpatialLayers[iIndexLayer].sSliceCfg.uiSliceMode = SM_SINGLE_SLICE;
-#endif
 
   ++ iIndexLayer;
   sParam.sSpatialLayers[iIndexLayer].iVideoWidth	= 320;
   sParam.sSpatialLayers[iIndexLayer].iVideoHeight	= 180;
   sParam.sSpatialLayers[iIndexLayer].fFrameRate	= 15.0f;
   sParam.sSpatialLayers[iIndexLayer].iSpatialBitrate		= 160000;
-#ifdef MT_ENABLED
   sParam.sSpatialLayers[iIndexLayer].sSliceCfg.uiSliceMode = SM_SINGLE_SLICE;
-#endif
 
   ++ iIndexLayer;
   sParam.sSpatialLayers[iIndexLayer].iVideoWidth	= 640;
   sParam.sSpatialLayers[iIndexLayer].iVideoHeight	= 360;
   sParam.sSpatialLayers[iIndexLayer].fFrameRate	= 30.0f;
   sParam.sSpatialLayers[iIndexLayer].iSpatialBitrate		= 512000;
-#ifdef MT_ENABLED
   sParam.sSpatialLayers[iIndexLayer].sSliceCfg.uiSliceMode = SM_SINGLE_SLICE;
   sParam.sSpatialLayers[iIndexLayer].sSliceCfg.sSliceArgument.uiSliceNum = 1;
-#endif
 
   ++ iIndexLayer;
   sParam.sSpatialLayers[iIndexLayer].iVideoWidth	= 1280;
   sParam.sSpatialLayers[iIndexLayer].iVideoHeight	= 720;
   sParam.sSpatialLayers[iIndexLayer].fFrameRate	= 30.0f;
   sParam.sSpatialLayers[iIndexLayer].iSpatialBitrate		= 1500000;
-#ifdef MT_ENABLED
   sParam.sSpatialLayers[iIndexLayer].sSliceCfg.uiSliceMode = SM_SINGLE_SLICE;
   sParam.sSpatialLayers[iIndexLayer].sSliceCfg.sSliceArgument.uiSliceNum = 1;
-#endif
 
   float fMaxFr = sParam.sSpatialLayers[sParam.iSpatialLayerNum - 1].fFrameRate;
   for (int32_t i = sParam.iSpatialLayerNum - 2; i >= 0; -- i) {
@@ -827,7 +834,7 @@ int ProcessEncodingSvcWithConfig (ISVCEncoder* pPtrEnc, int argc, char** argv) {
   int32_t	iTotalFrameMax = -1;
   uint8_t* pYUV= NULL;
   SSourcePicture* pSrcPic = NULL;
-  int32_t iSourceWidth, iSourceHeight, kiPicResSize;
+  uint32_t iSourceWidth, iSourceHeight, kiPicResSize;
   // Inactive with sink with output file handler
   FILE* pFpBs = NULL;
 #if defined(COMPARE_DATA)

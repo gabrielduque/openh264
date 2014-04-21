@@ -47,7 +47,7 @@ namespace WelsDec {
 #define MAX_LEVEL_PREFIX 15
 void GetNeighborAvailMbType (PNeighAvail pNeighAvail, PDqLayer pCurLayer) {
   int32_t iCurSliceIdc, iTopSliceIdc, iLeftTopSliceIdc, iRightTopSliceIdc, iLeftSliceIdc;
-  int32_t iCurXy, iTopXy, iLeftXy, iLeftTopXy, iRightTopXy;
+  int32_t iCurXy, iTopXy = 0, iLeftXy = 0, iLeftTopXy = 0, iRightTopXy = 0;
   int32_t iCurX, iCurY;
 
   iCurXy = pCurLayer->iMbXyIndex;
@@ -649,6 +649,9 @@ static int32_t	CavlcGetRunBefore (int32_t iRun[16], SReadBitsCache* pBitsCache, 
         }
       }
     } else {
+      for (int j = i; j < uiTotalCoeff; j++) {
+	iRun[j] = 0;
+      }
       return iUsedBits;
     }
 
@@ -665,7 +668,7 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
                                 const uint8_t* kpZigzagTable, int32_t iResidualProperty, int16_t* pTCoeff, uint8_t uiQp,
                                 PWelsDecoderContext pCtx) {
   int32_t iLevel[16], iZerosLeft, iCoeffNum;
-  int32_t  iRun[16] = {0};
+  int32_t  iRun[16];
   int32_t iCurNonZeroCacheIdx, i;
   const uint16_t* kpDequantCoeff = g_kuiDequantCoeff[uiQp];
   int8_t nA, nB, nC;

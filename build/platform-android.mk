@@ -35,7 +35,7 @@ SYSROOT = $(NDKROOT)/platforms/android-$(NDKLEVEL)/arch-$(ARCH)
 CXX = $(TOOLCHAINPREFIX)g++
 CC = $(TOOLCHAINPREFIX)gcc
 AR = $(TOOLCHAINPREFIX)ar
-CFLAGS += -DLINUX -DANDROID_NDK -DMT_ENABLED -fpic --sysroot=$(SYSROOT)
+CFLAGS += -DLINUX -DANDROID_NDK -fpic --sysroot=$(SYSROOT)
 CXXFLAGS += -fno-rtti -fno-exceptions
 LDFLAGS += --sysroot=$(SYSROOT)
 SHLDFLAGS = -Wl,--no-undefined -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,-soname,libwels.so
@@ -58,6 +58,11 @@ encdemo: libraries
 
 COMMON_INCLUDES += -I$(NDKROOT)/sources/android/cpufeatures
 COMMON_OBJS += $(COMMON_SRCDIR)/cpu-features.$(OBJ)
+
+COMMON_CFLAGS += \
+	-Dandroid_getCpuIdArm=wels_getCpuIdArm -Dandroid_setCpuArm=wels_setCpuArm \
+	-Dandroid_getCpuCount=wels_getCpuCount -Dandroid_getCpuFamily=wels_getCpuFamily \
+	-Dandroid_getCpuFeatures=wels_getCpuFeatures -Dandroid_setCpu=wels_setCpu \
 
 codec/common/cpu-features.$(OBJ): $(NDKROOT)/sources/android/cpufeatures/cpu-features.c
 	$(QUIET_CC)$(CC) $(CFLAGS) $(INCLUDES) $(COMMON_CFLAGS) $(COMMON_INCLUDES) -c $(CXX_O) $<

@@ -131,12 +131,12 @@ int8_t		iDecompStages;		// GOP size dependency
 
 
  public:
-TagWelsSvcCodingParam (const bool kbEnableRc = true) {
-  FillDefault (kbEnableRc);
+TagWelsSvcCodingParam () {
+  FillDefault ();
 }
 ~TagWelsSvcCodingParam()	{}
 
-static void FillDefault (SEncParamExt& param, const bool kbEnableRc) {
+static void FillDefault (SEncParamExt& param) {
   memset(&param, 0, sizeof(param));
   param.uiIntraPeriod		= 0;			// intra period (multiple of GOP size as desired)
   param.iNumRefFrame		= MIN_REF_PIC_COUNT;	// number of reference frame used
@@ -150,12 +150,7 @@ static void FillDefault (SEncParamExt& param, const bool kbEnableRc) {
 
   param.iTargetBitrate			= 0;	// overall target bitrate introduced in RC module
   param.iMaxBitrate             = MAX_BIT_RATE;
-#ifdef MT_ENABLED
-  param.iMultipleThreadIdc		= 0;	// auto to detect cpu cores inside
-#else
-  param.iMultipleThreadIdc		=
-    1;	// 1 # 0: auto(dynamic imp. internal encoder); 1: multiple threads imp. disabled; > 1: count number of threads;
-#endif//MT_ENABLED
+  param.iMultipleThreadIdc		= 1;
 
   param.iLTRRefNum				= 0;
   param.iLtrMarkPeriod			= 30;	//the min distance of two int32_t references
@@ -165,12 +160,11 @@ static void FillDefault (SEncParamExt& param, const bool kbEnableRc) {
   // false: Streaming Video Sharing; true: Video Conferencing Meeting;
 
   /* Deblocking loop filter */
-  param.iLoopFilterDisableIdc		= 1;	// 0: on, 1: off, 2: on except for slice boundaries
+  param.iLoopFilterDisableIdc		= 0;	// 0: on, 1: off, 2: on except for slice boundaries
   param.iLoopFilterAlphaC0Offset	= 0;	// AlphaOffset: valid range [-6, 6], default 0
   param.iLoopFilterBetaOffset		= 0;	// BetaOffset:	valid range [-6, 6], default 0
- 
+
   /* Rate Control */
-  param.bEnableRc		= kbEnableRc;
   param.iRCMode			= RC_QUALITY_MODE;
   param.iPaddingFlag	= 0;
 
@@ -181,7 +175,7 @@ static void FillDefault (SEncParamExt& param, const bool kbEnableRc) {
   param.bEnableFrameSkip		= true;		// frame skipping
   param.bEnableLongTermReference	= false;	// long term reference control
   param.bEnableSpsPpsIdAddition	= true;		// pSps pPps id addition control
-  param.bPrefixNalAddingCtrl		= true;		// prefix NAL adding control
+  param.bPrefixNalAddingCtrl		= false;		// prefix NAL adding control
   param.iSpatialLayerNum		= 1;		// number of dependency(Spatial/CGS) layers used to be encoded
   param.iTemporalLayerNum			= 1;		// number of temporal layer specified
 
@@ -205,8 +199,8 @@ static void FillDefault (SEncParamExt& param, const bool kbEnableRc) {
   }
 }
 
-void FillDefault (const bool kbEnableRc) {
-  FillDefault(*this, kbEnableRc);
+void FillDefault () {
+  FillDefault(*this);
   uiGopSize			= 1;			// GOP size (at maximal frame rate: 16)
 
   SUsedPicRect.iLeft	=
@@ -239,12 +233,12 @@ void FillDefault (const bool kbEnableRc) {
 
 }
 
-int32_t ParamBaseTranscode (const SEncParamBase& pCodingParam, const bool kbEnableRc = true) {
+int32_t ParamBaseTranscode (const SEncParamBase& pCodingParam) {
 
   iInputCsp		= pCodingParam.iInputCsp;		// color space of input sequence
   fMaxFrameRate		= WELS_CLIP3 (pCodingParam.fMaxFrameRate, MIN_FRAME_RATE, MAX_FRAME_RATE);
   iTargetBitrate	= pCodingParam.iTargetBitrate;
-
+  iUsageType = pCodingParam.iUsageType;
   iPicWidth   = pCodingParam.iPicWidth;
   iPicHeight  = pCodingParam.iPicHeight;
 
@@ -253,7 +247,6 @@ int32_t ParamBaseTranscode (const SEncParamBase& pCodingParam, const bool kbEnab
   SUsedPicRect.iWidth = ((iPicWidth >> 1) << 1);
   SUsedPicRect.iHeight = ((iPicHeight >> 1) << 1);
 
-  bEnableRc			= kbEnableRc;
   iRCMode = pCodingParam.iRCMode;    // rc mode
 
   int8_t iIdxSpatial	= 0;
@@ -306,7 +299,7 @@ int32_t ParamTranscode (const SEncParamExt& pCodingParam) {
   iInputCsp		= pCodingParam.iInputCsp;		// color space of input sequence
   uiFrameToBeCoded	= (uint32_t) -
                       1;		// frame to be encoded (at input frame rate), -1 dependents on length of input sequence
-
+  iUsageType = pCodingParam.iUsageType;
   iPicWidth   = pCodingParam.iPicWidth;
   iPicHeight  = pCodingParam.iPicHeight;
 
@@ -317,17 +310,14 @@ int32_t ParamTranscode (const SEncParamExt& pCodingParam) {
 
   /* Deblocking loop filter */
   iLoopFilterDisableIdc	= pCodingParam.iLoopFilterDisableIdc;	// 0: on, 1: off, 2: on except for slice boundaries,
-#ifdef MT_ENABLED
   if (iLoopFilterDisableIdc == 0) // Loop filter requested to be enabled
-    iLoopFilterDisableIdc = 2; // Disable loop filter on slice boundaries since that's not possible with multithreading
-#endif
+    iLoopFilterDisableIdc = 2; // Disable loop filter on slice boundaries since that's not allowed with multithreading
   iLoopFilterAlphaC0Offset = 0;	// AlphaOffset: valid range [-6, 6], default 0
   iLoopFilterBetaOffset	= 0;	// BetaOffset:	valid range [-6, 6], default 0
 
   bEnableFrameCroppingFlag	= true;
 
   /* Rate Control */
-  bEnableRc			= pCodingParam.bEnableRc;
   iRCMode = pCodingParam.iRCMode;    // rc mode
   iPaddingFlag = pCodingParam.iPaddingFlag;
 
@@ -372,10 +362,19 @@ int32_t ParamTranscode (const SEncParamExt& pCodingParam) {
   else if (uiIntraPeriod & (uiGopSize-1))	// none multiple of GOP size
     uiIntraPeriod = ((uiIntraPeriod + uiGopSize - 1) / uiGopSize) * uiGopSize;
 
-  iLTRRefNum = bEnableLongTermReference ? LONG_TERM_REF_NUM : 0;
-  iNumRefFrame		= ((uiGopSize >> 1) > 1) ? ((uiGopSize >> 1) + iLTRRefNum) : (MIN_REF_PIC_COUNT + iLTRRefNum);
-  iNumRefFrame		= WELS_CLIP3 (iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REFERENCE_PICTURE_COUNT_NUM);
-
+  if (iUsageType == SCREEN_CONTENT_REAL_TIME) {
+    if (bEnableLongTermReference) {
+      iLTRRefNum = WELS_CLIP3(pCodingParam.iLTRRefNum,1,LONG_TERM_REF_NUM_SCREEN);
+      iNumRefFrame = WELS_MAX(1, WELS_LOG2 (uiGopSize)) + iLTRRefNum;
+    } else {
+      iLTRRefNum = 0;
+      iNumRefFrame = 1;
+    }
+  } else {
+    iLTRRefNum = bEnableLongTermReference ? WELS_CLIP3(pCodingParam.iLTRRefNum,1,LONG_TERM_REF_NUM) : 0;
+    iNumRefFrame		= ((uiGopSize >> 1) > 1) ? ((uiGopSize >> 1) + iLTRRefNum) : (MIN_REF_PIC_COUNT + iLTRRefNum);
+    iNumRefFrame		= WELS_CLIP3 (iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REFERENCE_PICTURE_COUNT_NUM);
+  }
   iLtrMarkPeriod  = pCodingParam.iLtrMarkPeriod;
 
   bPrefixNalAddingCtrl	= pCodingParam.bPrefixNalAddingCtrl;
@@ -502,19 +501,18 @@ pMa->WelsFree (*pParam, "SWelsSvcCodingParam");
 return 0;
 }
 
-static inline int32_t AllocCodingParam (SWelsSvcCodingParam** pParam, CMemoryAlign* pMa,
-                                        const int32_t kiRequestNumSpatial) {
-if (pParam == NULL || pMa == NULL || kiRequestNumSpatial < 1 || kiRequestNumSpatial > MAX_SPATIAL_LAYER_NUM)
-  return 1;
-if (*pParam != NULL) {
-  FreeCodingParam (pParam, pMa);
-}
-SWelsSvcCodingParam* pCodingParam = (SWelsSvcCodingParam*)pMa->WelsMalloc (sizeof (SWelsSvcCodingParam),
+static inline int32_t AllocCodingParam (SWelsSvcCodingParam** pParam, CMemoryAlign* pMa) {
+  if (pParam == NULL || pMa == NULL)
+    return 1;
+  if (*pParam != NULL) {
+    FreeCodingParam (pParam, pMa);
+  }
+  SWelsSvcCodingParam* pCodingParam = (SWelsSvcCodingParam*)pMa->WelsMalloc (sizeof (SWelsSvcCodingParam),
                                     "SWelsSvcCodingParam");
-if (NULL == pCodingParam)
-  return 1;
-*pParam = pCodingParam;
-return 0;
+  if (NULL == pCodingParam)
+    return 1;
+  *pParam = pCodingParam;
+  return 0;
 }
 
 }//end of namespace WelsSVCEnc

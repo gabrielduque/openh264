@@ -32,6 +32,7 @@
  */
 
 #if defined (_WIN32)
+#define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <tchar.h>
 #else
@@ -173,8 +174,8 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
       fread (&iSliceSize, 1, sizeof (int32_t), fpTrack);
 #else
     for (i = 0; i < iFileSize; i++) {
-      if (pBuf[iBufPos + i] == 0 && pBuf[iBufPos + i + 1] == 0 && pBuf[iBufPos + i + 2] == 0 &&
-          pBuf[iBufPos + i + 3] == 1 && i > 0) {
+      if ((pBuf[iBufPos + i] == 0 && pBuf[iBufPos + i + 1] == 0 && pBuf[iBufPos + i + 2] == 0 && pBuf[iBufPos + i + 3] == 1
+           && i > 0) || (pBuf[iBufPos + i] == 0 && pBuf[iBufPos + i + 1] == 0 && pBuf[iBufPos + i + 2] == 1 && i > 0)) {
         break;
       }
     }
@@ -198,6 +199,8 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
     pDecoder->GetOption (DECODER_OPTION_VCL_NAL, &iFeedbackVclNalInAu);
     int32_t iFeedbackTidInAu;
     pDecoder->GetOption (DECODER_OPTION_TEMPORAL_ID, &iFeedbackTidInAu);
+    int32_t iErrorConMethod = ERROR_CON_SLICE_COPY;
+    pDecoder->SetOption (DECODER_OPTION_ERROR_CON_IDC, &iErrorConMethod);
 //~end for
 
     iStart = WelsTime();
@@ -300,7 +303,7 @@ label_exit:
 }
 
 #if (defined(ANDROID_NDK)||defined(APPLE_IOS))
-int32_t DecMain(int32_t iArgC, char* pArgV[]) {
+int32_t DecMain (int32_t iArgC, char* pArgV[]) {
 #else
 int32_t main (int32_t iArgC, char* pArgV[]) {
 #endif
@@ -426,7 +429,8 @@ int32_t main (int32_t iArgC, char* pArgV[]) {
   int32_t iHeight = 0;
 
 
-  H264DecodeInstance (pDecoder, strInputFile.c_str(), !strOutputFile.empty() ? strOutputFile.c_str() : NULL, iWidth, iHeight,
+  H264DecodeInstance (pDecoder, strInputFile.c_str(), !strOutputFile.empty() ? strOutputFile.c_str() : NULL, iWidth,
+                      iHeight,
                       (!strOptionFile.empty() ? strOptionFile.c_str() : NULL));
 
   if (sDecParam.pFileNameRestructed != NULL) {

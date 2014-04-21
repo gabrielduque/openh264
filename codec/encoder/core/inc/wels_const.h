@@ -87,6 +87,7 @@
 #define PARA_SET_TYPE_SUBSETSPS	1
 #define PARA_SET_TYPE_PPS		2
 
+#define MAX_VERTICAL_MV_RANGE   1024  //TODO, for allocate enough memory for transpose
 #define MAX_FRAME_RATE			30	// maximal frame rate to support
 #define MIN_FRAME_RATE			1	// minimal frame rate need support
 
@@ -147,9 +148,11 @@
 
 #define MAX_SHORT_REF_COUNT		(MAX_GOP_SIZE>>1) // 16 in standard, maximal count number of short reference pictures
 #define LONG_TERM_REF_NUM       2
+#define LONG_TERM_REF_NUM_SCREEN 4
 #define MAX_LONG_REF_COUNT		2 // 16 in standard, maximal count number of long reference pictures
 #define MAX_REF_PIC_COUNT		16 // 32 in standard, maximal Short + Long reference pictures
 #define MIN_REF_PIC_COUNT		1		// minimal count number of reference pictures, 1 short + 2 key reference based?
+#define MAX_MULTI_REF_PIC_COUNT	1	//maximum multi-reference number
 //#define TOTAL_REF_MINUS_HALF_GOP	1	// last t0 in last gop
 #define MAX_MMCO_COUNT			66
 
@@ -172,6 +175,18 @@
 #define MAX_NAL_UNIT_NUM_IN_AU	256	// predefined maximal number of NAL Units in an access unit
 #define MAX_ACCESS_UINT_CAPACITY	(1<<20)	// Maximal AU capacity in bytes: 1024 KB predefined
 #define MAX_ACCESS_UNIT_CACHE_NUM	2	// Maximal Access Unit(AU) cache number to be processed, denote current AU and the next coming AU.
+
+enum {
+  BLOCK_16x16 = 0,
+  BLOCK_16x8  = 1,
+  BLOCK_8x16  = 2,
+  BLOCK_8x8   = 3,
+  BLOCK_4x4   = 4,
+//    BLOCK_8x4   = 5,
+//    BLOCK_4x8   = 6,
+  BLOCK_SIZE_ALL = 5
+};
+
 enum {
   CUR_AU_IDX	= 0,			// index symbol for current access unit
   SUC_AU_IDX	= 1				// index symbol for successive access unit

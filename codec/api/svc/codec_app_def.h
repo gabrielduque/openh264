@@ -105,8 +105,17 @@ typedef enum {
   DECODER_OPTION_IDR_PIC_ID,	// feedback current frame belong to which IDR period
   DECODER_OPTION_LTR_MARKING_FLAG,	// feedback wether current frame mark a LTR
   DECODER_OPTION_LTR_MARKED_FRAME_NUM,	// feedback frame num marked by current Frame
+  DECODER_OPTION_ERROR_CON_IDC, //not finished yet, indicate decoder error concealment status, in progress
 
 } DECODER_OPTION;
+
+//enuerate the types of error concealment methods
+typedef enum {
+  ERROR_CON_DISABLE = 0,
+  ERROR_CON_FRAME_COPY,
+  ERROR_CON_SLICE_COPY,
+} ERROR_CON_IDC;
+
 typedef enum { //feedback that whether or not have VCL NAL in current AU
   FEEDBACK_NON_VCL_NAL = 0,
   FEEDBACK_VCL_NAL,
@@ -174,9 +183,10 @@ typedef enum {
 } SliceModeEnum;
 
 typedef enum {
-  RC_QUALITY_MODE,      //Quality mode
-  RC_BITRATE_MODE,   //Bitrate mode
-  RC_LOW_BW_MODE, //bitrate limited mode
+  RC_QUALITY_MODE = 0,      //Quality mode
+  RC_BITRATE_MODE = 1,   //Bitrate mode
+  RC_LOW_BW_MODE = 2, //bitrate limited mode
+  RC_OFF_MODE = -1,    // rate control off mode
 } RC_MODES;
 
 typedef enum {
@@ -237,7 +247,9 @@ typedef enum {
   CAMERA_VIDEO_REAL_TIME, //camera video signal
   SCREEN_CONTENT_REAL_TIME,//screen content signal
 }EUsageType;
-/* SVC Encoding Parameters */
+
+// TODO:  Refine the parameters definition.
+// SVC Encoding Parameters
 typedef struct TagEncParamBase{
   EUsageType    iUsageType;	//application type;// CAMERA_VIDEO_REAL_TIME: //camera video signal; SCREEN_CONTENT_REAL_TIME: screen content signal;
   int		iInputCsp;	// color space of input sequence
@@ -273,10 +285,9 @@ typedef struct TagEncParamExt
   bool    bPrefixNalAddingCtrl;
   bool	  bEnableSSEI;
   int      iPaddingFlag;            // 0:disable padding;1:padding
-  int      iEtropyCodingModeFlag;
+  int      iEntropyCodingModeFlag;
 
   /* rc control */
-  bool    bEnableRc;
   bool    bEnableFrameSkip; // allow skipping frames to keep the bitrate within limits
   int     iMaxBitrate;        // max bitrate desired
   int     iMaxQp;

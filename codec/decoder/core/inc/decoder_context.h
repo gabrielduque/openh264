@@ -98,6 +98,12 @@ typedef struct TagMcFunc {
   PWelsMcFunc pMcChromaFunc;
 } SMcFunc;
 
+typedef void (*PCopyFunc) (uint8_t* pDst, int32_t iStrideD, uint8_t* pSrc, int32_t iStrideS);
+typedef struct TagCopyFunc {
+  PCopyFunc pCopyLumaFunc;
+  PCopyFunc pCopyChromaFunc;
+} SCopyFunc;
+
 //deblock module defination
 struct TagDeblockingFunc;
 
@@ -149,6 +155,13 @@ typedef struct TagExpandPicFunc {
   PExpandPictureFunc pExpandLumaPicture;
   PExpandPictureFunc pExpandChromaPicture[2];
 } SExpandPicFunc;
+
+enum {
+  OVERWRITE_NONE = 0,
+  OVERWRITE_PPS = 1,
+  OVERWRITE_SPS = 1 << 1,
+  OVERWRITE_SUBSETSPS = 1 << 2
+};
 
 /*
  *	SWelsDecoderContext: to maintail all modules data over decoder@framework
@@ -205,6 +218,7 @@ typedef struct TagWelsDecoderContext {
     int32_t* pSliceIdc[LAYER_NUM_EXCHANGEABLE];		// using int32_t for slice_idc
     int8_t*  pResidualPredFlag[LAYER_NUM_EXCHANGEABLE];
     int8_t*  pInterPredictionDoneFlag[LAYER_NUM_EXCHANGEABLE];
+    bool*    pMbCorrectlyDecodedFlag[LAYER_NUM_EXCHANGEABLE];
     uint32_t iMbWidth;
     uint32_t iMbHeight;
   } sMb;
@@ -224,17 +238,18 @@ typedef struct TagWelsDecoderContext {
 
   SPosOffset	sFrameCrop;
 
-  SSps				sSpsBuffer[MAX_SPS_COUNT];
-  SPps				sPpsBuffer[MAX_PPS_COUNT];
+  SSps				sSpsBuffer[MAX_SPS_COUNT + 1];
+  SPps				sPpsBuffer[MAX_PPS_COUNT + 1];
   PSliceHeader		pSliceHeader;
 
   PPicBuff	        pPicBuff[LIST_A];	// Initially allocated memory for pictures which are used in decoding.
   int32_t				iPicQueueNumber;
 
-  SSubsetSps			sSubsetSpsBuffer[MAX_SPS_COUNT];
+  SSubsetSps			sSubsetSpsBuffer[MAX_SPS_COUNT + 1];
   SNalUnit            sPrefixNal;
 
   PAccessUnit			pAccessUnitList;	// current access unit list to be performed
+  PSps        pActiveLayerSps[MAX_LAYER_NUM];
   PSps				pSps;	// used by current AU
   PPps				pPps;	// used by current AU
   // Memory for pAccessUnitList is dynamically held till decoder destruction.
@@ -270,19 +285,25 @@ typedef struct TagWelsDecoderContext {
 
   uint16_t            uiCurIdrPicId;
 #endif
-
-  PGetIntraPredFunc 	pGetI16x16LumaPredFunc[7];		//h264_predict_copy_16x16;
-  PGetIntraPredFunc 	pGetI4x4LumaPredFunc[14];		// h264_predict_4x4_t
-  PGetIntraPredFunc 	pGetIChromaPredFunc[7];		// h264_predict_8x8_t
+  bool       bNewSeqBegin;
+  int        iOverwriteFlags;
+  int32_t iErrorConMethod; //
+  PPicture pPreviousDecodedPictureInDpb; //pointer to previously decoded picture in DPB for error concealment
+  PGetIntraPredFunc pGetI16x16LumaPredFunc[7];		//h264_predict_copy_16x16;
+  PGetIntraPredFunc pGetI4x4LumaPredFunc[14];		// h264_predict_4x4_t
+  PGetIntraPredFunc pGetIChromaPredFunc[7];		// h264_predict_8x8_t
   PIdctResAddPredFunc	pIdctResAddPredFunc;
   SMcFunc				sMcFunc;
+
+  //For error concealment
+  SCopyFunc sCopyFunc;
   /* For Deblocking */
   SDeblockingFunc     sDeblockingFunc;
   SExpandPicFunc	    sExpandPicFunc;
 
   /* For Block */
   SBlockFunc          sBlockFunc;
-  /* For EC */
+
   int32_t iCurSeqIntervalTargetDependId;
   int32_t iCurSeqIntervalMaxPicWidth;
   int32_t iCurSeqIntervalMaxPicHeight;
@@ -308,6 +329,11 @@ typedef struct TagWelsDecoderContext {
 
 } SWelsDecoderContext, *PWelsDecoderContext;
 
+static inline void ResetActiveSPSForEachLayer(PWelsDecoderContext pCtx) {
+  for(int i = 0; i < MAX_LAYER_NUM; i++) {
+    pCtx->pActiveLayerSps[i] = NULL;
+  }
+}
 //#ifdef __cplusplus
 //}
 //#endif//__cplusplus

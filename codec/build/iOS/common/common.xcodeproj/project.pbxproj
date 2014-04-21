@@ -16,6 +16,7 @@
 		4C3406CF18D96EA600DFA14A /* deblocking_common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C3406C618D96EA600DFA14A /* deblocking_common.cpp */; };
 		4C3406D018D96EA600DFA14A /* logging.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C3406C718D96EA600DFA14A /* logging.cpp */; };
 		4C3406D118D96EA600DFA14A /* WelsThreadLib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C3406C818D96EA600DFA14A /* WelsThreadLib.cpp */; };
+		4CC61F0918FF6B4B00E56EAB /* copy_mb_neon.S in Sources */ = {isa = PBXBuildFile; fileRef = 4CC61F0818FF6B4B00E56EAB /* copy_mb_neon.S */; };
 		4CE443D918B722CD0017DF25 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CE443D818B722CD0017DF25 /* Foundation.framework */; };
 		4CE443E718B722CD0017DF25 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CE443E618B722CD0017DF25 /* XCTest.framework */; };
 		4CE443E818B722CD0017DF25 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CE443D818B722CD0017DF25 /* Foundation.framework */; };
@@ -23,6 +24,8 @@
 		4CE443ED18B722CD0017DF25 /* libcommon.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CE443D518B722CD0017DF25 /* libcommon.a */; };
 		4CE443F318B722CD0017DF25 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4CE443F118B722CD0017DF25 /* InfoPlist.strings */; };
 		4CE443F518B722CD0017DF25 /* commonTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4CE443F418B722CD0017DF25 /* commonTests.m */; };
+		F0B204F918FD23BF005DA23F /* copy_mb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F0B204F818FD23BF005DA23F /* copy_mb.cpp */; };
+		FAABAA1818E9354A00D4186F /* sad_common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FAABAA1718E9354A00D4186F /* sad_common.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,6 +72,7 @@
 		4C3406C618D96EA600DFA14A /* deblocking_common.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = deblocking_common.cpp; sourceTree = "<group>"; };
 		4C3406C718D96EA600DFA14A /* logging.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = logging.cpp; sourceTree = "<group>"; };
 		4C3406C818D96EA600DFA14A /* WelsThreadLib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WelsThreadLib.cpp; sourceTree = "<group>"; };
+		4CC61F0818FF6B4B00E56EAB /* copy_mb_neon.S */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = copy_mb_neon.S; sourceTree = "<group>"; };
 		4CE443D518B722CD0017DF25 /* libcommon.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcommon.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CE443D818B722CD0017DF25 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		4CE443E518B722CD0017DF25 /* commonTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = commonTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -77,6 +81,10 @@
 		4CE443F018B722CD0017DF25 /* commonTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "commonTests-Info.plist"; sourceTree = "<group>"; };
 		4CE443F218B722CD0017DF25 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		4CE443F418B722CD0017DF25 /* commonTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = commonTests.m; sourceTree = "<group>"; };
+		F0B204F718FD23B6005DA23F /* copy_mb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = copy_mb.h; sourceTree = "<group>"; };
+		F0B204F818FD23BF005DA23F /* copy_mb.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = copy_mb.cpp; sourceTree = "<group>"; };
+		FAABAA1618E9353F00D4186F /* sad_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sad_common.h; sourceTree = "<group>"; };
+		FAABAA1718E9354A00D4186F /* sad_common.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sad_common.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +113,7 @@
 		4C3406B118D96EA600DFA14A /* arm */ = {
 			isa = PBXGroup;
 			children = (
+				4CC61F0818FF6B4B00E56EAB /* copy_mb_neon.S */,
 				4C3406B218D96EA600DFA14A /* arm_arch_common_macro.S */,
 				4C3406B318D96EA600DFA14A /* deblocking_neon.S */,
 				4C3406B418D96EA600DFA14A /* expand_picture_neon.S */,
@@ -116,6 +125,8 @@
 		4C3406B618D96EA600DFA14A /* inc */ = {
 			isa = PBXGroup;
 			children = (
+				F0B204F718FD23B6005DA23F /* copy_mb.h */,
+				FAABAA1618E9353F00D4186F /* sad_common.h */,
 				4C3406B718D96EA600DFA14A /* cpu.h */,
 				4C3406B818D96EA600DFA14A /* cpu_core.h */,
 				4C3406B918D96EA600DFA14A /* crt_util_safe_x.h */,
@@ -135,6 +146,8 @@
 		4C3406C318D96EA600DFA14A /* src */ = {
 			isa = PBXGroup;
 			children = (
+				F0B204F818FD23BF005DA23F /* copy_mb.cpp */,
+				FAABAA1718E9354A00D4186F /* sad_common.cpp */,
 				4C3406C418D96EA600DFA14A /* cpu.cpp */,
 				4C3406C518D96EA600DFA14A /* crt_util_safe_x.cpp */,
 				4C3406C618D96EA600DFA14A /* deblocking_common.cpp */,
@@ -290,8 +303,11 @@
 				4C3406D118D96EA600DFA14A /* WelsThreadLib.cpp in Sources */,
 				4C3406CC18D96EA600DFA14A /* mc_neon.S in Sources */,
 				4C3406CB18D96EA600DFA14A /* expand_picture_neon.S in Sources */,
+				4CC61F0918FF6B4B00E56EAB /* copy_mb_neon.S in Sources */,
 				4C3406CD18D96EA600DFA14A /* cpu.cpp in Sources */,
 				4C3406CA18D96EA600DFA14A /* deblocking_neon.S in Sources */,
+				F0B204F918FD23BF005DA23F /* copy_mb.cpp in Sources */,
+				FAABAA1818E9354A00D4186F /* sad_common.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -406,15 +422,16 @@
 				GCC_C_LANGUAGE_STANDARD = "compiler-default";
 				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_PREPROCESSOR_DEFINITIONS = "";
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*]" = (
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*][arch=arm64]" = APPLE_IOS;
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*][arch=armv7]" = (
 					APPLE_IOS,
 					HAVE_NEON,
-					MT_ENABLED,
 				);
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*]" = (
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*][arch=armv7s]" = (
 					APPLE_IOS,
-					MT_ENABLED,
+					HAVE_NEON,
 				);
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*]" = APPLE_IOS;
 				IPHONEOS_DEPLOYMENT_TARGET = 6.1;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "-ObjC";
@@ -432,15 +449,16 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DSTROOT = /tmp/common.dst;
 				GCC_C_LANGUAGE_STANDARD = "compiler-default";
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*]" = (
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*][arch=arm64]" = APPLE_IOS;
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*][arch=armv7]" = (
 					APPLE_IOS,
 					HAVE_NEON,
-					MT_ENABLED,
 				);
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*]" = (
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*][arch=armv7s]" = (
 					APPLE_IOS,
-					MT_ENABLED,
+					HAVE_NEON,
 				);
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*]" = APPLE_IOS;
 				IPHONEOS_DEPLOYMENT_TARGET = 6.1;
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";

@@ -132,10 +132,17 @@ void InitExpandPictureFunc (void* pL, const uint32_t kuiCPUFlag) {
 #if defined(HAVE_NEON)
   if (kuiCPUFlag & WELS_CPU_NEON) {
     pFuncList->pfExpandLumaPicture	= ExpandPictureLuma_neon;
-    pFuncList->pfExpandChromaPicture[0] = ExpandPictureChroma_c;
+    pFuncList->pfExpandChromaPicture[0] = ExpandPictureChroma_neon;
     pFuncList->pfExpandChromaPicture[1] = ExpandPictureChroma_neon;
   }
 #endif//HAVE_NEON
+#if defined(HAVE_NEON_AARCH64)
+    if (kuiCPUFlag & WELS_CPU_NEON) {
+        pFuncList->pfExpandLumaPicture	= ExpandPictureLuma_AArch64_neon;
+        pFuncList->pfExpandChromaPicture[0] = ExpandPictureChroma_AArch64_neon;
+        pFuncList->pfExpandChromaPicture[1] = ExpandPictureChroma_AArch64_neon;
+    }
+#endif//HAVE_NEON_AARCH64
 }
 
 

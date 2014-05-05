@@ -57,14 +57,12 @@ const int32_t QStepx16ByQp[52] = {  /* save QStep<<4 for int32_t */
     2560, 2816, 3328, 3584     /* 48~51 */
 };
 
-static inline void UpdateMeResults( const SMVUnitXY ksBestMv, const uint32_t kiBestSadCost, uint8_t* pRef, SWelsME * pMe )
-{
+static inline void UpdateMeResults( const SMVUnitXY ksBestMv, const uint32_t kiBestSadCost, uint8_t* pRef, SWelsME * pMe ) {
   pMe->sMv = ksBestMv;
   pMe->pRefMb = pRef;
   pMe->uiSadCost = kiBestSadCost;
 }
-static inline void MeEndIntepelSearch( SWelsME * pMe )
-{
+static inline void MeEndIntepelSearch( SWelsME * pMe ) {
     /* -> qpel mv */
     pMe->sMv.iMvX <<= 2;
     pMe->sMv.iMvY <<= 2;
@@ -74,6 +72,11 @@ static inline void MeEndIntepelSearch( SWelsME * pMe )
 void WelsInitMeFunc( SWelsFuncPtrList* pFuncList, uint32_t uiCpuFlag, bool bScreenContent ) {
   if (!bScreenContent) {
     pFuncList->pfCheckDirectionalMv = CheckDirectionalMvFalse;
+    pFuncList->pfCalculateBlockFeatureOfFrame[0] =
+      pFuncList->pfCalculateBlockFeatureOfFrame[1] = NULL;
+    pFuncList->pfCalculateSingleBlockFeature[0] =
+      pFuncList->pfCalculateSingleBlockFeature[1] = NULL;
+    pFuncList->pfUpdateFMESwitch = UpdateFMESwitchNull;
   } else {
     pFuncList->pfCheckDirectionalMv = CheckDirectionalMv;
 
@@ -87,6 +90,7 @@ void WelsInitMeFunc( SWelsFuncPtrList* pFuncList, uint32_t uiCpuFlag, bool bScre
       pFuncList->pfVerticalFullSearch = VerticalFullSearchUsingSSE41;
       pFuncList->pfHorizontalFullSearch = HorizontalFullSearchUsingSSE41;
     }
+#endif
 
     //for feature search
     pFuncList->pfCalculateBlockFeatureOfFrame[0] = SumOf8x8BlockOfFrame_c;
@@ -94,7 +98,7 @@ void WelsInitMeFunc( SWelsFuncPtrList* pFuncList, uint32_t uiCpuFlag, bool bScre
     //TODO: it is possible to differentiate width that is times of 8, so as to accelerate the speed when width is times of 8?
     pFuncList->pfCalculateSingleBlockFeature[0] = SumOf8x8SingleBlock_c;
     pFuncList->pfCalculateSingleBlockFeature[1] = SumOf16x16SingleBlock_c;
-#endif
+    pFuncList->pfUpdateFMESwitch = UpdateFMESwitchNull;
   }
 }
 
@@ -333,13 +337,11 @@ void CalcMvdCostx8_c( uint16_t *pMvdCost, const int32_t kiStartMv, uint16_t* pMv
     pMvd += 4;
   }
 }
-void VerticalFullSearchUsingSSE41( void *pFunc, void *vpMe,
+void VerticalFullSearchUsingSSE41( SWelsFuncPtrList *pFuncList, SWelsME *pMe,
                             uint16_t* pMvdTable, const int32_t kiFixedMvd,
                             const int32_t kiEncStride, const int32_t kiRefStride,
                           const int32_t kiMinPos, const int32_t kiMaxPos,
                           const bool bVerticalSearch ) {
-  SWelsFuncPtrList *pFuncList      = static_cast<SWelsFuncPtrList *>(pFunc);
-  SWelsME *pMe                        = static_cast<SWelsME *>(vpMe);
   uint8_t*  kpEncMb = pMe->pEncMb;
   const int32_t kiCurMeBlockPix = pMe->iCurMeBlockPixY;
   uint8_t* pRef         = &pMe->pColoRefMb[(kiMinPos - kiCurMeBlockPix)*kiRefStride];
@@ -404,14 +406,12 @@ void VerticalFullSearchUsingSSE41( void *pFunc, void *vpMe,
   }
 }
 
-void HorizontalFullSearchUsingSSE41( void *pFunc, void *vpMe,
+void HorizontalFullSearchUsingSSE41( SWelsFuncPtrList *pFuncList, SWelsME *pMe,
                                       uint16_t* pMvdTable, const int32_t kiFixedMvd,
                                       const int32_t kiEncStride, const int32_t kiRefStride,
                                       const int32_t kiMinPos, const int32_t kiMaxPos,
                                       const bool bVerticalSearch )
 {
-  SWelsFuncPtrList *pFuncList      = static_cast<SWelsFuncPtrList *>(pFunc);
-  SWelsME *pMe                        = static_cast<SWelsME *>(vpMe);
   uint8_t *kpEncMb = pMe->pEncMb;
   const int32_t kiCurMeBlockPix = pMe->iCurMeBlockPixX;
   uint8_t *pRef         = &pMe->pColoRefMb[kiMinPos - kiCurMeBlockPix];
@@ -459,13 +459,11 @@ void HorizontalFullSearchUsingSSE41( void *pFunc, void *vpMe,
   }
 }
 #endif
-void LineFullSearch_c( void *pFunc, void *vpMe,
+void LineFullSearch_c( SWelsFuncPtrList *pFuncList, SWelsME *pMe,
              uint16_t* pMvdTable, const int32_t kiFixedMvd,
              const int32_t kiEncStride, const int32_t kiRefStride,
              const int32_t kiMinPos, const int32_t kiMaxPos,
                           const bool bVerticalSearch ) {
-  SWelsFuncPtrList *pFuncList      = static_cast<SWelsFuncPtrList *>(pFunc);
-  SWelsME *pMe                            = static_cast<SWelsME *>(vpMe);
   PSampleSadSatdCostFunc pSad = pFuncList->sSampleDealingFuncs.pfSampleSad[pMe->uiBlockSize];
   const int32_t kiCurMeBlockPix  = bVerticalSearch?pMe->iCurMeBlockPixY:pMe->iCurMeBlockPixX;
   const int32_t kiStride = bVerticalSearch?kiRefStride:1;
@@ -547,7 +545,7 @@ int32_t RequestFeatureSearchPreparation( CMemoryAlign *pMa, const int32_t kiFram
 
   pFeatureSearchPreparation->uiFeatureStrategyIndex = kiFeatureStrategyIndex;
   pFeatureSearchPreparation->bFMESwitchFlag = true;
-  pFeatureSearchPreparation->uiFMEGoodFrameCount = FME_DEFAULT_GOOD_FRAME_NUM;
+  pFeatureSearchPreparation->uiFMEGoodFrameCount = FMESWITCH_DEFAULT_GOODFRAME_NUM;
   pFeatureSearchPreparation->iHighFreMbCount = 0;
 
   return ENC_RETURN_SUCCESS;
@@ -597,14 +595,20 @@ int32_t RequestScreenBlockFeatureStorage( CMemoryAlign *pMa, const int32_t kiFra
 }
 int32_t ReleaseScreenBlockFeatureStorage( CMemoryAlign *pMa, SScreenBlockFeatureStorage* pScreenBlockFeatureStorage ) {
   if ( pMa && pScreenBlockFeatureStorage ) {
-    pMa->WelsFree( pScreenBlockFeatureStorage->pTimesOfFeatureValue, "pScreenBlockFeatureStorage->pTimesOfFeatureValue");
-    pScreenBlockFeatureStorage->pTimesOfFeatureValue=NULL;
+    if (pScreenBlockFeatureStorage->pTimesOfFeatureValue) {
+      pMa->WelsFree( pScreenBlockFeatureStorage->pTimesOfFeatureValue, "pScreenBlockFeatureStorage->pTimesOfFeatureValue");
+      pScreenBlockFeatureStorage->pTimesOfFeatureValue=NULL;
+    }
 
-    pMa->WelsFree( pScreenBlockFeatureStorage->pLocationOfFeature, "pScreenBlockFeatureStorage->pLocationOfFeature");
-    pScreenBlockFeatureStorage->pLocationOfFeature=NULL;
+    if (pScreenBlockFeatureStorage->pLocationOfFeature) {
+      pMa->WelsFree( pScreenBlockFeatureStorage->pLocationOfFeature, "pScreenBlockFeatureStorage->pLocationOfFeature");
+      pScreenBlockFeatureStorage->pLocationOfFeature=NULL;
+    }
 
-    pMa->WelsFree( pScreenBlockFeatureStorage->pLocationPointer, "pScreenBlockFeatureStorage->pLocationPointer");
-    pScreenBlockFeatureStorage->pLocationPointer=NULL;
+    if (pScreenBlockFeatureStorage->pLocationPointer) {
+      pMa->WelsFree( pScreenBlockFeatureStorage->pLocationPointer, "pScreenBlockFeatureStorage->pLocationPointer");
+      pScreenBlockFeatureStorage->pLocationPointer=NULL;
+    }
 
     return ENC_RETURN_SUCCESS;
   }
@@ -672,27 +676,22 @@ void SumOf16x16BlockOfFrame_c(uint8_t *pRefPicture, const int32_t kiWidth, const
 }
 
 void InitializeHashforFeature_c( uint32_t* pTimesOfFeatureValue, uint16_t* pBuf, const int32_t kiListSize,
-                                uint16_t** pLocationOfFeature, uint16_t** pFeatureValuePointerList )
-{
+                                uint16_t** pLocationOfFeature, uint16_t** pFeatureValuePointerList ) {
   //assign location pointer
   uint16_t *pBufPos  = pBuf;
-  for( int32_t i = 0 ; i < kiListSize; ++i )
-  {
+  for( int32_t i = 0 ; i < kiListSize; ++i ) {
     pLocationOfFeature[i] =
       pFeatureValuePointerList[i] = pBufPos;
     pBufPos      += (pTimesOfFeatureValue[i]<<1);
   }
 }
 void FillQpelLocationByFeatureValue_c( uint16_t* pFeatureOfBlock, const int32_t kiWidth, const int32_t kiHeight,
-                                       uint16_t** pFeatureValuePointerList )
-{
+                                       uint16_t** pFeatureValuePointerList ) {
   //assign each pixel's position
   uint16_t* pSrcPointer  =  pFeatureOfBlock;
   int32_t iQpelY = 0;
-  for(int32_t y = 0; y < kiHeight; y++)
-  {
-    for(int32_t x = 0; x < kiWidth; x++)
-    {
+  for(int32_t y = 0; y < kiHeight; y++) {
+    for(int32_t x = 0; x < kiWidth; x++) {
       uint16_t uiFeature = pSrcPointer[x];
       ST32( &pFeatureValuePointerList[uiFeature][0], ((iQpelY<<16)|(x<<2)) );
       pFeatureValuePointerList[uiFeature] += 2;
@@ -703,8 +702,7 @@ void FillQpelLocationByFeatureValue_c( uint16_t* pFeatureOfBlock, const int32_t 
 }
 
 void CalculateFeatureOfBlock( SWelsFuncPtrList *pFunc, SPicture* pRef,
-                         SScreenBlockFeatureStorage* pScreenBlockFeatureStorage)
-{
+                         SScreenBlockFeatureStorage* pScreenBlockFeatureStorage) {
   uint16_t* pFeatureOfBlock = pScreenBlockFeatureStorage->pFeatureOfBlockPointer;
   uint32_t* pTimesOfFeatureValue = pScreenBlockFeatureStorage->pTimesOfFeatureValue;
   uint16_t** pLocationOfFeature  = pScreenBlockFeatureStorage->pLocationOfFeature;
@@ -730,8 +728,10 @@ void CalculateFeatureOfBlock( SWelsFuncPtrList *pFunc, SPicture* pRef,
   FillQpelLocationByFeatureValue_c(pFeatureOfBlock, iWidth, kiHeight, pFeatureValuePointerList);
 }
 
-void PerformFMEPreprocess( SWelsFuncPtrList *pFunc, SPicture* pRef,
-                          SScreenBlockFeatureStorage* pScreenBlockFeatureStorage) {
+void PerformFMEPreprocess( SWelsFuncPtrList *pFunc, SPicture* pRef, uint16_t*	pFeatureOfBlock,
+                          SScreenBlockFeatureStorage* pScreenBlockFeatureStorage)
+{
+    pScreenBlockFeatureStorage->pFeatureOfBlockPointer = pFeatureOfBlock;
     CalculateFeatureOfBlock(pFunc, pRef, pScreenBlockFeatureStorage );
     pScreenBlockFeatureStorage->bRefBlockFeatureCalculated = true;
 
@@ -867,6 +867,41 @@ void MotionEstimateFeatureFullSearch( SFeatureSearchIn &sFeatureSearchIn,
   }
 }
 
+//switch related
+static uint32_t CountFMECostDown( const SDqLayer* pCurLayer ) {
+  uint32_t uiCostDownSum      = 0;
+  const int32_t kiSliceCount  = GetCurrentSliceNum( pCurLayer->pSliceEncCtx );
+  if ( kiSliceCount >= 1 ) {
+    int32_t iSliceIndex  = 0;
+    SSlice *pSlice    = &pCurLayer->sLayerInfo.pSliceInLayer[iSliceIndex];
+    while( iSliceIndex < kiSliceCount ) {
+      uiCostDownSum += pSlice->uiSliceFMECostDown;
+      ++ pSlice;
+      ++ iSliceIndex;
+    }
+  }
+  return uiCostDownSum;
+}
+#define FMESWITCH_MBAVERCOSTSAVING_THRESHOLD (2) //empirically set.
+#define FMESWITCH_GOODFRAMECOUNT_MAX (5) //empirically set.
+static void UpdateFMEGoodFrameCount(const uint32_t iAvMBNormalizedRDcostDown, uint8_t& uiFMEGoodFrameCount) {
+  //this strategy may be changed, here the number is derived from empirical-numbers
+  // uiFMEGoodFrameCount lies in [0,FMESWITCH_GOODFRAMECOUNT_MAX]
+  if ( iAvMBNormalizedRDcostDown > FMESWITCH_MBAVERCOSTSAVING_THRESHOLD ) {
+    if ( uiFMEGoodFrameCount < FMESWITCH_GOODFRAMECOUNT_MAX )
+      ++ uiFMEGoodFrameCount;
+  } else {
+    if ( uiFMEGoodFrameCount > 0 )
+      -- uiFMEGoodFrameCount;
+  }
+}
+void UpdateFMESwitch(SDqLayer* pCurLayer) {
+  const uint32_t iFMECost = CountFMECostDown( pCurLayer );
+  const uint32_t iAvMBNormalizedRDcostDown  = iFMECost / (pCurLayer->iMbWidth*pCurLayer->iMbHeight);
+  UpdateFMEGoodFrameCount( iAvMBNormalizedRDcostDown, pCurLayer->pFeatureSearchPreparation->uiFMEGoodFrameCount );
+}
+void UpdateFMESwitchNull(SDqLayer* pCurLayer) {
+}
 /////////////////////////
 // Search function options
 /////////////////////////

@@ -1,6 +1,6 @@
 /*!
  * \copy
- *     Copyright (c)  2009-2013, Cisco Systems
+ *     Copyright (c)  2013, Cisco Systems
  *     All rights reserved.
  *
  *     Redistribution and use in source and binary forms, with or without
@@ -28,35 +28,50 @@
  *     ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *     POSSIBILITY OF SUCH DAMAGE.
  *
- * \file	error_concealment.h
- *
- * \brief	Interfaces introduced for error concealment
- *
- * \date	04/14/2014 Created
- *
- *************************************************************************************
  */
-#ifndef WELS_ERROR_CONCEALMENT_H__
-#define WELS_ERROR_CONCEALMENT_H__
-#include "typedefs.h"
-#include "decoder_context.h"
 
-namespace WelsDec {
-//Initialize error concealment
-void InitErrorCon (PWelsDecoderContext pCtx);
-//Do error concealment using frame copy method
-void DoErrorConFrameCopy (PWelsDecoderContext pCtx);
-//Do error concealment using slice copy method
-void DoErrorConSliceCopy (PWelsDecoderContext pCtx);
-//Mark erroneous frame as Ref Pic into DPB
-int32_t MarkECFrameAsRef (PWelsDecoderContext pCtx);
-//Judge if EC is needed to current frame
-bool NeedErrorCon (PWelsDecoderContext pCtx);
-// ImplementErrorConceal
-// Do actual error concealment
-void ImplementErrorCon (PWelsDecoderContext pCtx);
+#ifdef __APPLE__
 
-} // namespace WelsDec
+.macro WELS_ASM_ARCH64_FUNC_BEGIN
+.align 2
+.globl _$0
+_$0:
+.endm
 
-#endif//WELS_ERROR_CONCEALMENT_H__
+.macro WELS_ASM_ARCH64_FUNC_END
+ret
+.endm
+#else
 
+.section .note.GNU-stack,"",%progbits // Mark stack as non-executable
+.text
+
+.macro WELS_ASM_ARCH64_FUNC_BEGIN funcName
+.align 2
+.global \funcName
+.type \funcName, %function
+.func \funcName
+\funcName:
+.endm
+
+.macro WELS_ASM_ARCH64_FUNC_END
+ret
+.endfunc
+.endm
+
+.macro mov.16b arg0, arg1
+    mov \arg0\().16b, \arg1\().16b
+.endm
+
+.macro mov.8b arg0, arg1
+    mov \arg0\().8b, \arg1\().8b
+.endm
+
+.macro ext.16b arg0, arg1, arg2, arg3
+    ext \arg0\().16b, \arg1\().16b, \arg2\().16b, \arg3
+.endm
+
+.macro ext.8b arg0, arg1, arg2, arg3
+    ext \arg0\().8b, \arg1\().8b, \arg2\().8b, \arg3
+.endm
+#endif

@@ -61,7 +61,7 @@ extern PPicture AllocPicture (PWelsDecoderContext pCtx, const int32_t kiPicWidth
 extern void FreePicture (PPicture pPic);
 
 inline void GetValueOf4Bytes (uint8_t* pDstNal, int32_t iDdstIdx) {
-  ST32(pDstNal, iDdstIdx);
+  ST32 (pDstNal, iDdstIdx);
 }
 
 static int32_t CreatePicBuff (PWelsDecoderContext pCtx, PPicBuff* ppPicBuf, const int32_t kiSize,
@@ -164,7 +164,8 @@ void WelsDecoderDefaults (PWelsDecoderContext pCtx) {
   pCtx->pPicBuff[LIST_1]		= NULL;
 
   pCtx->bAvcBasedFlag			= true;
-  pCtx->iErrorConMethod = ERROR_CON_DISABLE;
+  pCtx->iErrorConMethod = ERROR_CON_SLICE_COPY;
+  pCtx->pPreviousDecodedPictureInDpb = NULL;
 
 }
 
@@ -294,6 +295,7 @@ void WelsOpenDecoder (PWelsDecoderContext pCtx) {
 #else
   pCtx->bReferenceLostAtT0Flag	= true;	// should be true to waiting IDR at incoming AU bits following, 6/4/2010
 #endif //LONG_TERM_REF
+  pCtx->bNewSeqBegin = true;
 }
 
 /*!
@@ -421,7 +423,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     int32_t iSrcConsumed   = 0; // consumed bit count of source bs
     int32_t iDstIdx        = 0; //the size of current NAL after 0x03 removal and 00 00 01 removal
     int32_t iSrcLength     = 0;	//the total size of current AU or NAL
-
+    int32_t iRet = 0;
     int32_t iConsumedBytes = 0;
     int32_t iOffset        = 0;
 
@@ -461,7 +463,9 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
 
           iConsumedBytes = 0;
           pNalPayload	= ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
-
+          if (IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType) && pNalPayload) {
+            iRet = ParseNonVclNal (pCtx, pNalPayload, iDstIdx - iConsumedBytes);
+          }
           if (pCtx->bAuReadyFlag) {
             ConstructAccessUnit (pCtx, ppDst, pDstBufInfo);
 
@@ -477,23 +481,18 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
                 return pCtx->iErrorCode;
               }
             }
-            //Do error concealment here
-            ImplementErrorCon (pCtx);
           }
-
-          if ((IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType) || IS_SEI_NAL (pCtx->sCurNalHead.eNalUnitType)) &&
-              pNalPayload) {
-            if (ParseNonVclNal (pCtx, pNalPayload, iDstIdx - iConsumedBytes)) {
-              if (dsNoParamSets & pCtx->iErrorCode) {
+          if (iRet) {
+            iRet = 0;
+            if (dsNoParamSets & pCtx->iErrorCode) {
 #ifdef LONG_TERM_REF
-                pCtx->bParamSetsLostFlag = true;
+              pCtx->bParamSetsLostFlag = true;
 #else
-                pCtx->bReferenceLostAtT0Flag = true;
+              pCtx->bReferenceLostAtT0Flag = true;
 #endif
-                ResetParameterSetsState (pCtx);
-              }
-              return pCtx->iErrorCode;
+              ResetParameterSetsState (pCtx);
             }
+            return pCtx->iErrorCode;
           }
 
           pDstNal += iDstIdx; //update current position
@@ -520,7 +519,9 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
 
     iConsumedBytes = 0;
     pNalPayload = ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
-
+    if (IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType) && pNalPayload) {
+      iRet = ParseNonVclNal (pCtx, pNalPayload, iDstIdx - iConsumedBytes);
+    }
     if (pCtx->bAuReadyFlag) {
       ConstructAccessUnit (pCtx, ppDst, pDstBufInfo);
 
@@ -533,25 +534,19 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
         ResetParameterSetsState (pCtx);
         return pCtx->iErrorCode;
       }
-      //Do error concealment here
-      ImplementErrorCon (pCtx);
     }
-
-    if ((IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType) || IS_SEI_NAL (pCtx->sCurNalHead.eNalUnitType))
-        && pNalPayload) {
-      if (ParseNonVclNal (pCtx, pNalPayload, iDstIdx - iConsumedBytes)) {
-        if (dsNoParamSets & pCtx->iErrorCode) {
+    if (iRet) {
+      iRet = 0;
+      if (dsNoParamSets & pCtx->iErrorCode) {
 #ifdef LONG_TERM_REF
-          pCtx->bParamSetsLostFlag = true;
+        pCtx->bParamSetsLostFlag = true;
 #else
-          pCtx->bReferenceLostAtT0Flag = true;
+        pCtx->bReferenceLostAtT0Flag = true;
 #endif
-          ResetParameterSetsState (pCtx);
-        }
-        return pCtx->iErrorCode;
+        ResetParameterSetsState (pCtx);
       }
+      return pCtx->iErrorCode;
     }
-
     pDstNal += iDstIdx;
     pRawData->pCurPos = pDstNal; //init the pCurPos for next NAL(s) storage
   } else { /* no supplementary picture payload input, but stored a picture */
@@ -574,8 +569,6 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
         ResetParameterSetsState (pCtx);
         return pCtx->iErrorCode;
       }
-      //Do error concealment here
-      ImplementErrorCon (pCtx);
     }
   }
 
@@ -662,7 +655,7 @@ void AssignFuncPointerForRec (PWelsDecoderContext pCtx) {
   pCtx->pIdctResAddPredFunc	= IdctResAddPred_c;
 
 #if defined(HAVE_NEON)
-  if ( pCtx->uiCpuFlag & WELS_CPU_NEON ) {
+  if (pCtx->uiCpuFlag & WELS_CPU_NEON) {
     pCtx->pIdctResAddPredFunc	= IdctResAddPred_neon;
 
     pCtx->pGetI16x16LumaPredFunc[I16_PRED_DC] = WelsDecoderI16x16LumaPredDc_neon;

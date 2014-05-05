@@ -649,6 +649,9 @@ static int32_t	CavlcGetRunBefore (int32_t iRun[16], SReadBitsCache* pBitsCache, 
         }
       }
     } else {
+      for (int j = i; j < uiTotalCoeff; j++) {
+	iRun[j] = 0;
+      }
       return iUsedBits;
     }
 
@@ -665,7 +668,7 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
                                 const uint8_t* kpZigzagTable, int32_t iResidualProperty, int16_t* pTCoeff, uint8_t uiQp,
                                 PWelsDecoderContext pCtx) {
   int32_t iLevel[16], iZerosLeft, iCoeffNum;
-  int32_t  iRun[16] = {0};
+  int32_t  iRun[16];
   int32_t iCurNonZeroCacheIdx, i;
   const uint16_t* kpDequantCoeff = g_kuiDequantCoeff[uiQp];
   int8_t nA, nB, nC;
@@ -977,7 +980,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
   int32_t i, j;
   int32_t iMbXy = pCurDqLayer->iMbXyIndex;
   int32_t iMotionPredFlag[4];
-  int16_t iMv[2] = {0};
+  int16_t iMv[2];
   uint32_t uiCode;
   int32_t iCode;
   int16_t iMinVmv = pSliceHeader->pSps->pSLevelLimits->iMinVmv;
@@ -1000,7 +1003,12 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
       // Security check: iRefIdx should be in range 0 to num_ref_idx_l0_active_minus1, includsive
       // ref to standard section 7.4.5.1. iRefCount[0] is 1 + num_ref_idx_l0_active_minus1.
       if ((iRefIdx < 0) || (iRefIdx >= iRefCount[0]) || (ppRefPic[iRefIdx] == NULL)) { //error ref_idx
-        return ERR_INFO_INVALID_REF_INDEX;
+        if (pCtx->iErrorConMethod != ERROR_CON_DISABLE) {
+          iRefIdx = 0;
+          pCtx->iErrorCode |= dsBitstreamError;
+        } else {
+          return ERR_INFO_INVALID_REF_INDEX;
+        }
       }
     } else {
       WelsLog (pCtx, WELS_LOG_WARNING, "inter parse: iMotionPredFlag = 1 not supported. \n");
@@ -1033,7 +1041,12 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
       WELS_READ_VERIFY (BsGetTe0 (pBs, iRefCount[0], &uiCode)); //ref_idx_l0[ mbPartIdx ]
       iRefIdx[i] = uiCode;
       if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0]) || (ppRefPic[iRefIdx[i]] == NULL)) { //error ref_idx
-        return ERR_INFO_INVALID_REF_INDEX;
+        if (pCtx->iErrorConMethod != ERROR_CON_DISABLE) {
+          iRefIdx[i] = 0;
+          pCtx->iErrorCode |= dsBitstreamError;
+        } else {
+          return ERR_INFO_INVALID_REF_INDEX;
+        }
       }
     }
     for (i = 0; i < 2; i++) {
@@ -1062,7 +1075,12 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
         WELS_READ_VERIFY (BsGetTe0 (pBs, iRefCount[0], &uiCode)); //ref_idx_l0[ mbPartIdx ]
         iRefIdx[i] = uiCode;
         if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0]) || (ppRefPic[iRefIdx[i]] == NULL)) { //error ref_idx
-          return ERR_INFO_INVALID_REF_INDEX;
+          if (pCtx->iErrorConMethod != ERROR_CON_DISABLE) {
+            iRefIdx[i] = 0;
+            pCtx->iErrorCode |= dsBitstreamError;
+          } else {
+            return ERR_INFO_INVALID_REF_INDEX;
+          }
         }
       } else {
         WelsLog (pCtx, WELS_LOG_WARNING, "inter parse: iMotionPredFlag = 1 not supported. \n");
@@ -1123,7 +1141,12 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
           WELS_READ_VERIFY (BsGetTe0 (pBs, iRefCount[0], &uiCode)); //ref_idx_l0[ mbPartIdx ]
           iRefIdx[i] = uiCode;
           if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0]) || (ppRefPic[iRefIdx[i]] == NULL)) { //error ref_idx
-            return ERR_INFO_INVALID_REF_INDEX;
+            if (pCtx->iErrorConMethod != ERROR_CON_DISABLE) {
+              iRefIdx[i] = 0;
+              pCtx->iErrorCode |= dsBitstreamError;
+            } else {
+              return ERR_INFO_INVALID_REF_INDEX;
+            }
           }
 
           pCurDqLayer->pRefIndex[0][iMbXy][uiScan4Idx  ] = pCurDqLayer->pRefIndex[0][iMbXy][uiScan4Idx + 1] =

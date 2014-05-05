@@ -110,20 +110,16 @@ CWelsDecoder::CWelsDecoder (void)
   iCurUsed     = WelsSnprintf (chFileName,  iBufLeft,  "bs_0x%p_", (void*)this);
   iCurUsedSize = WelsSnprintf (chFileNameSize, iBufLeftSize, "size_0x%p_", (void*)this);
 
-  if (iCurUsed > 0) {
-    iBufUsed += iCurUsed;
-    iBufLeft -= iCurUsed;
-  }
+  iBufUsed += iCurUsed;
+  iBufLeft -= iCurUsed;
   if (iBufLeft > 0) {
     iCurUsed = WelsStrftime (&chFileName[iBufUsed], iBufLeft, "%y%m%d%H%M%S", &sCurTime);
     iBufUsed += iCurUsed;
     iBufLeft -= iCurUsed;
   }
 
-  if (iCurUsedSize > 0) {
-    iBufUsedSize += iCurUsedSize;
-    iBufLeftSize -= iCurUsedSize;
-  }
+  iBufUsedSize += iCurUsedSize;
+  iBufLeftSize -= iCurUsedSize;
   if (iBufLeftSize > 0) {
     iCurUsedSize = WelsStrftime (&chFileNameSize[iBufUsedSize], iBufLeftSize, "%y%m%d%H%M%S", &sCurTime);
     iBufUsedSize += iCurUsedSize;
@@ -132,19 +128,15 @@ CWelsDecoder::CWelsDecoder (void)
 
   if (iBufLeft > 0) {
     iCurUsed = WelsSnprintf (&chFileName[iBufUsed], iBufLeft, ".%03.3u.264", WelsGetMillisecond (&sCurTime));
-    if (iCurUsed > 0) {
-      iBufUsed += iCurUsed;
-      iBufLeft -= iCurUsed;
-    }
+    iBufUsed += iCurUsed;
+    iBufLeft -= iCurUsed;
   }
 
   if (iBufLeftSize > 0) {
     iCurUsedSize = WelsSnprintf (&chFileNameSize[iBufUsedSize], iBufLeftSize, ".%03.3u.len",
                                  WelsGetMillisecond (&sCurTime));
-    if (iCurUsedSize > 0) {
-      iBufUsedSize += iCurUsedSize;
-      iBufLeftSize -= iCurUsedSize;
-    }
+    iBufUsedSize += iCurUsedSize;
+    iBufLeftSize -= iCurUsedSize;
   }
 
 
@@ -381,12 +373,14 @@ DECODING_STATE CWelsDecoder::DecodeFrame2 (const unsigned char* kpSrc,
     //for AVC bitstream (excluding AVC with temporal scalability, including TP), as long as error occur, SHOULD notify upper layer key frame loss.
     if ((IS_PARAM_SETS_NALS (eNalType) || NAL_UNIT_CODED_SLICE_IDR == eNalType) ||
         (VIDEO_BITSTREAM_AVC == m_pDecContext->eVideoType)) {
+      if (m_pDecContext->iErrorConMethod == ERROR_CON_DISABLE) {
 #ifdef LONG_TERM_REF
-      m_pDecContext->bParamSetsLostFlag = true;
+        m_pDecContext->bParamSetsLostFlag = true;
 #else
-      m_pDecContext->bReferenceLostAtT0Flag = true;
+        m_pDecContext->bReferenceLostAtT0Flag = true;
 #endif
-      ResetParameterSetsState (m_pDecContext);  //initial SPS&PPS ready flag
+        ResetParameterSetsState (m_pDecContext);  //initial SPS&PPS ready flag
+      }
     }
 
     IWelsTrace::WelsVTrace (m_pTrace, IWelsTrace::WELS_LOG_INFO, "decode failed, failure type:%d \n",

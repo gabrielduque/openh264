@@ -90,20 +90,16 @@ CWelsH264SVCEncoder::CWelsH264SVCEncoder()
   iCurUsedSize  = WelsSnprintf (strLenFileName, iBufferLeftSize, "enc_size_0x%p_", (void*)this);
 
 
-  if (iCurUsed > 0) {
-    iBufferUsed += iCurUsed;
-    iBufferLeft -= iCurUsed;
-  }
+  iBufferUsed += iCurUsed;
+  iBufferLeft -= iCurUsed;
   if (iBufferLeft > 0) {
     iCurUsed = WelsStrftime (&strStreamFileName[iBufferUsed], iBufferLeft, "%y%m%d%H%M%S", &tTime);
     iBufferUsed += iCurUsed;
     iBufferLeft -= iCurUsed;
   }
 
-  if (iCurUsedSize > 0) {
-    iBufferUsedSize += iCurUsedSize;
-    iBufferLeftSize -= iCurUsedSize;
-  }
+  iBufferUsedSize += iCurUsedSize;
+  iBufferLeftSize -= iCurUsedSize;
   if (iBufferLeftSize > 0) {
     iCurUsedSize = WelsStrftime (&strLenFileName[iBufferUsedSize], iBufferLeftSize, "%y%m%d%H%M%S", &tTime);
     iBufferUsedSize += iCurUsedSize;
@@ -113,19 +109,15 @@ CWelsH264SVCEncoder::CWelsH264SVCEncoder()
   if (iBufferLeft > 0) {
     iCurUsed = WelsSnprintf (&strStreamFileName[iBufferUsed], iBufferLeft, ".%03.3u.264",
                              WelsGetMillisecond(&tTime));
-    if (iCurUsed > 0) {
-      iBufferUsed += iCurUsed;
-      iBufferLeft -= iCurUsed;
-    }
+    iBufferUsed += iCurUsed;
+    iBufferLeft -= iCurUsed;
   }
 
   if (iBufferLeftSize > 0) {
     iCurUsedSize = WelsSnprintf (&strLenFileName[iBufferUsedSize], iBufferLeftSize, ".%03.3u.len",
                                  WelsGetMillisecond(&tTime));
-    if (iCurUsedSize > 0) {
-      iBufferUsedSize += iCurUsedSize;
-      iBufferLeftSize -= iCurUsedSize;
-    }
+    iBufferUsedSize += iCurUsedSize;
+    iBufferLeftSize -= iCurUsedSize;
   }
 
   m_pFileBs     = WelsFopen (strStreamFileName, "wb");
@@ -354,15 +346,16 @@ int CWelsH264SVCEncoder::InitializeInternal(SWelsSvcCodingParam* pCfg) {
   }
   if (pCfg->iUsageType == SCREEN_CONTENT_REAL_TIME) {
     if (pCfg->bEnableLongTermReference) {
-      pCfg->iLTRRefNum = WELS_CLIP3(pCfg->iLTRRefNum,1,LONG_TERM_REF_NUM_SCREEN);;
+      pCfg->iLTRRefNum = WELS_CLIP3(pCfg->iLTRRefNum,1,LONG_TERM_REF_NUM_SCREEN);
       pCfg->iNumRefFrame = WELS_MAX(1,WELS_LOG2 (pCfg->uiGopSize)) + pCfg->iLTRRefNum;
     } else {
       pCfg->iLTRRefNum = 0;
-      pCfg->iNumRefFrame = 1;
+      pCfg->iNumRefFrame = WELS_MAX(1, pCfg->uiGopSize>>1);
     }
    } else {
      pCfg->iLTRRefNum = pCfg->bEnableLongTermReference ? WELS_CLIP3(pCfg->iLTRRefNum,1,LONG_TERM_REF_NUM) : 0;
      pCfg->iNumRefFrame		= ((pCfg->uiGopSize >> 1) > 1) ? ((pCfg->uiGopSize >> 1) + pCfg->iLTRRefNum) :
+                                  (MIN_REF_PIC_COUNT + pCfg->iLTRRefNum);
      pCfg->iNumRefFrame		= WELS_CLIP3 (pCfg->iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REFERENCE_PICTURE_COUNT_NUM);
   }
 
@@ -471,8 +464,8 @@ int CWelsH264SVCEncoder::EncodeFrameInternal(const SSourcePicture*  pSrcPic, SFr
         m_pFileBsSize = NULL;
       }
       char strStreamFileName[128] = {0};
-      int32_t iLen = WelsSnprintf (strStreamFileName, 128, "adj%d_w%d.264", m_iSwitchTimes,
-                                   m_pEncContext->pSvcParam->iPicWidth);
+      WelsSnprintf (strStreamFileName, 128, "adj%d_w%d.264", m_iSwitchTimes,
+                    m_pEncContext->pSvcParam->iPicWidth);
       m_pFileBs = WelsFopen (strStreamFileName, "wb");
       WelsSnprintf (strStreamFileName, 128, "adj%d_w%d_size.iLen", m_iSwitchTimes,
                     m_pEncContext->pSvcParam->iPicWidth);
@@ -935,7 +928,7 @@ int CWelsH264SVCEncoder::GetOption (ENCODER_OPTION eOptionId, void* pOption) {
              m_uiCountFrameNum, m_iCspInternal);
 #endif//REC_FRAME_COUNT
     SBitrateInfo*pInfo = (static_cast<SBitrateInfo *>(pOption));
-    if((pInfo->iLayer!=SPATIAL_LAYER_ALL)||(pInfo->iLayer!=SPATIAL_LAYER_0)||(pInfo->iLayer!=SPATIAL_LAYER_1)||(pInfo->iLayer!=SPATIAL_LAYER_2)||(pInfo->iLayer!=SPATIAL_LAYER_3))
+    if((pInfo->iLayer!=SPATIAL_LAYER_ALL)&&(pInfo->iLayer!=SPATIAL_LAYER_0)&&(pInfo->iLayer!=SPATIAL_LAYER_1)&&(pInfo->iLayer!=SPATIAL_LAYER_2)&&(pInfo->iLayer!=SPATIAL_LAYER_3))
         return cmInitParaError;
     if(pInfo->iLayer == SPATIAL_LAYER_ALL){
       pInfo->iBitrate = m_pEncContext->pSvcParam->iTargetBitrate;
@@ -950,7 +943,7 @@ int CWelsH264SVCEncoder::GetOption (ENCODER_OPTION eOptionId, void* pOption) {
 	          m_uiCountFrameNum, m_iCspInternal);
 #endif//REC_FRAME_COUNT
     SBitrateInfo*pInfo = (static_cast<SBitrateInfo *>(pOption));
-	if((pInfo->iLayer!=SPATIAL_LAYER_ALL)||(pInfo->iLayer!=SPATIAL_LAYER_0)||(pInfo->iLayer!=SPATIAL_LAYER_1)||(pInfo->iLayer!=SPATIAL_LAYER_2)||(pInfo->iLayer!=SPATIAL_LAYER_3))
+	if((pInfo->iLayer!=SPATIAL_LAYER_ALL)&&(pInfo->iLayer!=SPATIAL_LAYER_0)&&(pInfo->iLayer!=SPATIAL_LAYER_1)&&(pInfo->iLayer!=SPATIAL_LAYER_2)&&(pInfo->iLayer!=SPATIAL_LAYER_3))
 	  return cmInitParaError;
 	if(pInfo->iLayer == SPATIAL_LAYER_ALL){
       pInfo->iBitrate = m_pEncContext->pSvcParam->iMaxBitrate;

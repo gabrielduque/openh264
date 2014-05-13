@@ -49,6 +49,8 @@ namespace WelsSVCEnc {
 
 typedef struct TagWelsFuncPointerList SWelsFuncPtrList;
 
+typedef struct TagWelsME SWelsME;
+
 typedef void (*PSetMemoryZero) (void* pDst, int32_t iSize);
 typedef void (*PDctFunc) (int16_t* pDct, uint8_t* pSample1, int32_t iStride1, uint8_t* pSample2, int32_t iStride2);
 
@@ -94,6 +96,7 @@ typedef void (*PChromaDeblockingLT4Func) (uint8_t* iSampleCb, uint8_t* iSampleCr
     int32_t iBeta, int8_t* iTc);
 typedef void (*PChromaDeblockingEQ4Func) (uint8_t* iSampleCb, uint8_t* iSampleCr, int32_t iStride, int32_t iAlpha,
     int32_t iBeta);
+typedef void (*PDeblockingBSCalc) (SWelsFuncPtrList* pFunc, SMB* pCurMb, uint8_t uiBS[2][4][4], Mb_Type uiCurMbType, int32_t iMbStride, int32_t iLeftFlag, int32_t iTopFlag);
 
 typedef struct tagDeblockingFunc {
   PLumaDeblockingLT4Func    pfLumaDeblockingLT4Ver;
@@ -105,6 +108,8 @@ typedef struct tagDeblockingFunc {
   PChromaDeblockingEQ4Func  pfChromaDeblockingEQ4Ver;
   PChromaDeblockingLT4Func  pfChromaDeblockingLT4Hor;
   PChromaDeblockingEQ4Func  pfChromaDeblockingEQ4Hor;
+
+  PDeblockingBSCalc         pfDeblockingBSCalc;
 } DeblockingFunc;
 
 typedef  void (*PSetNoneZeroCountZeroFunc) (int8_t* pNonZeroCount);
@@ -124,6 +129,9 @@ typedef bool (*PInterMdBackgroundDecisionFunc) (void* pEncCtx, void* pWelsMd, SS
 typedef void (*PInterMdBackgroundInfoUpdateFunc) (SDqLayer* pCurLayer,  SMB* pCurMb, const bool bFlag,
     const int32_t kiRefPictureType);
 
+typedef bool (*PInterMdScrollingPSkipDecisionFunc) (void* pEncCtx, void* pWelsMd, SSlice* slice, SMB* pCurMb,
+    SMbCache* pMbCache);
+
 typedef void (*PInterMdFunc) (void* pEncCtx, void* pWelsMd, SSlice* slice, SMB* pCurMb, SMbCache* pMbCache);
 
 typedef int32_t (*PSampleSadSatdCostFunc) (uint8_t*, int32_t, uint8_t*, int32_t);
@@ -142,7 +150,7 @@ typedef void (*PCalculateSatdFunc) ( PSampleSadSatdCostFunc pSatd, void * vpMe, 
 typedef bool (*PCheckDirectionalMv) (PSampleSadSatdCostFunc pSad, void * vpMe,
                       const SMVUnitXY ksMinMv, const SMVUnitXY ksMaxMv, const int32_t kiEncStride, const int32_t kiRefStride,
                       int32_t& iBestSadCost);
-typedef void (*PLineFullSearchFunc) (	void *pFunc, void *vpMe,
+typedef void (*PLineFullSearchFunc) (	SWelsFuncPtrList *pFuncList, SWelsME *pMe,
 													uint16_t* pMvdTable, const int32_t kiFixedMvd,
 													const int32_t kiEncStride, const int32_t kiRefStride,
 													const int32_t kiMinPos, const int32_t kiMaxPos,
@@ -150,6 +158,7 @@ typedef void (*PLineFullSearchFunc) (	void *pFunc, void *vpMe,
 typedef void (*PCalculateBlockFeatureOfFrame)(uint8_t *pRef, const int32_t kiWidth, const int32_t kiHeight, const int32_t kiRefStride,
                                               uint16_t* pFeatureOfBlock, uint32_t pTimesOfFeatureValue[]);
 typedef int32_t (*PCalculateSingleBlockFeature)(uint8_t *pRef, const int32_t kiRefStride);
+typedef void (*PUpdateFMESwitch)(SDqLayer* pCurLayer);
 
 #define     MAX_BLOCK_TYPE 5 // prev 7
 typedef struct TagSampleDealingFunc {
@@ -197,6 +206,8 @@ struct TagWelsFuncPointerList {
   PInterMdBackgroundDecisionFunc          pfInterMdBackgroundDecision;
   PInterMdBackgroundInfoUpdateFunc      pfInterMdBackgroundInfoUpdate;
 
+  PInterMdScrollingPSkipDecisionFunc pfScrollingPSkipDecision;
+
   SMcFunc                sMcFuncs;
   SSampleDealingFunc     sSampleDealingFuncs;
   PGetIntraPredFunc     pfGetLumaI16x16Pred[I16_PRED_DC_A];
@@ -209,10 +220,12 @@ struct TagWelsFuncPointerList {
   PSearchMethodFunc pfSearchMethod[BLOCK_SIZE_ALL];
   PCalculateSatdFunc pfCalculateSatd;
   PCheckDirectionalMv pfCheckDirectionalMv;
+
   PCalculateBlockFeatureOfFrame pfCalculateBlockFeatureOfFrame[2];//0 - for 8x8, 1 for 16x16
   PCalculateSingleBlockFeature pfCalculateSingleBlockFeature[2];//0 - for 8x8, 1 for 16x16
   PLineFullSearchFunc pfVerticalFullSearch;
   PLineFullSearchFunc pfHorizontalFullSearch;
+  PUpdateFMESwitch pfUpdateFMESwitch;
 
   PCopyFunc      pfCopy16x16Aligned;    //svc_encode_slice.c svc_mode_decision.c svc_base_layer_md.c
   PCopyFunc      pfCopy16x16NotAligned;  //md.c

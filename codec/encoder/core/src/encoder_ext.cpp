@@ -2423,7 +2423,7 @@ void PreprocessSliceCoding (sWelsEncCtx* pCtx) {
   SWelsFuncPtrList* pFuncList = pCtx->pFuncList;
 
   /* function pointers conditional assignment under sWelsEncCtx, layer_mb_enc_rec (in stack) is exclusive */
-  if (kbHighestSpatialLayer) {
+  if (kbHighestSpatialLayer && pCtx->pSvcParam->iUsageType == CAMERA_VIDEO_REAL_TIME) {
     SetFastCodingFunc (pFuncList);
   } else {
     SetNormalCodingFunc (pFuncList);
@@ -2446,7 +2446,7 @@ void PreprocessSliceCoding (sWelsEncCtx* pCtx) {
       pFuncList->pfInterFineMd = WelsMdInterFinePartition;
     }
   }
-  
+
   return;
   //to init at each frame will be needed when dealing with hybrid content (camera+screen)
   if (pCtx->pSvcParam->iUsageType == SCREEN_CONTENT_REAL_TIME) {
@@ -2467,18 +2467,25 @@ void PreprocessSliceCoding (sWelsEncCtx* pCtx) {
         pFeatureSearchPreparation->pRefBlockFeature = pScreenBlockFeatureStorage;
         if (pFeatureSearchPreparation->bFMESwitchFlag
           && !pScreenBlockFeatureStorage->bRefBlockFeatureCalculated) {
-            pScreenBlockFeatureStorage->pFeatureOfBlockPointer = pFeatureSearchPreparation->pFeatureOfBlock;
-            PerformFMEPreprocess( pFuncList, pCurLayer->pRefPic, pScreenBlockFeatureStorage );
+            //TODO: use ORIGIN of reference when preprocessing is ready
+            PerformFMEPreprocess( pFuncList, pCurLayer->pRefPic,pFeatureSearchPreparation->pFeatureOfBlock,pScreenBlockFeatureStorage);
         }
 
         //assign ME pointer
         if (pScreenBlockFeatureStorage->bRefBlockFeatureCalculated) {
           //TBC int32_t iIs16x16 = pScreenBlockFeatureStorage->iIs16x16;
         }
+
+        //assign UpdateFMESwitch pointer
+        if (pFeatureSearchPreparation->bFMESwitchFlag) {
+          pFuncList->pfUpdateFMESwitch = UpdateFMESwitch;
+        } else {
+          pFuncList->pfUpdateFMESwitch = UpdateFMESwitchNull;
+        }
       } else {
         //reset some status when at I_SLICE
         pFeatureSearchPreparation->bFMESwitchFlag = true;
-        pFeatureSearchPreparation->uiFMEGoodFrameCount = FME_DEFAULT_GOOD_FRAME_NUM;
+        pFeatureSearchPreparation->uiFMEGoodFrameCount = FMESWITCH_DEFAULT_GOODFRAME_NUM;
       }
     }
   }
@@ -2859,6 +2866,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
 #endif//_DEBUG
 
   pCtx->iEncoderError						= ENC_RETURN_SUCCESS;
+  pCtx->bCurFrameMarkedAsSceneLtr   = false;
   pFbi->iLayerNum	= 0;	// for initialization
   pFbi->uiTimeStamp = pSrcPic->uiTimeStamp;
   // perform csc/denoise/downsample/padding, generate spatial layers

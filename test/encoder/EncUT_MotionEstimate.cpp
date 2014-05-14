@@ -216,7 +216,6 @@ void MotionEstimateTest::DoLineTest(PLineFullSearchFunc func, bool vertical) {
              sTargetMv.iMvX, sTargetMv.iMvY,
              sMe.iCurMeBlockPixX, sMe.iCurMeBlockPixY, INTPEL_NEEDED_MARGIN, iSize-INTPEL_NEEDED_MARGIN-16);
     }
-    
     //if DataGenerator never succeed, there is no meaning to check iTryTimes
     ASSERT_TRUE(iTryTimes > 0);
     //it is possible that ref at differnt position is identical, but that should be under a low probability

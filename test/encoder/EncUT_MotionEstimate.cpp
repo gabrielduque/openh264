@@ -166,6 +166,7 @@ void MotionEstimateTest::DoLineTest(PLineFullSearchFunc func, bool vertical) {
   }
   bDataGeneratorSucceed = false;
   bFoundMatch = false;
+  int iSize = vertical ? m_iHeight : m_iWidth;
   while (!bFoundMatch && (iTryTimes--)>0) {
     if (!YUVPixelDataGenerator( m_pRefData, m_iWidth, m_iHeight, m_iWidth ))
       continue;
@@ -187,7 +188,6 @@ void MotionEstimateTest::DoLineTest(PLineFullSearchFunc func, bool vertical) {
     uint16_t* pMvdCostX = sMe.pMvdCost - iCurMeBlockQpelPixX - sMe.sMvp.iMvX;	//do the offset here
     uint16_t* pMvdCostY = sMe.pMvdCost - iCurMeBlockQpelPixY - sMe.sMvp.iMvY;
     uint16_t* pMvdCost = vertical ? pMvdCostY : pMvdCostX;
-    int iSize = vertical ? m_iHeight : m_iWidth;
     int iFixedMvd = vertical ? pMvdCostX[ iCurMeBlockQpelPixX ] : pMvdCostY[ iCurMeBlockQpelPixY ];
     func ( &sFuncList, &sMe,
            pMvdCost, iFixedMvd,
@@ -203,9 +203,20 @@ void MotionEstimateTest::DoLineTest(PLineFullSearchFunc func, bool vertical) {
       bFoundMatch = (sMe.sMv.iMvY==0
                      &&(sMe.sMv.iMvX==sTargetMv.iMvX||abs(sMe.sMv.iMvX)<abs(sTargetMv.iMvX)));
     }
-    //printf("DoLineTest Target: %d,%d\n", sTargetMv.iMvX, sTargetMv.iMvY);
+    if (!bFoundMatch) {
+      printf("DoLineTest(!bFoundMatch) TargetMV=(%d,%d), CurPos=(%d,%d), PosRange=(%d,%d)\n",
+             sTargetMv.iMvX, sTargetMv.iMvY,
+             sMe.iCurMeBlockPixX, sMe.iCurMeBlockPixY, INTPEL_NEEDED_MARGIN, iSize-INTPEL_NEEDED_MARGIN-16);
+    }
   }
   if (bDataGeneratorSucceed) {
+    if (iTryTimes <= 0)
+    {
+      printf("DoLineTest(iTryTimes <= 0) TargetMV=(%d,%d), CurPos=(%d,%d), PosRange=(%d,%d)\n",
+             sTargetMv.iMvX, sTargetMv.iMvY,
+             sMe.iCurMeBlockPixX, sMe.iCurMeBlockPixY, INTPEL_NEEDED_MARGIN, iSize-INTPEL_NEEDED_MARGIN-16);
+    }
+    
     //if DataGenerator never succeed, there is no meaning to check iTryTimes
     ASSERT_TRUE(iTryTimes > 0);
     //it is possible that ref at differnt position is identical, but that should be under a low probability

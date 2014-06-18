@@ -11,7 +11,7 @@ static void UpdateHashFromFrame(const SFrameBSInfo& info, SHA1Context* ctx) {
     const SLayerBSInfo& layerInfo = info.sLayerInfo[i];
     int layerSize = 0;
     for (int j = 0; j < layerInfo.iNalCount; ++j) {
-      layerSize += layerInfo.iNalLengthInByte[j];
+      layerSize += layerInfo.pNalLengthInByte[j];
     }
     SHA1Input(ctx, layerInfo.pBsBuf, layerSize);
   }
@@ -104,8 +104,8 @@ TEST_P(DecodeEncodeTest, CompareOutput) {
 }
 
 static const DecodeEncodeFileParam kFileParamArray[] = {
-  {"res/test_vd_1d.264", "028b5de8a9110223fc611d8a490c7bbb75d93974", 320, 192, 12.0f},
-  {"res/test_vd_rc.264", "31b4b12d0f91b5407f39ad6f8622cab1366bff2b", 320, 192, 12.0f},
+  {"res/test_vd_1d.264", "16b6379ce3711c57ea966e8da3e6b9815bf5ef4e", 320, 192, 12.0f},
+  {"res/test_vd_rc.264", "03a93dbf5482b4a799d52d5fd373fde58a782e12", 320, 192, 12.0f},
 };
 
 INSTANTIATE_TEST_CASE_P(DecodeEncodeFile, DecodeEncodeTest,

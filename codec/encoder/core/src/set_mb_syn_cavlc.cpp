@@ -41,16 +41,13 @@
 #include "set_mb_syn_cavlc.h"
 #include "vlc_encoder.h"
 #include "cpu_core.h"
+#include "wels_const.h"
 
 namespace WelsSVCEnc {
 SCoeffFunc    sCoeffFunc;
 
 const  ALIGNED_DECLARE (uint8_t, g_kuiZeroLeftMap[16], 16) = {
   0, 1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7
-};
-
-const ALIGNED_DECLARE (uint8_t, g_kuiTrailingOneIndex[8], 16) = {
-  3, 0, 1, 0, 2, 0, 1, 0
 };
 
 int32_t CavlcParamCal_c (int16_t* pCoffLevel, uint8_t* pRun, int16_t* pLevel, int32_t* pTotalCoeff ,
@@ -77,8 +74,8 @@ int32_t CavlcParamCal_c (int16_t* pCoffLevel, uint8_t* pRun, int16_t* pLevel, in
   return iTotalZeros;
 }
 
-void  WriteBlockResidualCavlc (int16_t* pCoffLevel, int32_t iEndIdx, int32_t iCalRunLevelFlag,
-                               int32_t iResidualProperty, int8_t iNC, SBitStringAux* pBs) {
+int32_t  WriteBlockResidualCavlc (int16_t* pCoffLevel, int32_t iEndIdx, int32_t iCalRunLevelFlag,
+                                  int32_t iResidualProperty, int8_t iNC, SBitStringAux* pBs) {
   ENFORCE_STACK_ALIGN_1D (int16_t, iLevel, 16, 16)
   ENFORCE_STACK_ALIGN_1D (uint8_t, uiRun, 16, 16)
 
@@ -121,7 +118,7 @@ void  WriteBlockResidualCavlc (int16_t* pCoffLevel, int32_t iEndIdx, int32_t iCa
     CAVLC_BS_WRITE (n, iValue);
 
     CAVLC_BS_UNINIT (pBs);
-    return;
+    return ENC_RETURN_SUCCESS;
   }
 
   /* Step 4: */
@@ -152,7 +149,9 @@ void  WriteBlockResidualCavlc (int16_t* pCoffLevel, int32_t iEndIdx, int32_t iCa
     } else if (iLevelPrefix >= 15) {
       iLevelPrefix = 15;
       iLevelSuffix = iLevelCode - (iLevelPrefix << uiSuffixLength);
-
+      //for baseline profile,overflow when the length of iLevelSuffix is larger than 11.
+      if (iLevelSuffix >> 11)
+        return ENC_RETURN_VLCOVERFLOWFOUND;
       if (uiSuffixLength == 0) {
         iLevelSuffix -= 15;
       }
@@ -197,6 +196,7 @@ void  WriteBlockResidualCavlc (int16_t* pCoffLevel, int32_t iEndIdx, int32_t iCa
   }
 
   CAVLC_BS_UNINIT (pBs);
+  return ENC_RETURN_SUCCESS;
 }
 
 

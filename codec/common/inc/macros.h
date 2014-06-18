@@ -44,6 +44,7 @@
 #include <assert.h>
 #include "typedefs.h"
 
+
 /*
 * ENFORCE_STACK_ALIGN_1D: force 1 dimension local data aligned in stack
 * _tp: type
@@ -122,8 +123,16 @@ __declspec(align(alignment)) type name[(sizex)*(sizey)]
 #endif//WELS_FLOOR
 
 #ifndef WELS_ROUND
-#define WELS_ROUND(x)	((int32_t)(0.5f+(x)))
+#define WELS_ROUND(x)	((int32_t)(0.5+(x)))
 #endif//WELS_ROUND
+
+#ifndef WELS_DIV_ROUND
+#define WELS_DIV_ROUND(x,y)	((int32_t)((y)==0?((x)/((y)+1)):(((y)/2+(x))/(y))))
+#endif//WELS_DIV_ROUND
+
+#ifndef WELS_DIV_ROUND64
+#define WELS_DIV_ROUND64(x,y)	((int64_t)((y)==0?((x)/((y)+1)):(((y)/2+(x))/(y))))
+#endif//WELS_DIV_ROUND64
 
 #define WELS_NON_ZERO_COUNT_AVERAGE(nC,nA,nB) {		\
     nC = nA + nB + 1;                      \
@@ -132,41 +141,41 @@ __declspec(align(alignment)) type name[(sizex)*(sizey)]
 }
 
 static inline int32_t CeilLog2 (int32_t i) {
-int32_t s = 0;
-i--;
-while (i > 0) {
-  s++;
-  i >>= 1;
-}
-return s;
+  int32_t s = 0;
+  i--;
+  while (i > 0) {
+    s++;
+    i >>= 1;
+  }
+  return s;
 }
 /*
 the second path will degrades the performance
 */
 #if 1
 static inline int32_t WelsMedian (int32_t iX,  int32_t iY, int32_t iZ) {
-int32_t iMin = iX, iMax = iX;
+  int32_t iMin = iX, iMax = iX;
 
-if (iY < iMin)
-  iMin	= iY;
-else
-  iMax = iY;
+  if (iY < iMin)
+    iMin	= iY;
+  else
+    iMax = iY;
 
-if (iZ < iMin)
-  iMin	= iZ;
-else if (iZ > iMax)
-  iMax	= iZ;
+  if (iZ < iMin)
+    iMin	= iZ;
+  else if (iZ > iMax)
+    iMax	= iZ;
 
-return (iX + iY + iZ) - (iMin + iMax);
+  return (iX + iY + iZ) - (iMin + iMax);
 }
 #else
 static inline int32_t WelsMedian (int32_t iX,  int32_t iY, int32_t iZ) {
-int32_t iTmp = (iX - iY) & ((iX - iY) >> 31);
-iX -= iTmp;
-iY += iTmp;
-iY -= (iY - iZ) & ((iY - iZ) >> 31);
-iY += (iX - iY) & ((iX - iY) >> 31);
-return iY;
+  int32_t iTmp = (iX - iY) & ((iX - iY) >> 31);
+  iX -= iTmp;
+  iY += iTmp;
+  iY -= (iY - iZ) & ((iY - iZ) >> 31);
+  iY += (iX - iY) & ((iX - iY) >> 31);
+  return iY;
 }
 
 #endif
@@ -176,8 +185,8 @@ return iY;
 #define NEG_NUM(iX) (1+(~(iX)))
 #endif// NEG_NUM
 
-static inline uint8_t WelsClip1(int32_t iX) {
-  uint8_t uiTmp = (uint8_t)(((iX) & ~255) ? (-(iX) >> 31) : (iX));
+static inline uint8_t WelsClip1 (int32_t iX) {
+  uint8_t uiTmp = (uint8_t) (((iX) & ~255) ? (- (iX) >> 31) : (iX));
   return uiTmp;
 }
 
@@ -233,11 +242,11 @@ static inline uint8_t WelsClip1(int32_t iX) {
 #endif//#if WELS_VERIFY_RETURN_PROC_IF
 
 static inline int32_t WELS_LOG2 (uint32_t v) {
-int32_t r = 0;
-while (v >>= 1) {
-  ++r;
-}
-return r;
+  int32_t r = 0;
+  while (v >>= 1) {
+    ++r;
+  }
+  return r;
 
 }
 
@@ -260,7 +269,7 @@ return r;
 #endif//BUTTERFLY4x8
 
 static inline bool WELS_POWER2_IF (uint32_t v) {
-return (v && ! (v & (v - 1)));
+  return (v && ! (v & (v - 1)));
 }
 
 #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)

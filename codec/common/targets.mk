@@ -4,8 +4,10 @@ COMMON_CPP_SRCS=\
 	$(COMMON_SRCDIR)/src/cpu.cpp\
 	$(COMMON_SRCDIR)/src/crt_util_safe_x.cpp\
 	$(COMMON_SRCDIR)/src/deblocking_common.cpp\
-	$(COMMON_SRCDIR)/src/logging.cpp\
+	$(COMMON_SRCDIR)/src/expand_pic.cpp\
 	$(COMMON_SRCDIR)/src/sad_common.cpp\
+	$(COMMON_SRCDIR)/src/utils.cpp\
+	$(COMMON_SRCDIR)/src/welsCodecTrace.cpp\
 	$(COMMON_SRCDIR)/src/WelsThreadLib.cpp\
 
 COMMON_OBJS += $(COMMON_CPP_SRCS:.cpp=.$(OBJ))
@@ -36,6 +38,7 @@ endif
 
 ifeq ($(ASM_ARCH), arm64)
 COMMON_ASM_ARM64_SRCS=\
+	$(COMMON_SRCDIR)/arm64/deblocking_aarch64_neon.S\
 	$(COMMON_SRCDIR)/arm64/expand_picture_aarch64_neon.S\
 	$(COMMON_SRCDIR)/arm64/mc_aarch64_neon.S\
 
@@ -50,7 +53,7 @@ $(COMMON_SRCDIR)/%.$(OBJ): $(COMMON_SRCDIR)/%.asm
 	$(QUIET_ASM)$(ASM) $(ASMFLAGS) $(ASM_INCLUDES) $(COMMON_ASMFLAGS) $(COMMON_ASM_INCLUDES) -o $@ $<
 
 $(COMMON_SRCDIR)/%.$(OBJ): $(COMMON_SRCDIR)/%.S
-	$(QUIET_CCAS)$(CCAS) $(CFLAGS) $(ASMFLAGS) $(INCLUDES) $(COMMON_CFLAGS) $(COMMON_INCLUDES) -c -o $@ $<
+	$(QUIET_CCAS)$(CCAS) $(CCASFLAGS) $(ASMFLAGS) $(INCLUDES) $(COMMON_CFLAGS) $(COMMON_INCLUDES) -c -o $@ $<
 
 $(LIBPREFIX)common.$(LIBSUFFIX): $(COMMON_OBJS)
 	$(QUIET)rm -f $@

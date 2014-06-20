@@ -35,7 +35,7 @@ SYSROOT = $(NDKROOT)/platforms/android-$(NDKLEVEL)/arch-$(ARCH)
 CXX = $(TOOLCHAINPREFIX)g++
 CC = $(TOOLCHAINPREFIX)gcc
 AR = $(TOOLCHAINPREFIX)ar
-CFLAGS += -DLINUX -DANDROID_NDK -fpic --sysroot=$(SYSROOT)
+CFLAGS += -DANDROID_NDK -fpic --sysroot=$(SYSROOT)
 CXXFLAGS += -fno-rtti -fno-exceptions
 LDFLAGS += --sysroot=$(SYSROOT)
 SHLDFLAGS = -Wl,--no-undefined -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,-soname,lib$(PROJECT_NAME).so
@@ -55,6 +55,13 @@ decdemo: libraries
 
 encdemo: libraries
 	cd ./codec/build/android/enc && $(NDKROOT)/ndk-build -B APP_ABI=$(APP_ABI) && android update project -t $(TARGET) -p . && ant debug
+
+clean_Android: clean_Android_dec clean_Android_enc
+
+clean_Android_dec:
+	cd ./codec/build/android/dec && $(NDKROOT)/ndk-build APP_ABI=$(APP_ABI) clean && ant clean
+clean_Android_enc:
+	cd ./codec/build/android/enc && $(NDKROOT)/ndk-build APP_ABI=$(APP_ABI) clean && ant clean
 
 COMMON_INCLUDES += -I$(NDKROOT)/sources/android/cpufeatures
 COMMON_OBJS += $(COMMON_SRCDIR)/cpu-features.$(OBJ)

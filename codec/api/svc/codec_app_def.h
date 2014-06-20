@@ -87,13 +87,15 @@ typedef enum {
   ENCOCER_LTR_MARKING_PERIOD,
   ENCODER_OPTION_LTR,
 
-  ENCODER_OPTION_ENABLE_SSEI,               //disable SSEI: true--disable ssei; false--enable ssei
+  ENCODER_OPTION_ENABLE_SSEI,               //enable SSEI: true--enable ssei; false--disable ssei
   ENCODER_OPTION_ENABLE_PREFIX_NAL_ADDING,   //enable prefix: true--enable prefix; false--disable prefix
-  ENCODER_OPTION_ENABLE_SPS_PPS_ID_ADDITION, //disable pSps/pPps id addition: true--disable pSps/pPps id; false--enable pSps/pPps id addistion
+  ENCODER_OPTION_ENABLE_SPS_PPS_ID_ADDITION, //enable pSps/pPps id addition: true--enable pSps/pPps id; false--disable pSps/pPps id addistion
 
   ENCODER_OPTION_CURRENT_PATH,
   ENCODER_OPTION_DUMP_FILE,
-  ENCODER_OPTION_TRACE_LEVEL
+  ENCODER_OPTION_TRACE_LEVEL,
+  ENCODER_OPTION_TRACE_CALLBACK, // a void (*)(void* context, int level, const char* message) function which receives log messages
+  ENCODER_OPTION_TRACE_CALLBACK_CONTEXT,
 } ENCODER_OPTION;
 
 /* Option types introduced in decoder application */
@@ -107,6 +109,9 @@ typedef enum {
   DECODER_OPTION_LTR_MARKING_FLAG,	// feedback wether current frame mark a LTR
   DECODER_OPTION_LTR_MARKED_FRAME_NUM,	// feedback frame num marked by current Frame
   DECODER_OPTION_ERROR_CON_IDC, //not finished yet, indicate decoder error concealment status, in progress
+  DECODER_OPTION_TRACE_LEVEL,
+  DECODER_OPTION_TRACE_CALLBACK, // a void (*)(void* context, int level, const char* message) function which receives log messages
+  DECODER_OPTION_TRACE_CALLBACK_CONTEXT,
 
 } DECODER_OPTION;
 
@@ -130,11 +135,11 @@ typedef enum {
 } LAYER_TYPE;
 
 typedef enum {
-    SPATIAL_LAYER_0 = 0,
-    SPATIAL_LAYER_1 = 1,
-    SPATIAL_LAYER_2 = 2,
-    SPATIAL_LAYER_3 = 3,
-    SPATIAL_LAYER_ALL = 4,
+  SPATIAL_LAYER_0 = 0,
+  SPATIAL_LAYER_1 = 1,
+  SPATIAL_LAYER_2 = 2,
+  SPATIAL_LAYER_3 = 3,
+  SPATIAL_LAYER_ALL = 4,
 } LAYER_NUM;
 
 //enumerate the type of video bitstream which is provided to decoder
@@ -167,11 +172,11 @@ typedef struct {
 } SLTRMarkingFeedback;
 
 typedef struct {
-    unsigned int
-    uiSliceMbNum[MAX_SLICES_NUM_TMP];  //here we use a tmp fixed value since MAX_SLICES_NUM is not defined here and its definition may be changed;
-    unsigned int		uiSliceNum;
-    unsigned int		uiSliceSizeConstraint;
-  } SSliceArgument;//not all the elements in this argument will be used, how it will be used depends on uiSliceMode; see below
+  unsigned int
+  uiSliceMbNum[MAX_SLICES_NUM_TMP];  //here we use a tmp fixed value since MAX_SLICES_NUM is not defined here and its definition may be changed;
+  unsigned int		uiSliceNum;
+  unsigned int		uiSliceSizeConstraint;
+} SSliceArgument;//not all the elements in this argument will be used, how it will be used depends on uiSliceMode; see below
 
 typedef enum {
   SM_SINGLE_SLICE         = 0, //	| SliceNum==1
@@ -203,7 +208,7 @@ typedef enum {
 
   PRO_SCALABLE_BASELINE	= 83,
   PRO_SCALABLE_HIGH		= 86,
-}EProfileIdc;
+} EProfileIdc;
 
 typedef enum {
   LEVEL_UNKNOWN,
@@ -224,7 +229,19 @@ typedef enum {
   LEVEL_5_0,
   LEVEL_5_1,
   LEVEL_5_2
-}ELevelIdc;
+} ELevelIdc;
+
+
+enum {
+  WELS_LOG_QUIET		= 0x00,		// Quiet mode
+  WELS_LOG_ERROR		= 1 << 0,	// Error log iLevel
+  WELS_LOG_WARNING	= 1 << 1,	// Warning log iLevel
+  WELS_LOG_INFO		= 1 << 2,	// Information log iLevel
+  WELS_LOG_DEBUG		= 1 << 3,	// Debug log iLevel
+  WELS_LOG_RESV		= 1 << 4,	// Resversed log iLevel
+  WELS_LOG_LEVEL_COUNT = 5,
+  WELS_LOG_DEFAULT	= WELS_LOG_DEBUG	// Default log iLevel in Wels codec
+};
 
 typedef struct {
   SliceModeEnum uiSliceMode; //by default, uiSliceMode will be SM_SINGLE_SLICE
@@ -247,12 +264,13 @@ typedef struct {
 typedef enum {
   CAMERA_VIDEO_REAL_TIME, //camera video signal
   SCREEN_CONTENT_REAL_TIME,//screen content signal
-}EUsageType;
+} EUsageType;
 
 // TODO:  Refine the parameters definition.
 // SVC Encoding Parameters
-typedef struct TagEncParamBase{
-  EUsageType    iUsageType;	//application type;// CAMERA_VIDEO_REAL_TIME: //camera video signal; SCREEN_CONTENT_REAL_TIME: screen content signal;
+typedef struct TagEncParamBase {
+  EUsageType
+  iUsageType;	//application type;// CAMERA_VIDEO_REAL_TIME: //camera video signal; SCREEN_CONTENT_REAL_TIME: screen content signal;
   int		iInputCsp;	// color space of input sequence
 
   int		iPicWidth;			// width of picture in samples
@@ -264,9 +282,9 @@ typedef struct TagEncParamBase{
 } SEncParamBase, *PEncParamBase;
 
 
-typedef struct TagEncParamExt
-{
-  EUsageType    iUsageType;	//application type;// CAMERA_VIDEO_REAL_TIME: //camera video signal; SCREEN_CONTENT_REAL_TIME: screen content signal;
+typedef struct TagEncParamExt {
+  EUsageType
+  iUsageType;	//application type;// CAMERA_VIDEO_REAL_TIME: //camera video signal; SCREEN_CONTENT_REAL_TIME: screen content signal;
   int		iInputCsp;	// color space of input sequence
 
   int		iPicWidth;			// width of picture in samples
@@ -301,9 +319,10 @@ typedef struct TagEncParamExt
   unsigned int      iLtrMarkPeriod;
 
   /* multi-thread settings*/
-  unsigned short		iMultipleThreadIdc;		// 1	# 0: auto(dynamic imp. internal encoder); 1: multiple threads imp. disabled; > 1: count number of threads;
+  unsigned short
+  iMultipleThreadIdc;		// 1	# 0: auto(dynamic imp. internal encoder); 1: multiple threads imp. disabled; > 1: count number of threads;
 
-   /* Deblocking loop filter */
+  /* Deblocking loop filter */
   int		iLoopFilterDisableIdc;	// 0: on, 1: off, 2: on except for slice boundaries
   int		iLoopFilterAlphaC0Offset;// AlphaOffset: valid range [-6, 6], default 0
   int		iLoopFilterBetaOffset;	// BetaOffset:	valid range [-6, 6], default 0
@@ -313,7 +332,7 @@ typedef struct TagEncParamExt
   bool    bEnableAdaptiveQuant; // adaptive quantization control
   bool	  bEnableFrameCroppingFlag;// enable frame cropping flag: TRUE always in application
   bool    bEnableSceneChangeDetect;
-}SEncParamExt;
+} SEncParamExt;
 
 //Define a new struct to show the property of video bitstream.
 typedef struct {
@@ -345,7 +364,7 @@ typedef struct {
   unsigned char uiLayerType;
 
   int	iNalCount;					// Count number of NAL coded already
-  int	iNalLengthInByte[MAX_NAL_UNITS_IN_LAYER];	// Length of NAL size in byte from 0 to iNalCount-1
+  int*	pNalLengthInByte;	// Length of NAL size in byte from 0 to iNalCount-1
   unsigned char*	pBsBuf;		// Buffer of bitstream contained
 } SLayerBSInfo, *PLayerBSInfo;
 
@@ -370,13 +389,13 @@ typedef struct Source_Picture_s {
   long long uiTimeStamp;
 } SSourcePicture;
 
-typedef struct Bitrate_Info_s{
+typedef struct TagBitrateInfo {
   LAYER_NUM iLayer;
   int iBitrate;    //the maximum bitrate
-}SBitrateInfo;
+} SBitrateInfo;
 
-typedef struct Dump_Layer_s{
-	int iLayer;
-	char *pFileName;
-}SDumpLayer;
+typedef struct TagDumpLayer {
+  int iLayer;
+  char* pFileName;
+} SDumpLayer;
 #endif//WELS_VIDEO_CODEC_APPLICATION_DEFINITION_H__

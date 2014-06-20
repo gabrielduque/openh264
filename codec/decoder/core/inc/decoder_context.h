@@ -53,6 +53,7 @@
 #include "as264_common.h" // for LONG_TERM_REF macro,can be delete if not need this macro
 #include "crt_util_safe_x.h"
 #include "mb_cache.h"
+#include "expand_pic.h"
 
 namespace WelsDec {
 
@@ -78,7 +79,7 @@ typedef struct TagDataBuffer {
 typedef void (*PGetIntraPredFunc) (uint8_t* pPred, const int32_t kiLumaStride);
 typedef void (*PIdctResAddPredFunc) (uint8_t* pPred, const int32_t kiStride, int16_t* pRs);
 typedef void (*PExpandPictureFunc) (uint8_t* pDst, const int32_t kiStride, const int32_t kiPicWidth,
-                                      const int32_t kiPicHeight);
+                                    const int32_t kiPicHeight);
 
 /**/
 typedef struct TagRefPic {
@@ -92,7 +93,7 @@ typedef struct TagRefPic {
 } SRefPic, *PRefPic;
 
 typedef void (*PWelsMcFunc) (const uint8_t* pSrc, int32_t iSrcStride, uint8_t* pDst, int32_t iDstStride,
-                               int16_t iMvX, int16_t iMvY, int32_t iWidth, int32_t iHeight);
+                             int16_t iMvX, int16_t iMvY, int32_t iWidth, int32_t iHeight);
 typedef struct TagMcFunc {
   PWelsMcFunc pMcLumaFunc;
   PWelsMcFunc pMcChromaFunc;
@@ -120,7 +121,7 @@ typedef struct tagDeblockingFilter {
 
 typedef void (*PDeblockingFilterMbFunc) (PDqLayer pCurDqLayer, PDeblockingFilter  filter, int32_t boundry_flag);
 typedef void (*PLumaDeblockingLT4Func) (uint8_t* iSampleY, int32_t iStride, int32_t iAlpha, int32_t iBeta,
-    int8_t* iTc);
+                                        int8_t* iTc);
 typedef void (*PLumaDeblockingEQ4Func) (uint8_t* iSampleY, int32_t iStride, int32_t iAlpha, int32_t iBeta);
 typedef void (*PChromaDeblockingLT4Func) (uint8_t* iSampleCb, uint8_t* iSampleCr, int32_t iStride, int32_t iAlpha,
     int32_t iBeta, int8_t* iTc);
@@ -139,7 +140,7 @@ typedef struct TagDeblockingFunc {
   PChromaDeblockingEQ4Func  pfChromaDeblockingEQ4Hor;
 } SDeblockingFunc, *PDeblockingFunc;
 
-typedef void (*PWelsNonZeroCountFunc) (int16_t* pBlock, int8_t* pNonZeroCount);
+typedef void (*PWelsNonZeroCountFunc) (int8_t* pNonZeroCount);
 
 typedef  struct  TagBlockFunc {
   PWelsNonZeroCountFunc		pWelsSetNonZeroCountFunc;
@@ -150,11 +151,6 @@ typedef void (*PWelsFillNeighborMbInfoIntra4x4Func) (PNeighAvail pNeighAvail, ui
 typedef int32_t (*PWelsParseIntra4x4ModeFunc) (PNeighAvail pNeighAvail, int8_t* pIntraPredMode, PBitStringAux pBs,
     PDqLayer pCurDqLayer);
 typedef int32_t (*PWelsParseIntra16x16ModeFunc) (PNeighAvail pNeighAvail, PBitStringAux pBs, PDqLayer pCurDqLayer);
-
-typedef struct TagExpandPicFunc {
-  PExpandPictureFunc pExpandLumaPicture;
-  PExpandPictureFunc pExpandChromaPicture[2];
-} SExpandPicFunc;
 
 enum {
   OVERWRITE_NONE = 0,
@@ -168,6 +164,7 @@ enum {
  */
 
 typedef struct TagWelsDecoderContext {
+  SLogContext sLogCtx;
   // Input
   void*				pArgDec;			// structured arguments for decoder, reserved here for extension in the future
 
@@ -233,6 +230,7 @@ typedef struct TagWelsDecoderContext {
   SVlcTable			sVlcTable;		 // vlc table
 
   SBitStringAux		sBs;
+  int32_t iMaxBsBufferSizeInByte; //actual memory size for BS buffer
 
   /* Global memory external */
 
@@ -262,6 +260,7 @@ typedef struct TagWelsDecoderContext {
   uint8_t				uiTargetDqId;		// maximal DQ ID in current access unit, meaning target layer ID
   bool				bAvcBasedFlag;		// For decoding bitstream:
   bool				bEndOfStreamFlag;	// Flag on end of stream requested by external application layer
+  bool                          bInstantDecFlag;        // Flag for no-delay decoding
   bool				bInitialDqLayersMem;	// dq layers related memory is available?
 
   bool              bOnlyOneLayerInCurAuFlag; //only one layer in current AU: 1
@@ -322,16 +321,14 @@ typedef struct TagWelsDecoderContext {
   //trace handle
   void*      pTraceHandle;
 
-#ifdef NO_WAITING_AU
   //Save the last nal header info
   SNalUnitHeaderExt sLastNalHdrExt;
   SSliceHeader      sLastSliceHeader;
-#endif
 
 } SWelsDecoderContext, *PWelsDecoderContext;
 
-static inline void ResetActiveSPSForEachLayer(PWelsDecoderContext pCtx) {
-  for(int i = 0; i < MAX_LAYER_NUM; i++) {
+static inline void ResetActiveSPSForEachLayer (PWelsDecoderContext pCtx) {
+  for (int i = 0; i < MAX_LAYER_NUM; i++) {
     pCtx->pActiveLayerSps[i] = NULL;
   }
 }

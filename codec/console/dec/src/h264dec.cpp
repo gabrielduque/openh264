@@ -51,7 +51,6 @@
 #include "typedefs.h"
 #include "measure_time.h"
 #include "d3d9_utils.h"
-#include "logging.h"
 
 
 using namespace std;
@@ -76,7 +75,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
   uint8_t* pBuf = NULL;
   uint8_t uiStartCode[4] = {0, 0, 0, 1};
 
-  void* pData[3] = {NULL};
+  uint8_t* pData[3] = {NULL};
   uint8_t* pDst[3] = {NULL};
   SBufferInfo sDstBufInfo;
 
@@ -212,9 +211,9 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
     pDecoder->DecodeFrame2 (pBuf + iBufPos, iSliceSize, pData, &sDstBufInfo);
 
     if (sDstBufInfo.iBufferStatus == 1) {
-      pDst[0] = (uint8_t*)pData[0];
-      pDst[1] = (uint8_t*)pData[1];
-      pDst[2] = (uint8_t*)pData[2];
+      pDst[0] = pData[0];
+      pDst[1] = pData[1];
+      pDst[2] = pData[2];
     }
     iEnd	= WelsTime();
     iTotal	+= iEnd - iStart;
@@ -247,9 +246,9 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
 
   pDecoder->DecodeFrame2 (NULL, 0, pData, &sDstBufInfo);
   if (sDstBufInfo.iBufferStatus == 1) {
-    pDst[0] = (uint8_t*)pData[0];
-    pDst[1] = (uint8_t*)pData[1];
-    pDst[2] = (uint8_t*)pData[2];
+    pDst[0] = pData[0];
+    pDst[1] = pData[1];
+    pDst[2] = pData[2];
   }
 
   if (sDstBufInfo.iBufferStatus == 1) {
@@ -311,6 +310,7 @@ int32_t main (int32_t iArgC, char* pArgV[]) {
 
   SDecodingParam sDecParam = {0};
   string strInputFile (""), strOutputFile (""), strOptionFile ("");
+  int iLevelSetting = -1;
 
   sDecParam.sVideoProperty.size = sizeof (sDecParam.sVideoProperty);
 
@@ -384,14 +384,14 @@ int32_t main (int32_t iArgC, char* pArgV[]) {
 
         if (!strcmp (cmd, "-options")) {
           if (i + 1 < iArgC)
-            strOptionFile = pArgV[i++];
+            strOptionFile = pArgV[++i];
           else {
             printf ("options file not specified.\n");
             return 1;
           }
         } else if (!strcmp (cmd, "-trace")) {
           if (i + 1 < iArgC)
-            WelsStderrSetTraceLevel (atoi (pArgV[i++]));
+            iLevelSetting = atoi (pArgV[++i]);
           else {
             printf ("trace level not specified.\n");
             return 1;
@@ -417,6 +417,9 @@ int32_t main (int32_t iArgC, char* pArgV[]) {
   if (WelsCreateDecoder (&pDecoder)  || (NULL == pDecoder)) {
     printf ("Create Decoder failed.\n");
     return 1;
+  }
+  if (iLevelSetting >= 0) {
+    pDecoder->SetOption (DECODER_OPTION_TRACE_LEVEL, &iLevelSetting);
   }
 
   if (pDecoder->Initialize (&sDecParam)) {

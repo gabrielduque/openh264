@@ -52,17 +52,12 @@
 #include "decode_slice.h"
 #include "error_concealment.h"
 #include "mem_align.h"
-#include "ls_defines.h"
 
 namespace WelsDec {
 
 extern PPicture AllocPicture (PWelsDecoderContext pCtx, const int32_t kiPicWidth, const int32_t kiPicHeight);
 
 extern void FreePicture (PPicture pPic);
-
-inline void GetValueOf4Bytes (uint8_t* pDstNal, int32_t iDdstIdx) {
-  ST32 (pDstNal, iDdstIdx);
-}
 
 static int32_t CreatePicBuff (PWelsDecoderContext pCtx, PPicBuff* ppPicBuf, const int32_t kiSize,
                               const int32_t kiPicWidth, const int32_t kiPicHeight) {
@@ -132,9 +127,10 @@ static void DestroyPicBuff (PPicBuff* ppPicBuf) {
 /*
  * fill data fields in default for decoder context
  */
-void WelsDecoderDefaults (PWelsDecoderContext pCtx) {
+void WelsDecoderDefaults (PWelsDecoderContext pCtx, SLogContext* pLogCtx) {
   int32_t iCpuCores               = 1;
   memset (pCtx, 0, sizeof (SWelsDecoderContext));	// fill zero first
+  pCtx->sLogCtx = *pLogCtx;
 
   pCtx->pArgDec                   = NULL;
 
@@ -355,17 +351,13 @@ int32_t DecoderConfigParam (PWelsDecoderContext pCtx, const SDecodingParam* kpPa
  * \note	N/A
  *************************************************************************************
  */
-int32_t WelsInitDecoder (PWelsDecoderContext pCtx, void* pTraceHandle, PWelsLogCallbackFunc pLog) {
+int32_t WelsInitDecoder (PWelsDecoderContext pCtx, SLogContext* pLogCtx) {
   if (pCtx == NULL) {
     return ERR_INFO_INVALID_PTR;
   }
 
   // default
-  WelsDecoderDefaults (pCtx);
-
-  pCtx->pTraceHandle = pTraceHandle;
-
-  g_pLog = pLog;
+  WelsDecoderDefaults (pCtx, pLogCtx);
 
   // open decoder
   WelsOpenDecoder (pCtx);
@@ -447,7 +439,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
 
     //copy raw data from source buffer (application) to raw data buffer (codec inside)
     //0x03 removal and extract all of NAL Unit from current raw data
-    pDstNal = pRawData->pCurPos + 4; //4-bytes used to write the length of current NAL rbsp
+    pDstNal = pRawData->pCurPos;
 
     while (iSrcConsumed < iSrcLength) {
       if ((2 + iSrcConsumed < iSrcLength) &&
@@ -459,7 +451,6 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
           iSrcIdx	+= 3;
           iSrcConsumed += 3;
         } else {
-          GetValueOf4Bytes (pDstNal - 4, iDstIdx);  //pDstNal-4 (non-aligned by 4) in Solaris10(SPARC). Given value by byte.
 
           iConsumedBytes = 0;
           pNalPayload	= ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
@@ -515,10 +506,12 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     }
 
     //last NAL decoding
-    GetValueOf4Bytes (pDstNal - 4, iDstIdx); //pDstNal-4 (non-aligned by 4) in Solaris10(SPARC). Given value by byte.
 
     iConsumedBytes = 0;
     pNalPayload = ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
+    if ((pCtx->iErrorConMethod != ERROR_CON_DISABLE) && (IS_VCL_NAL (pCtx->sCurNalHead.eNalUnitType, 1))) {
+      CheckAndDoEC (pCtx, ppDst, pDstBufInfo);
+    }
     if (IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType) && pNalPayload) {
       iRet = ParseNonVclNal (pCtx, pNalPayload, iDstIdx - iConsumedBytes);
     }

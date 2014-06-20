@@ -183,8 +183,7 @@ int32_t WelsMbInterConstruction (PWelsDecoderContext pCtx, PDqLayer pCurLayer) {
   GetInterPred (pDstY, pDstCb, pDstCr, pCtx);
   WelsMbInterSampleConstruction (pCtx, pCurLayer, pDstY, pDstCb, pDstCr, iLumaStride, iChromaStride);
 
-  pCtx->sBlockFunc.pWelsSetNonZeroCountFunc (NULL,
-      pCurLayer->pNzc[pCurLayer->iMbXyIndex]); // set all none-zero nzc to 1; dbk can be opti!
+  pCtx->sBlockFunc.pWelsSetNonZeroCountFunc (pCurLayer->pNzc[pCurLayer->iMbXyIndex]); // set all none-zero nzc to 1; dbk can be opti!
   return 0;
 }
 
@@ -441,7 +440,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
   int32_t iMbX = pCurLayer->iMbX;
   int32_t iMbY = pCurLayer->iMbY;
   const int32_t iMbXy = pCurLayer->iMbXyIndex;
-  int8_t *pNzc = pCurLayer->pNzc[iMbXy];
+  int8_t* pNzc = pCurLayer->pNzc[iMbXy];
   int32_t i;
   uint32_t uiMbType = 0, uiCbp = 0, uiCbpL = 0, uiCbpC = 0;
   uint32_t uiCode;
@@ -844,7 +843,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
     uiCbpL = pCurLayer->pCbp[iMbXy] & 15;
   }
 
-  memset(pCurLayer->pScaledTCoeff[iMbXy], 0, MB_COEFF_LIST_SIZE * sizeof(int16_t));
+  memset (pCurLayer->pScaledTCoeff[iMbXy], 0, MB_COEFF_LIST_SIZE * sizeof (int16_t));
 
   ST32A4 (&pNzc[0], 0);
   ST32A4 (&pNzc[4], 0);
@@ -975,7 +974,7 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur) {
   PSliceHeader pSliceHeader		    = &pSlice->sSliceHeaderExt.sSliceHeader;
 
   const int32_t iMbXy = pCurLayer->iMbXyIndex;
-  int8_t *pNzc = pCurLayer->pNzc[iMbXy];
+  int8_t* pNzc = pCurLayer->pNzc[iMbXy];
   int32_t iBaseModeFlag, i;
   int32_t iRet = 0; //should have the return value to indicate decoding error or not, It's NECESSARY--2010.4.15
   uint32_t uiCode;
@@ -1048,13 +1047,13 @@ void WelsBlockFuncInit (SBlockFunc*   pFunc,  int32_t iCpu) {
   pFunc->pWelsSetNonZeroCountFunc	    = SetNonZeroCount_c;
 
 #ifdef	HAVE_NEON
-  if ( iCpu & WELS_CPU_NEON ) {
+  if (iCpu & WELS_CPU_NEON) {
     pFunc->pWelsSetNonZeroCountFunc		= SetNonZeroCount_neon;
   }
 #endif
 }
 
-void SetNonZeroCount_c (int16_t* pBlock, int8_t* pNonZeroCount) {
+void SetNonZeroCount_c (int8_t* pNonZeroCount) {
   int32_t i;
 
   for (i = 0; i < 24; i++) {

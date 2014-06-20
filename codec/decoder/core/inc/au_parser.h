@@ -92,9 +92,12 @@ int32_t ParseRefBasePicMarking (PBitStringAux pBs, PRefBasePicMarking pRefBasePi
 
 int32_t ParsePrefixNalUnit (PWelsDecoderContext pCtx, PBitStringAux pBs);
 
-bool CheckAccessUnitBoundary (PWelsDecoderContext pCtx, const PNalUnit kpCurNal, const PNalUnit kpLastNal, const PSps kpSps);
+bool CheckAccessUnitBoundary (PWelsDecoderContext pCtx, const PNalUnit kpCurNal, const PNalUnit kpLastNal,
+                              const PSps kpSps);
 bool CheckAccessUnitBoundaryExt (PNalUnitHeaderExt pLastNalHdrExt, PNalUnitHeaderExt pCurNalHeaderExt,
                                  PSliceHeader pLastSliceHeader, PSliceHeader pCurSliceHeader);
+bool CheckNextAuNewSeq (PWelsDecoderContext pCtx, const PNalUnit kpCurNal, const PSps kpSps);
+
 /*!
  *************************************************************************************
  * \brief	to parse Sequence Parameter Set (SPS)

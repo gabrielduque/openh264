@@ -7,7 +7,7 @@ static void UpdateHashFromFrame(const SFrameBSInfo& info, SHA1Context* ctx) {
     const SLayerBSInfo& layerInfo = info.sLayerInfo[i];
     int layerSize = 0;
     for (int j = 0; j < layerInfo.iNalCount; ++j) {
-      layerSize += layerInfo.iNalLengthInByte[j];
+      layerSize += layerInfo.pNalLengthInByte[j];
     }
     SHA1Input(ctx, layerInfo.pBsBuf, layerSize);
   }
@@ -73,27 +73,31 @@ TEST_P(EncoderOutputTest, CompareOutput) {
 static const EncodeFileParam kFileParamArray[] = {
   {
       "res/CiscoVT2people_320x192_12fps.yuv",
-      "8d4c87f48e8a679c1ccbf5fe1ee040fed4776b30", CAMERA_VIDEO_REAL_TIME, 320, 192, 12.0f, SM_SINGLE_SLICE, false, 1
+      "86ee1314eabf5a6d6083c5260d36e2d908f36ea5", CAMERA_VIDEO_REAL_TIME, 320, 192, 12.0f, SM_SINGLE_SLICE, false, 1
   },
   {
       "res/CiscoVT2people_160x96_6fps.yuv",
-      "75334dc69d95b8ac2e0a52977bba0179df4f151f", CAMERA_VIDEO_REAL_TIME, 160, 96, 6.0f, SM_SINGLE_SLICE, false, 1
+      "20f3e5cbefe70e5a8793e60672fd70e136bc082a", CAMERA_VIDEO_REAL_TIME, 160, 96, 6.0f, SM_SINGLE_SLICE, false, 1
   },
   {
       "res/Static_152_100.yuv",
-      "3467201e18a934e7f8c50f3c8f3e05f4334ad12c", CAMERA_VIDEO_REAL_TIME, 152, 100, 6.0f, SM_SINGLE_SLICE, false, 1
+      "035f2e5b35947ab43cad7c5ca4cd8a3b658306ba", CAMERA_VIDEO_REAL_TIME, 152, 100, 6.0f, SM_SINGLE_SLICE, false, 1
   },
   {
       "res/CiscoVT2people_320x192_12fps.yuv",
-      "a57c7cc8a00ffe8d8ca5527a13af1683a41b5150", CAMERA_VIDEO_REAL_TIME, 320, 192, 12.0f, SM_ROWMB_SLICE, false, 1 // One slice per MB row
+      "c8b759bcec7ffa048f1d3ded594b8815bed0aead", CAMERA_VIDEO_REAL_TIME, 320, 192, 12.0f, SM_ROWMB_SLICE, false, 1 // One slice per MB row
   },
   {
       "res/CiscoVT2people_320x192_12fps.yuv",
-      "bc9b203c1b031299df7981201c2af393994d876f", CAMERA_VIDEO_REAL_TIME, 320, 192, 12.0f, SM_SINGLE_SLICE, true, 1
+      "6f49cc4e746522d7d91599c9a883072e838ae918", CAMERA_VIDEO_REAL_TIME, 320, 192, 12.0f, SM_SINGLE_SLICE, true, 1
   },
   {
       "res/CiscoVT2people_320x192_12fps.yuv",
-      "ba81a0f1a14214e6d3c7f1608991b3ac97789370", CAMERA_VIDEO_REAL_TIME, 320, 192, 12.0f, SM_SINGLE_SLICE, false, 2
+      "4da4526a763497cfd777e1a211c67df5e9d48b29", CAMERA_VIDEO_REAL_TIME, 320, 192, 12.0f, SM_SINGLE_SLICE, false, 2
+  },
+  {
+      "res/Cisco_Absolute_Power_1280x720_30fps.yuv",
+      "6df1ece77c0de63cdf8ab52ccef3a7d139022717", CAMERA_VIDEO_REAL_TIME, 1280, 720, 30.0f, SM_DYN_SLICE, false, 1
   },
   {
       "res/CiscoVT2people_320x192_12fps.yuv",

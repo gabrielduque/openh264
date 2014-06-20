@@ -138,13 +138,6 @@ typedef enum {
 //-----------------------------------------------------------------//
 //  Algorithm parameters define
 //-----------------------------------------------------------------//
-typedef struct{
-  SRect sMaskRect;
-  bool bMaskInfoAvailable;
-  int iScrollMvX;
-  int iScrollMvY;
-  bool bScrollDetectFlag; // 0:false ; 1:ltr; 2: scene change
-} SScrollDetectionParam;
 
 typedef enum {
   SIMILAR_SCENE,   //similar scene
@@ -160,10 +153,19 @@ typedef enum {
 } EStaticBlockIdc;
 
 typedef struct {
+  SRect sMaskRect;
+  bool bMaskInfoAvailable;
+  int iScrollMvX;
+  int iScrollMvY;
+  bool bScrollDetectFlag; // 0:false ; 1:ltr; 2: scene change
+} SScrollDetectionParam;
+
+typedef struct {
   ESceneChangeIdc eSceneChangeIdc; // SIMILAR_SCENE, MEDIUM_CHANGED_SCENE, LARGE_CHANGED_SCENE
   int             iMotionBlockNum; // Number of motion blocks
   int             iFrameComplexity; // frame complexity
-  unsigned char * pStaticBlockIdc;  // static block idc
+  unsigned char* pStaticBlockIdc;   // static block idc
+  SScrollDetectionParam sScrollResult; //results from scroll detection
 } SSceneChangeResult;
 
 typedef struct {
@@ -207,7 +209,7 @@ typedef struct {
   SMotionTextureUnit*  pMotionTextureUnit;
 
   signed char*			pMotionTextureIndexToDeltaQp;
-  double				dAverMotionTextureIndexToDeltaQp;
+  int				iAverMotionTextureIndexToDeltaQp; // *AQ_STEP_INT_MULTIPLY
 } SAdaptiveQuantizationParam;
 
 typedef enum {
@@ -215,13 +217,6 @@ typedef enum {
   GOM_SAD       = -1,
   GOM_VAR       = -2
 } EComplexityAnalysisMode;
-
-typedef struct
-{
-  int iScrollMvX;
-  int iScrollMvY;
-  bool bScrollDetectFlag; // 0:false ; 1:ltr; 2: scene change
-} SScrollDetectionResult;
 
 typedef struct {
   int  iComplexityAnalysisMode;
@@ -235,14 +230,13 @@ typedef struct {
   SVAACalcResult*  pCalcResult;
 } SComplexityAnalysisParam;
 
-typedef struct
-{
+typedef struct {
   int  iMbRowInGom;
-  int  *pGomComplexity;
+  int*  pGomComplexity;
   int  iGomNumInFrame;
   int  iFrameComplexity;
   int  iIdrFlag;
-  SScrollDetectionResult sScrollResult;
+  SScrollDetectionParam sScrollResult;
 } SComplexityAnalysisScreenParam;
 /////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -255,24 +255,24 @@ int32_t CWelsPreProcess::AnalyzeSpatialPic (sWelsEncCtx* pCtx, const int32_t kiD
 }
 
 int32_t CWelsPreProcess::UpdateSpatialPictures (sWelsEncCtx* pCtx, SWelsSvcCodingParam* pParam,
-    const int8_t iCurTid, const int32_t d_idx) {
+    const int8_t iCurTid, const int32_t kiDidx) {
   if (pCtx->pSvcParam->iUsageType == SCREEN_CONTENT_REAL_TIME)
     return 0;
-  if (iCurTid < m_uiSpatialLayersInTemporal[d_idx] - 1 || pParam->iDecompStages == 0) {
-    if ((iCurTid >= MAX_TEMPORAL_LEVEL) || (m_uiSpatialLayersInTemporal[d_idx] - 1 > MAX_TEMPORAL_LEVEL)) {
+  if (iCurTid < m_uiSpatialLayersInTemporal[kiDidx] - 1 || pParam->iDecompStages == 0) {
+    if ((iCurTid >= MAX_TEMPORAL_LEVEL) || (m_uiSpatialLayersInTemporal[kiDidx] - 1 > MAX_TEMPORAL_LEVEL)) {
       InitLastSpatialPictures (pCtx);
       return 1;
     }
-    if (pParam->bEnableLongTermReference && pCtx->bLongTermRefFlag[d_idx][iCurTid]) {
-      SPicture* tmp	= m_pSpatialPic[d_idx][m_uiSpatialLayersInTemporal[d_idx] + pCtx->pVaa->uiMarkLongTermPicIdx];
-      m_pSpatialPic[d_idx][m_uiSpatialLayersInTemporal[d_idx] + pCtx->pVaa->uiMarkLongTermPicIdx] =
-        m_pSpatialPic[d_idx][iCurTid];
-      m_pSpatialPic[d_idx][iCurTid] = m_pSpatialPic[d_idx][m_uiSpatialLayersInTemporal[d_idx] - 1];
-      m_pSpatialPic[d_idx][m_uiSpatialLayersInTemporal[d_idx] - 1] = tmp;
-      pCtx->bLongTermRefFlag[d_idx][iCurTid] = false;
+    if (pParam->bEnableLongTermReference && pCtx->bLongTermRefFlag[kiDidx][iCurTid]) {
+      SPicture* tmp	= m_pSpatialPic[kiDidx][m_uiSpatialLayersInTemporal[kiDidx] + pCtx->pVaa->uiMarkLongTermPicIdx];
+      m_pSpatialPic[kiDidx][m_uiSpatialLayersInTemporal[kiDidx] + pCtx->pVaa->uiMarkLongTermPicIdx] =
+        m_pSpatialPic[kiDidx][iCurTid];
+      m_pSpatialPic[kiDidx][iCurTid] = m_pSpatialPic[kiDidx][m_uiSpatialLayersInTemporal[kiDidx] - 1];
+      m_pSpatialPic[kiDidx][m_uiSpatialLayersInTemporal[kiDidx] - 1] = tmp;
+      pCtx->bLongTermRefFlag[kiDidx][iCurTid] = false;
     } else {
-      WelsExchangeSpatialPictures (&m_pSpatialPic[d_idx][m_uiSpatialLayersInTemporal[d_idx] - 1],
-                                   &m_pSpatialPic[d_idx][iCurTid]);
+      WelsExchangeSpatialPictures (&m_pSpatialPic[kiDidx][m_uiSpatialLayersInTemporal[kiDidx] - 1],
+                                   &m_pSpatialPic[kiDidx][iCurTid]);
     }
   }
   return 0;
@@ -457,16 +457,20 @@ int32_t CWelsPreProcess::InitLastSpatialPictures (sWelsEncCtx* pCtx) {
   SWelsSvcCodingParam* pParam	= pCtx->pSvcParam;
   const int32_t kiDlayerCount			= pParam->iSpatialLayerNum;
   int32_t iDlayerIndex					= 0;
-
-  for (; iDlayerIndex < kiDlayerCount; iDlayerIndex++) {
-    const int32_t kiLayerInTemporal = m_uiSpatialLayersInTemporal[iDlayerIndex];
-    m_pLastSpatialPicture[iDlayerIndex][0]	= m_pSpatialPic[iDlayerIndex][kiLayerInTemporal - 2];
-    m_pLastSpatialPicture[iDlayerIndex][1]	= NULL;
+  if (pParam->iUsageType == SCREEN_CONTENT_REAL_TIME) {
+    for (; iDlayerIndex < MAX_DEPENDENCY_LAYER; iDlayerIndex++) {
+      m_pLastSpatialPicture[iDlayerIndex][0]	= m_pLastSpatialPicture[iDlayerIndex][1] = NULL;
+    }
+  } else {
+    for (; iDlayerIndex < kiDlayerCount; iDlayerIndex++) {
+      const int32_t kiLayerInTemporal = m_uiSpatialLayersInTemporal[iDlayerIndex];
+      m_pLastSpatialPicture[iDlayerIndex][0]	= m_pSpatialPic[iDlayerIndex][kiLayerInTemporal - 2];
+      m_pLastSpatialPicture[iDlayerIndex][1]	= NULL;
+    }
+    for (; iDlayerIndex < MAX_DEPENDENCY_LAYER; iDlayerIndex++) {
+      m_pLastSpatialPicture[iDlayerIndex][0]	= m_pLastSpatialPicture[iDlayerIndex][1] = NULL;
+    }
   }
-  for (; iDlayerIndex < MAX_DEPENDENCY_LAYER; iDlayerIndex++) {
-    m_pLastSpatialPicture[iDlayerIndex][0]	= m_pLastSpatialPicture[iDlayerIndex][1] = NULL;
-  }
-
   return 0;
 }
 //*********************************************************************************************************/

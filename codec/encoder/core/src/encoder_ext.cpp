@@ -84,6 +84,26 @@ int32_t ParamValidation (SLogContext* pLogCtx, SWelsSvcCodingParam* pCfg) {
     WelsLog (pLogCtx, WELS_LOG_ERROR, "ParamValidation(),Invalid usage type = %d\n", pCfg->iUsageType);
     return ENC_RETURN_UNSUPPORTED_PARA;
   }
+  if (pCfg->iUsageType == SCREEN_CONTENT_REAL_TIME) {
+    if (pCfg->iSpatialLayerNum > 1) {
+      WelsLog (pLogCtx, WELS_LOG_ERROR, "ParamValidation(),Invalid the number of Spatial layer(%d)for screen content\n",
+               pCfg->iSpatialLayerNum);
+      return ENC_RETURN_UNSUPPORTED_PARA;
+    }
+  }
+  if (pCfg->iSpatialLayerNum > 1) {
+    int32_t iFinalWidth = pCfg->sSpatialLayers[pCfg->iSpatialLayerNum - 1].iVideoWidth;
+    int32_t iFinalHeight = pCfg->sSpatialLayers[pCfg->iSpatialLayerNum - 1].iVideoWidth;
+    for (i = 0; i < (pCfg->iSpatialLayerNum - 1); i++) {
+      SSpatialLayerConfig* fDlp = &pCfg->sSpatialLayers[i];
+      if ((fDlp->iVideoWidth > iFinalWidth) || (fDlp->iVideoHeight > iFinalHeight)) {
+        WelsLog (pLogCtx, WELS_LOG_ERROR,
+                 "ParamValidation,Invalid resolution layer(%d) resolution(%d x %d) shoudl be less than the highest spatial layer resolution(%d x %d)\n ",
+                 i, fDlp->iVideoWidth, fDlp->iVideoHeight, iFinalWidth, iFinalHeight);
+        return ENC_RETURN_UNSUPPORTED_PARA;
+      }
+    }
+  }
   for (i = 0; i < pCfg->iSpatialLayerNum; ++ i) {
     SSpatialLayerInternal* fDlp = &pCfg->sDependencyLayers[i];
     if (fDlp->fOutputFrameRate > fDlp->fInputFrameRate || (fDlp->fInputFrameRate >= -fEpsn
@@ -2827,8 +2847,6 @@ int32_t WritePadding (sWelsEncCtx* pCtx, int32_t iLen, int32_t& iSize) {
 
   BsRbspTrailingBits (pBs);
 
-  BsFlush (pBs);
-
   WelsUnloadNal (pCtx->pOut);
   int32_t iReturn = WelsEncodeNal (&pCtx->pOut->sNalList[iNal], NULL,
                                    pCtx->iFrameBsSize - pCtx->iPosBsBuffer,
@@ -2939,6 +2957,23 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
     pFbi->eOutputFrameType = eFrameType;
     return ENC_RETURN_SUCCESS;
   }
+
+  //loop each layer to check if have skip frame when RC and frame skip enable
+  if (RC_OFF_MODE != pCtx->pSvcParam->iRCMode && true == pCtx->pSvcParam->bEnableFrameSkip) {
+    bool bSkipMustFlag = false;
+    for (int32_t i = 0; i < iSpatialNum; i++) {
+      pCtx->uiDependencyId = (uint8_t) (pSpatialIndexMap + i)->iDid;
+      pCtx->pFuncList->pfRc.pfWelsRcPicDelayJudge (pCtx);
+      if (true == pCtx->pWelsSvcRc[pCtx->uiDependencyId].bSkipFlag) {
+        bSkipMustFlag = true;
+      }
+    }
+    if (true == bSkipMustFlag) {
+      pFbi->eOutputFrameType = videoFrameTypeSkip;
+      return ENC_RETURN_SUCCESS;
+    }
+  }
+
 
   InitFrameCoding (pCtx, eFrameType);
 
@@ -3774,9 +3809,15 @@ int32_t DynSliceRealloc (sWelsEncCtx* pCtx,
   memcpy (pSlcingOverRc, pCtx->pWelsSvcRc->pSlicingOverRc, sizeof (SRCSlicing) * iMaxSliceNumOld);
   uiSliceIdx = iMaxSliceNumOld;
   SRCSlicing* pSORC = &pSlcingOverRc[uiSliceIdx];
+  const int32_t kiBitsPerMb		= WELS_DIV_ROUND(pCtx->pWelsSvcRc->iTargetBits * INT_MULTIPLY, pCtx->pWelsSvcRc->iNumberMbFrame);
   while (uiSliceIdx < iMaxSliceNum) {
     pSORC->iComplexityIndexSlice = 0;
     pSORC->iCalculatedQpSlice = pCtx->iGlobalQp;
+    pSORC->iTotalQpSlice	= 0;
+    pSORC->iTotalMbSlice	= 0;
+    pSORC->iTargetBitsSlice = WELS_DIV_ROUND(kiBitsPerMb * pCurLayer->pSliceEncCtx->pCountMbNumInSlice[uiSliceIdx], INT_MULTIPLY);
+    pSORC->iFrameBitsSlice	= 0;
+    pSORC->iGomBitsSlice	= 0;
     pSORC ++;
     uiSliceIdx ++;
   }

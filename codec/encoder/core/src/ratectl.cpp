@@ -515,8 +515,8 @@ void RcInitSliceInformation (sWelsEncCtx* pEncCtx) {
   SSliceCtx* pCurSliceCtx	= pEncCtx->pCurDqLayer->pSliceEncCtx;
   SWelsSvcRc* pWelsSvcRc			= &pEncCtx->pWelsSvcRc[pEncCtx->uiDependencyId];
   SRCSlicing* pSOverRc				= &pWelsSvcRc->pSlicingOverRc[0];
-  const int32_t kiSliceNum			= pCurSliceCtx->iSliceNumInFrame;
-  const int32_t kdBitsPerMb		= WELS_DIV_ROUND(pWelsSvcRc->iTargetBits * INT_MULTIPLY, pWelsSvcRc->iNumberMbFrame);
+  const int32_t kiSliceNum			= pWelsSvcRc->iSliceNum;
+  const int32_t kiBitsPerMb		= WELS_DIV_ROUND(pWelsSvcRc->iTargetBits * INT_MULTIPLY, pWelsSvcRc->iNumberMbFrame);
 
   for (int32_t i = 0; i < kiSliceNum; i++) {
     pSOverRc->iStartMbSlice	=
@@ -524,7 +524,7 @@ void RcInitSliceInformation (sWelsEncCtx* pEncCtx) {
     pSOverRc->iEndMbSlice		+= (pCurSliceCtx->pCountMbNumInSlice[i] - 1);
     pSOverRc->iTotalQpSlice	= 0;
     pSOverRc->iTotalMbSlice	= 0;
-    pSOverRc->iTargetBitsSlice = WELS_DIV_ROUND(kdBitsPerMb * pCurSliceCtx->pCountMbNumInSlice[i], INT_MULTIPLY);
+    pSOverRc->iTargetBitsSlice = WELS_DIV_ROUND(kiBitsPerMb * pCurSliceCtx->pCountMbNumInSlice[i], INT_MULTIPLY);
     pSOverRc->iFrameBitsSlice	= 0;
     pSOverRc->iGomBitsSlice	= 0;
     ++ pSOverRc;
@@ -711,6 +711,22 @@ void   RcVBufferCalculationSkip (sWelsEncCtx* pEncCtx) {
   }
 }
 
+void WelsRcFrameDelayJudge(void* pCtx) {
+  sWelsEncCtx* pEncCtx = (sWelsEncCtx*)pCtx;
+  SWelsSvcRc* pWelsSvcRc = &pEncCtx->pWelsSvcRc[pEncCtx->uiDependencyId];
+  SSpatialLayerConfig* pDLayerParam     = &pEncCtx->pSvcParam->sSpatialLayers[pEncCtx->uiDependencyId];
+  SSpatialLayerInternal* pDLayerParamInternal     = &pEncCtx->pSvcParam->sDependencyLayers[pEncCtx->uiDependencyId];
+
+  int32_t iSentBits = WELS_ROUND(pDLayerParam->iSpatialBitrate / pDLayerParamInternal->fOutputFrameRate);
+
+  pWelsSvcRc->bSkipFlag = false;
+  if (pWelsSvcRc->iBufferFullnessSkip > pWelsSvcRc->iBufferSizeSkip) {
+    pWelsSvcRc->bSkipFlag = true;
+    pWelsSvcRc->iBufferFullnessSkip -= iSentBits;
+    pWelsSvcRc->iBufferFullnessSkip = WELS_MAX(pWelsSvcRc->iBufferFullnessSkip, 0);
+  }
+}
+
 void RcVBufferCalculationPadding (sWelsEncCtx* pEncCtx) {
   SWelsSvcRc* pWelsSvcRc = &pEncCtx->pWelsSvcRc[pEncCtx->uiDependencyId];
   const int32_t kiOutputBits = WELS_DIV_ROUND(pWelsSvcRc->iBitsPerFrame, INT_MULTIPLY);
@@ -862,8 +878,8 @@ void  WelsRcPictureInfoUpdateGom (void* pCtx, int32_t layer_size) {
 #endif
 
 
-  if (pEncCtx->pSvcParam->bEnableFrameSkip &&
-      pEncCtx->uiDependencyId == pEncCtx->pSvcParam->iSpatialLayerNum - 1) {
+  if (pEncCtx->pSvcParam->bEnableFrameSkip /*&&
+      pEncCtx->uiDependencyId == pEncCtx->pSvcParam->iSpatialLayerNum - 1*/) {
     RcVBufferCalculationSkip (pEncCtx);
   }
 
@@ -976,6 +992,7 @@ void  WelsRcInitModule (void* pCtx,  int32_t iModule) {
   switch (iModule) {
   case WELS_RC_DISABLE:
     pRcf->pfWelsRcPictureInit = WelsRcPictureInitDisable;
+    pRcf->pfWelsRcPicDelayJudge = NULL;
     pRcf->pfWelsRcPictureInfoUpdate = WelsRcPictureInfoUpdateDisable;
     pRcf->pfWelsRcMbInit = WelsRcMbInitDisable;
     pRcf->pfWelsRcMbInfoUpdate = WelsRcMbInfoUpdateDisable;
@@ -983,6 +1000,7 @@ void  WelsRcInitModule (void* pCtx,  int32_t iModule) {
   case WELS_RC_GOM:
   default:
     pRcf->pfWelsRcPictureInit = WelsRcPictureInitGom;
+    pRcf->pfWelsRcPicDelayJudge = WelsRcFrameDelayJudge;
     pRcf->pfWelsRcPictureInfoUpdate = WelsRcPictureInfoUpdateGom;
     pRcf->pfWelsRcMbInit = WelsRcMbInitGom;
     pRcf->pfWelsRcMbInfoUpdate = WelsRcMbInfoUpdateGom;

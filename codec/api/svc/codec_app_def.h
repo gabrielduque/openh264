@@ -32,9 +32,8 @@
 
 #ifndef WELS_VIDEO_CODEC_APPLICATION_DEFINITION_H__
 #define WELS_VIDEO_CODEC_APPLICATION_DEFINITION_H__
-
 ////////////////Data and /or structures introduced in Cisco OpenH264 application////////////////
-
+#include "codec_def.h"
 /* Constants */
 #define MAX_TEMPORAL_LAYER_NUM		4
 #define MAX_SPATIAL_LAYER_NUM		4
@@ -81,6 +80,11 @@ typedef enum {
   ENCODER_OPTION_INTER_SPATIAL_PRED,
   ENCODER_OPTION_RC_MODE,
   ENCODER_PADDING_PADDING,
+
+  ENCODER_OPTION_PROFILE,
+  ENCODER_OPTION_LEVEL,
+  ENCODER_OPTION_NUMBER_REF,
+  ENCODER_OPTION_DELIVERY_STATUS,
 
   ENCODER_LTR_RECOVERY_REQUEST,
   ENCODER_LTR_MARKING_FEEDBACK,
@@ -243,6 +247,19 @@ enum {
   WELS_LOG_DEFAULT	= WELS_LOG_DEBUG	// Default log iLevel in Wels codec
 };
 
+typedef enum{
+  FRAMEIDC_IDR              = 0x00,
+  FRAMEIDC_I                = 0x04,
+  FRAMEIDC_LTR              = 0x08,
+  FRAMEIDC_T0               = 0x10,
+  FRAMEIDC_T1               = 0x11,
+  FRAMEIDC_T2               = 0x12,
+  FRAMEIDC_T3               = 0x13,
+  FRAMEIDC_T4               = 0x14,
+  FRAMEIDC_UNKNOWN          = 0x20,
+  FRAMEIDC_INVALID          = 0xFF,
+}EFrameIDC;
+
 typedef struct {
   SliceModeEnum uiSliceMode; //by default, uiSliceMode will be SM_SINGLE_SLICE
   SSliceArgument sSliceArgument;
@@ -371,12 +388,12 @@ typedef struct {
 
 typedef struct {
   int		iTemporalId;	// Temporal ID
-  unsigned char	uiFrameType;
+  EFrameIDC	eFrameIdc;
 
   int		iLayerNum;
   SLayerBSInfo	sLayerInfo[MAX_LAYER_NUM_OF_FRAME];
 
-  int eOutputFrameType;
+  EVideoFrameType eOutputFrameType;
   long long uiTimeStamp;
 } SFrameBSInfo, *PFrameBSInfo;
 
@@ -398,4 +415,20 @@ typedef struct TagDumpLayer {
   int iLayer;
   char* pFileName;
 } SDumpLayer;
+
+typedef struct TagProfileInfo {
+  int iLayer;
+  EProfileIdc uiProfileIdc;    //the profile info
+} SProfileInfo;
+
+typedef struct TagLevelInfo {
+  int iLayer;
+  ELevelIdc uiLevelIdc;    //the level info
+} SLevelInfo;
+
+typedef struct TagDeliveryStatus{
+  int iDropNum;      //the number of video frames that are dropped continuously before delivery to encoder, which is used by screen content.
+  int iDropFrameType; // the frame type that is dropped
+  int iDropFrameSize; // the frame size that is dropped
+}SDeliveryStatus;
 #endif//WELS_VIDEO_CODEC_APPLICATION_DEFINITION_H__

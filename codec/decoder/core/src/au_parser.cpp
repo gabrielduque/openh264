@@ -75,7 +75,7 @@ uint8_t* DetectStartCodePrefix (const uint8_t* kpBuf, int32_t* pOffset, int32_t 
     ++ pBits;
 
     if ((iIdx >= 3) && ((* (pBits - 1)) == 0x1)) {
-      *pOffset = ((uintptr_t)pBits) - ((uintptr_t)kpBuf);
+      *pOffset = (int32_t) (((uintptr_t)pBits) - ((uintptr_t)kpBuf));
       return pBits;
     }
 
@@ -1013,6 +1013,9 @@ int32_t ParseSps (PWelsDecoderContext pCtx, PBitStringAux pBsAux, int32_t* pPicW
           pCtx->bAuReadyFlag = true;
           pCtx->pAccessUnitList->uiEndPos = pCtx->pAccessUnitList->uiAvailUnitsNum - 1;
           pCtx->iOverwriteFlags |= OVERWRITE_SUBSETSPS;
+        } else if ((pCtx->pSps != NULL) && (pCtx->pSps->iSpsId == pSubsetSps->sSps.iSpsId)) {
+          memcpy (&pCtx->sSubsetSpsBuffer[MAX_SPS_COUNT], pSubsetSps, sizeof (SSubsetSps));
+          pCtx->iOverwriteFlags |= OVERWRITE_SUBSETSPS;
         } else {
           memcpy (&pCtx->sSubsetSpsBuffer[iSpsId], pSubsetSps, sizeof (SSubsetSps));
         }
@@ -1024,6 +1027,9 @@ int32_t ParseSps (PWelsDecoderContext pCtx, PBitStringAux pBsAux, int32_t* pPicW
           pCtx->iOverwriteFlags |= OVERWRITE_SPS;
           pCtx->bAuReadyFlag = true;
           pCtx->pAccessUnitList->uiEndPos = pCtx->pAccessUnitList->uiAvailUnitsNum - 1;
+        } else if ((pCtx->pSps != NULL) && (pCtx->pSps->iSpsId == pSps->iSpsId)) {
+          memcpy (&pCtx->sSpsBuffer[MAX_SPS_COUNT], pSps, sizeof (SSps));
+          pCtx->iOverwriteFlags |= OVERWRITE_SPS;
         } else {
           memcpy (&pCtx->sSpsBuffer[iSpsId], pSps, sizeof (SSps));
         }

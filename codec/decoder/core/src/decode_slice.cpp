@@ -93,7 +93,11 @@ int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
     }
 
     ++iCountNumMb;
-    ++pCtx->iTotalNumMbRec;
+    if (!pCurLayer->pMbCorrectlyDecodedFlag[iNextMbXyIndex]) { //already con-ed, overwrite
+      pCurLayer->pMbCorrectlyDecodedFlag[iNextMbXyIndex] = true;
+      ++pCtx->iTotalNumMbRec;
+    }
+
     if (iCountNumMb >= iTotalNumMb) {
       break;
     }
@@ -183,7 +187,8 @@ int32_t WelsMbInterConstruction (PWelsDecoderContext pCtx, PDqLayer pCurLayer) {
   GetInterPred (pDstY, pDstCb, pDstCr, pCtx);
   WelsMbInterSampleConstruction (pCtx, pCurLayer, pDstY, pDstCb, pDstCr, iLumaStride, iChromaStride);
 
-  pCtx->sBlockFunc.pWelsSetNonZeroCountFunc (pCurLayer->pNzc[pCurLayer->iMbXyIndex]); // set all none-zero nzc to 1; dbk can be opti!
+  pCtx->sBlockFunc.pWelsSetNonZeroCountFunc (
+    pCurLayer->pNzc[pCurLayer->iMbXyIndex]); // set all none-zero nzc to 1; dbk can be opti!
   return 0;
 }
 
@@ -322,7 +327,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   int32_t iMbX, iMbY;
   const int32_t kiCountNumMb = pSliceHeader->pSps->uiTotalMbCount; //need to be correct when fmo or multi slice
   PBitStringAux pBs = pCurLayer->pBitStringAux;
-  int32_t iUsedBits  = 0;
+  intX_t iUsedBits  = 0;
 
   PWelsDecMbCavlcFunc pDecMbCavlcFunc;
 
@@ -393,7 +398,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     }
 
     ++pSlice->iTotalMbInCurSlice;
-    pCurLayer->pMbCorrectlyDecodedFlag[iNextMbXyIndex] = true;
 
     if (pSliceHeader->pPps->uiNumSliceGroups > 1) {
       iNextMbXyIndex = FmoNextMb (pFmo, iNextMbXyIndex);

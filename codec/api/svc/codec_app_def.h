@@ -32,9 +32,8 @@
 
 #ifndef WELS_VIDEO_CODEC_APPLICATION_DEFINITION_H__
 #define WELS_VIDEO_CODEC_APPLICATION_DEFINITION_H__
-
 ////////////////Data and /or structures introduced in Cisco OpenH264 application////////////////
-
+#include "codec_def.h"
 /* Constants */
 #define MAX_TEMPORAL_LAYER_NUM		4
 #define MAX_SPATIAL_LAYER_NUM		4
@@ -59,6 +58,7 @@ typedef enum {
   dsBitstreamError	= 0x04,	/* Error bitstreams(maybe broken internal frame) the decoder cared */
   dsDepLayerLost		= 0x08,	/* Dependented layer is ever lost */
   dsNoParamSets		= 0x10, /* No parameter set NALs involved */
+  dsDataErrorConcealed  = 0x20, /* current data Error concealed specified */
 
   /* Errors derived from logic level */
   dsInvalidArgument	= 0x1000,	/* Invalid argument specified */
@@ -81,6 +81,11 @@ typedef enum {
   ENCODER_OPTION_INTER_SPATIAL_PRED,
   ENCODER_OPTION_RC_MODE,
   ENCODER_PADDING_PADDING,
+
+  ENCODER_OPTION_PROFILE,
+  ENCODER_OPTION_LEVEL,
+  ENCODER_OPTION_NUMBER_REF,
+  ENCODER_OPTION_DELIVERY_STATUS,
 
   ENCODER_LTR_RECOVERY_REQUEST,
   ENCODER_LTR_MARKING_FEEDBACK,
@@ -359,8 +364,6 @@ typedef struct {
   unsigned char uiSpatialId;
   unsigned char uiQualityId;
 
-  unsigned char uiPriorityId; //ignore it currently
-
   unsigned char uiLayerType;
 
   int	iNalCount;					// Count number of NAL coded already
@@ -371,12 +374,14 @@ typedef struct {
 
 typedef struct {
   int		iTemporalId;	// Temporal ID
-  unsigned char	uiFrameType;
+  //The sub sequence layers are ordered hierarchically based on their dependency on each other so that any picture in a layer shall not be
+  //predicted from any picture on any higher layer.
+  int	  iSubSeqId;  //refer to D.2.11 Sub-sequence information SEI message semantics
 
   int		iLayerNum;
   SLayerBSInfo	sLayerInfo[MAX_LAYER_NUM_OF_FRAME];
 
-  int eOutputFrameType;
+  EVideoFrameType eFrameType;
   long long uiTimeStamp;
 } SFrameBSInfo, *PFrameBSInfo;
 
@@ -398,4 +403,20 @@ typedef struct TagDumpLayer {
   int iLayer;
   char* pFileName;
 } SDumpLayer;
+
+typedef struct TagProfileInfo {
+  int iLayer;
+  EProfileIdc uiProfileIdc;    //the profile info
+} SProfileInfo;
+
+typedef struct TagLevelInfo {
+  int iLayer;
+  ELevelIdc uiLevelIdc;    //the level info
+} SLevelInfo;
+
+typedef struct TagDeliveryStatus {
+  int iDropNum;      //the number of video frames that are dropped continuously before delivery to encoder, which is used by screen content.
+  int iDropFrameType; // the frame type that is dropped
+  int iDropFrameSize; // the frame size that is dropped
+} SDeliveryStatus;
 #endif//WELS_VIDEO_CODEC_APPLICATION_DEFINITION_H__

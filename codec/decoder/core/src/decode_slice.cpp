@@ -86,19 +86,23 @@ int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
 
   do {
     if (WelsTargetMbConstruction (pCtx)) {
-      WelsLog (pCtx, WELS_LOG_WARNING, "WelsTargetSliceConstruction():::MB(%d, %d) construction error. pCurSlice_type:%d\n",
+      WelsLog (&(pCtx->sLogCtx), WELS_LOG_WARNING, "WelsTargetSliceConstruction():::MB(%d, %d) construction error. pCurSlice_type:%d\n",
                pCurLayer->iMbX, pCurLayer->iMbY, pCurSlice->eSliceType);
 
       return -1;
     }
 
     ++iCountNumMb;
-    ++pCtx->iTotalNumMbRec;
+    if (!pCurLayer->pMbCorrectlyDecodedFlag[iNextMbXyIndex]) { //already con-ed, overwrite
+      pCurLayer->pMbCorrectlyDecodedFlag[iNextMbXyIndex] = true;
+      ++pCtx->iTotalNumMbRec;
+    }
+
     if (iCountNumMb >= iTotalNumMb) {
       break;
     }
     if (pCtx->iTotalNumMbRec > iTotalMbTargetLayer) {
-      WelsLog (pCtx, WELS_LOG_WARNING, "WelsTargetSliceConstruction():::pCtx->iTotalNumMbRec:%d, iTotalMbTargetLayer:%d\n",
+      WelsLog (&(pCtx->sLogCtx), WELS_LOG_WARNING, "WelsTargetSliceConstruction():::pCtx->iTotalNumMbRec:%d, iTotalMbTargetLayer:%d\n",
                pCtx->iTotalNumMbRec, iTotalMbTargetLayer);
 
       return -1;
@@ -145,7 +149,7 @@ int32_t WelsMbInterSampleConstruction (PWelsDecoderContext pCtx, PDqLayer pCurLa
   WelsChromaDcIdct (pCurLayer->pScaledTCoeff[iMbXy] + 320);	// 320 = 16*16 + 16*4
 
   for (i = 0; i < 16; i++) { //luma
-    iIndex = g_kuiMbNonZeroCountIdx[i];
+    iIndex = g_kuiMbCountScan4Idx[i];
     if (pCurLayer->pNzc[iMbXy][iIndex]) {
       iOffset = ((iIndex >> 2) << 2) * iStrideL + ((iIndex % 4) << 2);
       pCtx->pIdctResAddPredFunc (pDstY + iOffset, iStrideL, pCurLayer->pScaledTCoeff[iMbXy] + (i << 4));
@@ -153,13 +157,13 @@ int32_t WelsMbInterSampleConstruction (PWelsDecoderContext pCtx, PDqLayer pCurLa
   }
 
   for (i = 0; i < 4; i++) { //chroma
-    iIndex = g_kuiMbNonZeroCountIdx[i + 16]; //Cb
+    iIndex = g_kuiMbCountScan4Idx[i + 16]; //Cb
     if (pCurLayer->pNzc[iMbXy][iIndex] || * (pCurLayer->pScaledTCoeff[iMbXy] + ((i + 16) << 4))) {
       iOffset = (((iIndex - 16) >> 2) << 2) * iStrideC + (((iIndex - 16) % 4) << 2);
       pCtx->pIdctResAddPredFunc (pDstU + iOffset, iStrideC, pCurLayer->pScaledTCoeff[iMbXy] + ((i + 16) << 4));
     }
 
-    iIndex = g_kuiMbNonZeroCountIdx[i + 20]; //Cr
+    iIndex = g_kuiMbCountScan4Idx[i + 20]; //Cr
     if (pCurLayer->pNzc[iMbXy][iIndex] || * (pCurLayer->pScaledTCoeff[iMbXy] + ((i + 20) << 4))) {
       iOffset = (((iIndex - 18) >> 2) << 2) * iStrideC + (((iIndex - 18) % 4) << 2);
       pCtx->pIdctResAddPredFunc (pDstV + iOffset, iStrideC , pCurLayer->pScaledTCoeff[iMbXy] + ((i + 20) << 4));
@@ -183,7 +187,8 @@ int32_t WelsMbInterConstruction (PWelsDecoderContext pCtx, PDqLayer pCurLayer) {
   GetInterPred (pDstY, pDstCb, pDstCr, pCtx);
   WelsMbInterSampleConstruction (pCtx, pCurLayer, pDstY, pDstCb, pDstCr, iLumaStride, iChromaStride);
 
-  pCtx->sBlockFunc.pWelsSetNonZeroCountFunc (pCurLayer->pNzc[pCurLayer->iMbXyIndex]); // set all none-zero nzc to 1; dbk can be opti!
+  pCtx->sBlockFunc.pWelsSetNonZeroCountFunc (
+    pCurLayer->pNzc[pCurLayer->iMbXyIndex]); // set all none-zero nzc to 1; dbk can be opti!
   return 0;
 }
 
@@ -279,7 +284,7 @@ int32_t WelsTargetMbConstruction (PWelsDecoderContext pCtx) {
       WelsMbInterConstruction (pCtx, pCurLayer);
     }
   } else {
-    WelsLog (pCtx, WELS_LOG_WARNING, "WelsTargetMbConstruction():::::Unknown MB type: %d\n",
+    WelsLog (&(pCtx->sLogCtx), WELS_LOG_WARNING, "WelsTargetMbConstruction():::::Unknown MB type: %d\n",
              pCurLayer->pMbType[pCurLayer->iMbXyIndex]);
     return -1;
   }
@@ -322,7 +327,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   int32_t iMbX, iMbY;
   const int32_t kiCountNumMb = pSliceHeader->pSps->uiTotalMbCount; //need to be correct when fmo or multi slice
   PBitStringAux pBs = pCurLayer->pBitStringAux;
-  int32_t iUsedBits  = 0;
+  intX_t iUsedBits  = 0;
 
   PWelsDecMbCavlcFunc pDecMbCavlcFunc;
 
@@ -393,7 +398,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     }
 
     ++pSlice->iTotalMbInCurSlice;
-    pCurLayer->pMbCorrectlyDecodedFlag[iNextMbXyIndex] = true;
 
     if (pSliceHeader->pPps->uiNumSliceGroups > 1) {
       iNextMbXyIndex = FmoNextMb (pFmo, iNextMbXyIndex);
@@ -410,9 +414,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       break;
     }
     if (iUsedBits > pBs->iBits) { //When BS incomplete, as long as find it, SHOULD stop decoding to avoid mosaic or crash.
-      WelsLog (pCtx, WELS_LOG_WARNING,
-               "WelsDecodeSlice()::::pBs incomplete, iUsedBits:%d > pBs->iBits:%d, MUST stop decoding.\n",
-               iUsedBits, pBs->iBits);
+      WelsLog (&(pCtx->sLogCtx), WELS_LOG_WARNING,
+               "WelsDecodeSlice()::::pBs incomplete, iUsedBits:%"PRId64" > pBs->iBits:%d, MUST stop decoding.\n",
+               (int64_t) iUsedBits, pBs->iBits);
       return -1;
     }
     iMbX = iNextMbXyIndex % pCurLayer->iMbWidth;
@@ -549,7 +553,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
 
   if (pCurLayer->pCbp[iMbXy] == 0 && IS_INTRA4x4 (pCurLayer->pMbType[iMbXy])) {
     pCurLayer->pLumaQp[iMbXy] = pSlice->iLastMbQp;
-    pCurLayer->pChromaQp[iMbXy] = g_kuiChromaQp[WELS_CLIP3 (pCurLayer->pLumaQp[iMbXy] +
+    pCurLayer->pChromaQp[iMbXy] = g_kuiChromaQpTable[WELS_CLIP3 (pCurLayer->pLumaQp[iMbXy] +
                                   pSliceHeader->pPps->iChromaQpIndexOffset, 0, 51)];
 
   }
@@ -578,7 +582,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
       return ERR_INFO_INVALID_QP;
     }
     pSlice->iLastMbQp = pCurLayer->pLumaQp[iMbXy];
-    pCurLayer->pChromaQp[iMbXy] = g_kuiChromaQp[WELS_CLIP3 (pSlice->iLastMbQp + pSliceHeader->pPps->iChromaQpIndexOffset, 0,
+    pCurLayer->pChromaQp[iMbXy] = g_kuiChromaQpTable[WELS_CLIP3 (pSlice->iLastMbQp + pSliceHeader->pPps->iChromaQpIndexOffset, 0,
                                   51)];
 
 
@@ -618,8 +622,8 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
             iIndex++;
           }
         } else {
-          ST16 (&pNonZeroCount[g_kuiCacheNzcScanIdx[ (iId8x8 << 2)]], 0);
-          ST16 (&pNonZeroCount[g_kuiCacheNzcScanIdx[ (iId8x8 << 2) + 2]], 0);
+          ST16 (&pNonZeroCount[g_kuiCache48CountScan4Idx[ (iId8x8 << 2)]], 0);
+          ST16 (&pNonZeroCount[g_kuiCache48CountScan4Idx[ (iId8x8 << 2) + 2]], 0);
         }
       }
       ST32A4 (&pNzc[0], LD32 (&pNonZeroCount[1 + 8 * 1]));
@@ -681,7 +685,7 @@ int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur) {
   if (!iBaseModeFlag) {
     iRet = WelsActualDecodeMbCavlcISlice (pCtx);
   } else {
-    WelsLog (pCtx, WELS_LOG_WARNING, "iBaseModeFlag (%d) != 0, inter-layer prediction not supported.\n", iBaseModeFlag);
+    WelsLog (&(pCtx->sLogCtx), WELS_LOG_WARNING, "iBaseModeFlag (%d) != 0, inter-layer prediction not supported.\n", iBaseModeFlag);
     return GENERATE_ERROR_NO (ERR_LEVEL_SLICE_HEADER, ERR_INFO_UNSUPPORTED_ILP);
   }
   if (iRet) { //occur error when parsing, MUST STOP decoding
@@ -737,7 +741,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
     if (pCurLayer->pResidualPredFlag[iMbXy] == 0) {
       pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;
     } else {
-      WelsLog (pCtx, WELS_LOG_WARNING, "residual_pred_flag = 1 not supported.\n");
+      WelsLog (&(pCtx->sLogCtx), WELS_LOG_WARNING, "residual_pred_flag = 1 not supported.\n");
       return -1;
     }
   } else { //intra MB type
@@ -853,7 +857,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
   ST32A4 (&pNzc[20], 0);
   if (pCurLayer->pCbp[iMbXy] == 0 && !IS_INTRA16x16 (pCurLayer->pMbType[iMbXy]) && !IS_I_BL (pCurLayer->pMbType[iMbXy])) {
     pCurLayer->pLumaQp[iMbXy] = pSlice->iLastMbQp;
-    pCurLayer->pChromaQp[iMbXy] = g_kuiChromaQp[WELS_CLIP3 (pCurLayer->pLumaQp[iMbXy] +
+    pCurLayer->pChromaQp[iMbXy] = g_kuiChromaQpTable[WELS_CLIP3 (pCurLayer->pLumaQp[iMbXy] +
                                   pSliceHeader->pPps->iChromaQpIndexOffset, 0, 51)];
   }
 
@@ -881,7 +885,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
       return ERR_INFO_INVALID_QP;
     }
     pSlice->iLastMbQp = pCurLayer->pLumaQp[iMbXy];
-    pCurLayer->pChromaQp[iMbXy] = g_kuiChromaQp[WELS_CLIP3 (pSlice->iLastMbQp + pSliceHeader->pPps->iChromaQpIndexOffset, 0,
+    pCurLayer->pChromaQp[iMbXy] = g_kuiChromaQpTable[WELS_CLIP3 (pSlice->iLastMbQp + pSliceHeader->pPps->iChromaQpIndexOffset, 0,
                                   51)];
 
     BsStartCavlc (pBs);
@@ -920,8 +924,8 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
             iIndex++;
           }
         } else {
-          ST16 (&pNonZeroCount[g_kuiCacheNzcScanIdx[iId8x8 << 2]], 0);
-          ST16 (&pNonZeroCount[g_kuiCacheNzcScanIdx[ (iId8x8 << 2) + 2]], 0);
+          ST16 (&pNonZeroCount[g_kuiCache48CountScan4Idx[iId8x8 << 2]], 0);
+          ST16 (&pNonZeroCount[g_kuiCache48CountScan4Idx[ (iId8x8 << 2) + 2]], 0);
         }
       }
       ST32A4 (&pNzc[0], LD32 (&pNonZeroCount[1 + 8 * 1]));
@@ -1015,7 +1019,7 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur) {
     if (!pSlice->sSliceHeaderExt.bDefaultResidualPredFlag ||
         (pNalCur->sNalHeaderExt.uiQualityId == 0 && pNalCur->sNalHeaderExt.uiDependencyId == 0)) {
       pCurLayer->pLumaQp[iMbXy] = pSlice->iLastMbQp;
-      pCurLayer->pChromaQp[iMbXy] = g_kuiChromaQp[WELS_CLIP3 (pCurLayer->pLumaQp[iMbXy] +
+      pCurLayer->pChromaQp[iMbXy] = g_kuiChromaQpTable[WELS_CLIP3 (pCurLayer->pLumaQp[iMbXy] +
                                     pSliceHeader->pPps->iChromaQpIndexOffset, 0, 51)];
     }
 
@@ -1033,7 +1037,7 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur) {
   if (!iBaseModeFlag) {
     iRet = WelsActualDecodeMbCavlcPSlice (pCtx);
   } else {
-    WelsLog (pCtx, WELS_LOG_WARNING, "iBaseModeFlag (%d) != 0, inter-layer prediction not supported.\n", iBaseModeFlag);
+    WelsLog (&(pCtx->sLogCtx), WELS_LOG_WARNING, "iBaseModeFlag (%d) != 0, inter-layer prediction not supported.\n", iBaseModeFlag);
     return GENERATE_ERROR_NO (ERR_LEVEL_SLICE_HEADER, ERR_INFO_UNSUPPORTED_ILP);
   }
   if (iRet) { //occur error when parsing, MUST STOP decoding

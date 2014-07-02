@@ -75,11 +75,11 @@ namespace WelsDec {
 }
 
 static inline int32_t BsGetBits (PBitStringAux pBs, int32_t iNumBits, uint32_t* pCode) {
-  int32_t iRc = UBITS (pBs->uiCurBits, iNumBits);
-  int32_t iAllowedBytes = pBs->pEndBuf - pBs->pStartBuf; //actual stream bytes
-  int32_t iReadBytes = pBs->pCurBuf - pBs->pStartBuf;
+  intX_t iRc = UBITS (pBs->uiCurBits, iNumBits);
+  intX_t iAllowedBytes = pBs->pEndBuf - pBs->pStartBuf; //actual stream bytes
+  intX_t iReadBytes = pBs->pCurBuf - pBs->pStartBuf;
   DUMP_BITS (pBs->uiCurBits, pBs->pCurBuf, pBs->iLeftBits, iNumBits, iAllowedBytes, iReadBytes);
-  *pCode = iRc;
+  *pCode = (uint32_t)iRc;
   return ERR_NONE;
 }
 
@@ -155,7 +155,7 @@ static inline int32_t GetLeadingZeroBits (uint32_t iCurBits) { //<=32 bits
 static inline uint32_t BsGetUe (PBitStringAux pBs, uint32_t* pCode) {
   uint32_t iValue = 0;
   int32_t  iLeadingZeroBits = GetLeadingZeroBits (pBs->uiCurBits);
-  int32_t iAllowedBytes, iReadBytes;
+  intX_t iAllowedBytes, iReadBytes;
   iAllowedBytes = pBs->pEndBuf - pBs->pStartBuf; //actual stream bytes
 
   if (iLeadingZeroBits == -1) { //bistream error
@@ -233,21 +233,21 @@ static inline int32_t BsGetTrailingBits (uint8_t* pBuf) {
 //define macros to check syntax elements
 #define WELS_CHECK_SE_BOTH_ERROR(val, lower_bound, upper_bound, syntax_name, ret_code) do {\
 if ((val < lower_bound) || (val > upper_bound)) {\
-  WelsLog(pCtx, WELS_LOG_ERROR, "invalid syntax " syntax_name " %d\n", val);\
+  WelsLog(&(pCtx->sLogCtx), WELS_LOG_ERROR, "invalid syntax " syntax_name " %d\n", val);\
   return ret_code;\
 }\
 }while(0)
 
 #define WELS_CHECK_SE_LOWER_ERROR(val, lower_bound, syntax_name, ret_code) do {\
 if (val < lower_bound) {\
-  WelsLog(pCtx, WELS_LOG_ERROR, "invalid syntax " syntax_name " %d\n", val);\
+  WelsLog(&(pCtx->sLogCtx), WELS_LOG_ERROR, "invalid syntax " syntax_name " %d\n", val);\
   return ret_code;\
 }\
 }while(0)
 
 #define WELS_CHECK_SE_UPPER_ERROR(val, upper_bound, syntax_name, ret_code) do {\
 if (val > upper_bound) {\
-  WelsLog(pCtx, WELS_LOG_ERROR, "invalid syntax " syntax_name " %d\n", val);\
+  WelsLog(&(pCtx->sLogCtx), WELS_LOG_ERROR, "invalid syntax " syntax_name " %d\n", val);\
   return ret_code;\
 }\
 }while(0)
@@ -273,19 +273,19 @@ if (val > upper_bound) {\
 
 #define WELS_CHECK_SE_BOTH_WARNING(val, lower_bound, upper_bound, syntax_name) do {\
 if ((val < lower_bound) || (val > upper_bound)) {\
-  WelsLog(pCtx, WELS_LOG_WARNING, "invalid syntax " syntax_name " %d\n", val);\
+  WelsLog(&(pCtx->sLogCtx), WELS_LOG_WARNING, "invalid syntax " syntax_name " %d\n", val);\
 }\
 }while(0)
 
 #define WELS_CHECK_SE_LOWER_WARNING(val, lower_bound, syntax_name) do {\
 if (val < lower_bound) {\
-  WelsLog(pCtx, WELS_LOG_WARNING, "invalid syntax " syntax_name " %d\n", val);\
+  WelsLog(&(pCtx->sLogCtx), WELS_LOG_WARNING, "invalid syntax " syntax_name " %d\n", val);\
 }\
 }while(0)
 
 #define WELS_CHECK_SE_UPPER_WARNING(val, upper_bound, syntax_name) do {\
 if (val > upper_bound) {\
-  WelsLog(pCtx, WELS_LOG_WARNING, "invalid syntax " syntax_name " %d\n", val);\
+  WelsLog(&(pCtx->sLogCtx), WELS_LOG_WARNING, "invalid syntax " syntax_name " %d\n", val);\
 }\
 }while(0)
 // below define syntax element offset

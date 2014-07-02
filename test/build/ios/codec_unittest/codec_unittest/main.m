@@ -50,9 +50,10 @@ int main(int argc, char * argv[])
     sprintf(path, "%s%s",xmlWritePath,"/codec_unittest.xml");
 #endif
     argc =2;
-    argv[0]="codec_unittest";
+    argv[0]=(char*)"codec_unittest";
     argv[1]=path;
     CodecUtMain(argc,argv);
+    abort();
     @autoreleasepool {
         return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
     }

@@ -76,7 +76,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)\welsecore.lib"
+				AdditionalDependencies="$(OutDir)\welsecore.lib $(OutDir)\welsvp.lib"
 				OutputFile="$(OutDir)\welsenc.dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\..\..\libs"
@@ -171,7 +171,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)\welsecore.lib"
+				AdditionalDependencies="$(OutDir)\welsecore.lib $(OutDir)\welsvp.lib"
 				OutputFile="$(OutDir)\welsenc.dll"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\..\..\libs"
@@ -217,6 +217,7 @@
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -244,7 +245,6 @@
 				InlineFunctionExpansion="2"
 				FavorSizeOrSpeed="1"
 				EnableFiberSafeOptimizations="true"
-				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="..\..\..\encoder\plus\inc;..\..\..\encoder\core\inc;..\..\..\api\svc;..\..\..\common\inc;..\..\..\processing\interface"
 				PreprocessorDefinitions="NDEBUG;_USRDLL;X86_ASM"
 				StringPooling="true"
@@ -270,7 +270,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)\welsecore.lib"
+				AdditionalDependencies="$(OutDir)\welsecore.lib $(OutDir)\welsvp.lib"
 				OutputFile="$(OutDir)\welsenc.dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\..\libs"
@@ -317,6 +317,7 @@
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -344,7 +345,6 @@
 				InlineFunctionExpansion="2"
 				FavorSizeOrSpeed="1"
 				EnableFiberSafeOptimizations="true"
-				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="..\..\..\encoder\plus\inc;..\..\..\encoder\core\inc;..\..\..\api\svc;..\..\..\common\inc;..\..\..\processing\interface"
 				PreprocessorDefinitions="NDEBUG;_USRDLL;X86_ASM"
 				StringPooling="true"
@@ -370,7 +370,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)\welsecore.lib"
+				AdditionalDependencies="$(OutDir)\welsecore.lib $(OutDir)\welsvp.lib"
 				OutputFile="$(OutDir)\welsenc.dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\..\libs"

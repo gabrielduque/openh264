@@ -163,11 +163,11 @@ int ParseLayerConfig (CReadConfig& cRdLayerCfg, const int iLayer, SEncParamExt& 
       } else if (strTag[0].compare ("MaxSpatialBitrate") == 0) {
         pDLayer->iMaxSpatialBitrate = 1000 * atoi (strTag[1].c_str());
         if (pSvcParam.iRCMode != RC_OFF_MODE) {
-          if (pDLayer->iMaxSpatialBitrate <= 0) {
+          if (pDLayer->iMaxSpatialBitrate < 0) {
             fprintf (stderr, "Invalid max spatial bitrate(%d) in dependency layer #%d.\n", pDLayer->iMaxSpatialBitrate, iLayer);
             return -1;
           }
-          if (pDLayer->iMaxSpatialBitrate < pDLayer->iSpatialBitrate) {
+          if (pDLayer->iMaxSpatialBitrate > 0 && pDLayer->iMaxSpatialBitrate < pDLayer->iSpatialBitrate) {
             fprintf (stderr, "Invalid max spatial(#%d) bitrate(%d) setting::: < layerBitrate(%d)!\n", iLayer,
                      pDLayer->iMaxSpatialBitrate, pDLayer->iSpatialBitrate);
             return -1;
@@ -203,8 +203,6 @@ int ParseConfig (CReadConfig& cRdCfg, SSourcePicture* pSrcPic, SEncParamExt& pSv
   string strTag[4];
   int32_t iRet = 0;
   int8_t iLayerCount = 0;
-
-//	memset(&pSvcParam, 0, sizeof(WelsSVCParamConfig));
 
   while (!cRdCfg.EndOfFile()) {
     long iRd = cRdCfg.ReadLine (&strTag[0]);
@@ -275,7 +273,7 @@ int ParseConfig (CReadConfig& cRdCfg, SSourcePicture* pSrcPic, SEncParamExt& pSv
         }
       } else if (strTag[0].compare ("MaxOverallBitrate") == 0) {
         pSvcParam.iMaxBitrate	= 1000 * atoi (strTag[1].c_str());
-        if ((pSvcParam.iRCMode != RC_OFF_MODE) && pSvcParam.iMaxBitrate <= 0) {
+        if ((pSvcParam.iRCMode != RC_OFF_MODE) && pSvcParam.iMaxBitrate < 0) {
           fprintf (stderr, "Invalid max overall bitrate setting due to RC enabled. Check MaxOverallBitrate field please!\n");
           return 1;
         }
@@ -669,7 +667,7 @@ int ProcessEncoding (ISVCEncoder* pPtrEnc, int argc, char** argv, bool bConfigFi
   int iParsedNum = 1;
 
   memset (&sFbi, 0, sizeof (SFrameBSInfo));
-  memset (&sSvcParam, 0, sizeof (SEncParamExt));
+  pPtrEnc->GetDefaultParams(&sSvcParam);
   memset (&fs.sRecFileName[0][0], 0, sizeof (fs.sRecFileName));
 
   FillSpecificParameters (sSvcParam);

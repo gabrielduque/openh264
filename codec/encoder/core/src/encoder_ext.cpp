@@ -91,10 +91,22 @@ int32_t ParamValidation (SLogContext* pLogCtx, SWelsSvcCodingParam* pCfg) {
                pCfg->iSpatialLayerNum);
       return ENC_RETURN_UNSUPPORTED_PARA;
     }
+    if (pCfg->bEnableAdaptiveQuant) {
+      WelsLog (pLogCtx, WELS_LOG_WARNING,
+               "ParamValidation(), AdaptiveQuant(%d) is not supported yet for screen content, auto turned off\n",
+               pCfg->bEnableAdaptiveQuant);
+      pCfg->bEnableAdaptiveQuant = false;
+    }
+    if (pCfg->bEnableSceneChangeDetect == false) {
+      pCfg->bEnableSceneChangeDetect = true;
+      WelsLog (pLogCtx, WELS_LOG_WARNING,
+               "ParamValidation(), screen change detection should be turned on,change bEnableSceneChangeDetect as true\n");
+    }
+
   }
   if (pCfg->iSpatialLayerNum > 1) {
     int32_t iFinalWidth = pCfg->sSpatialLayers[pCfg->iSpatialLayerNum - 1].iVideoWidth;
-    int32_t iFinalHeight = pCfg->sSpatialLayers[pCfg->iSpatialLayerNum - 1].iVideoWidth;
+    int32_t iFinalHeight = pCfg->sSpatialLayers[pCfg->iSpatialLayerNum - 1].iVideoHeight;
     for (i = 0; i < (pCfg->iSpatialLayerNum - 1); i++) {
       SSpatialLayerConfig* fDlp = &pCfg->sSpatialLayers[i];
       if ((fDlp->iVideoWidth > iFinalWidth) || (fDlp->iVideoHeight > iFinalHeight)) {
@@ -453,12 +465,6 @@ void WelsEncoderApplyBitRate (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam,
   const int32_t iNumLayers = pParam->iSpatialLayerNum;
   int32_t i, iOrigTotalBitrate = 0;
   if (iLayer == SPATIAL_LAYER_ALL) {
-    if (pParam->iMaxBitrate < pParam->iTargetBitrate) {
-      WelsLog (pLogCtx, WELS_LOG_WARNING,
-               "CWelsH264SVCEncoder::SetOption():ENCODER_OPTION_BITRATE,overall settting,TargetBitrate = %d,iMaxBitrate = %d\n",
-               pParam->iTargetBitrate, pParam->iMaxBitrate);
-      pParam->iMaxBitrate  = pParam->iTargetBitrate;
-    }
     //read old BR
     for (i = 0; i < iNumLayers; i++) {
       iOrigTotalBitrate += pParam->sSpatialLayers[i].iSpatialBitrate;
@@ -470,14 +476,6 @@ void WelsEncoderApplyBitRate (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam,
       fRatio = pLayerParam->iSpatialBitrate / (static_cast<float> (iOrigTotalBitrate));
       pLayerParam->iSpatialBitrate = static_cast<int32_t> (pParam->iTargetBitrate * fRatio);
     }
-  } else {
-    if (pParam->sSpatialLayers[iLayer].iMaxSpatialBitrate < pParam->sSpatialLayers[iLayer].iSpatialBitrate) {
-      WelsLog (pLogCtx, WELS_LOG_WARNING,
-               "CWelsH264SVCEncoder::SetOption():ENCODER_OPTION_BITRATE,iLayer = %d,iTargetBitrate = %d,iMaxBitrate = %d\n",
-               iLayer, pParam->sSpatialLayers[iLayer].iSpatialBitrate, pParam->sSpatialLayers[iLayer].iMaxSpatialBitrate);
-      pParam->sSpatialLayers[iLayer].iMaxSpatialBitrate = pParam->sSpatialLayers[iLayer].iSpatialBitrate;
-    }
-
   }
 }
 /*!
@@ -2938,6 +2936,28 @@ int32_t GetSubSequenceId (sWelsEncCtx* pCtx, EVideoFrameType eFrameType) {
     iSubSeqId = 3 + MAX_TEMPORAL_LAYER_NUM;
   return iSubSeqId;
 }
+
+//loop each layer to check if have skip frame when RC and frame skip enable (maxbr>0)
+bool CheckFrameSkipBasedMaxbr (sWelsEncCtx* pCtx, int32_t iSpatialNum) {
+  SSpatialPicIndex* pSpatialIndexMap = &pCtx->sSpatialIndexMap[0];
+  bool bSkipMustFlag = false;
+
+  if (RC_OFF_MODE != pCtx->pSvcParam->iRCMode && true == pCtx->pSvcParam->bEnableFrameSkip) {
+    for (int32_t i = 0; i < iSpatialNum; i++) {
+      if (0 == pCtx->pSvcParam->sSpatialLayers[i].iMaxSpatialBitrate) {
+        break;
+      }
+      pCtx->uiDependencyId = (uint8_t) (pSpatialIndexMap + i)->iDid;
+      pCtx->pFuncList->pfRc.pfWelsRcPicDelayJudge (pCtx);
+      if (true == pCtx->pWelsSvcRc[pCtx->uiDependencyId].bSkipFlag) {
+        bSkipMustFlag = true;
+        break;
+      }
+    }
+  }
+  return bSkipMustFlag;
+}
+
 /*!
  * \brief	core svc encoding process
  *
@@ -2998,21 +3018,10 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   }
 
   //loop each layer to check if have skip frame when RC and frame skip enable
-  if (RC_OFF_MODE != pCtx->pSvcParam->iRCMode && true == pCtx->pSvcParam->bEnableFrameSkip) {
-    bool bSkipMustFlag = false;
-    for (int32_t i = 0; i < iSpatialNum; i++) {
-      pCtx->uiDependencyId = (uint8_t) (pSpatialIndexMap + i)->iDid;
-      pCtx->pFuncList->pfRc.pfWelsRcPicDelayJudge (pCtx);
-      if (true == pCtx->pWelsSvcRc[pCtx->uiDependencyId].bSkipFlag) {
-        bSkipMustFlag = true;
-      }
-    }
-    if (true == bSkipMustFlag) {
-      pFbi->eFrameType = videoFrameTypeSkip;
-      return ENC_RETURN_SUCCESS;
-    }
+  if (CheckFrameSkipBasedMaxbr (pCtx, iSpatialNum)) {
+    pFbi->eFrameType = videoFrameTypeSkip;
+    return ENC_RETURN_SUCCESS;
   }
-
 
   InitFrameCoding (pCtx, eFrameType);
 

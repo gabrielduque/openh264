@@ -62,17 +62,17 @@ encdemo: libraries
 clean_Android: clean_Android_dec clean_Android_enc
 
 clean_Android_dec:
-	cd ./codec/build/android/dec && $(NDKROOT)/ndk-build APP_ABI=$(APP_ABI) clean && ant clean
+	-cd ./codec/build/android/dec && $(NDKROOT)/ndk-build APP_ABI=$(APP_ABI) clean && ant clean
 clean_Android_enc:
-	cd ./codec/build/android/enc && $(NDKROOT)/ndk-build APP_ABI=$(APP_ABI) clean && ant clean
+	-cd ./codec/build/android/enc && $(NDKROOT)/ndk-build APP_ABI=$(APP_ABI) clean && ant clean
 
 COMMON_INCLUDES += -I$(NDKROOT)/sources/android/cpufeatures
-COMMON_OBJS += $(COMMON_SRCDIR)/cpu-features.$(OBJ)
+COMMON_OBJS += $(COMMON_SRCDIR)/src/cpu-features.$(OBJ)
 
 COMMON_CFLAGS += \
 	-Dandroid_getCpuIdArm=wels_getCpuIdArm -Dandroid_setCpuArm=wels_setCpuArm \
 	-Dandroid_getCpuCount=wels_getCpuCount -Dandroid_getCpuFamily=wels_getCpuFamily \
 	-Dandroid_getCpuFeatures=wels_getCpuFeatures -Dandroid_setCpu=wels_setCpu \
 
-codec/common/cpu-features.$(OBJ): $(NDKROOT)/sources/android/cpufeatures/cpu-features.c
+codec/common/src/cpu-features.$(OBJ): $(NDKROOT)/sources/android/cpufeatures/cpu-features.c
 	$(QUIET_CC)$(CC) $(CFLAGS) $(INCLUDES) $(COMMON_CFLAGS) $(COMMON_INCLUDES) -c $(CXX_O) $<

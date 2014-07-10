@@ -1,6 +1,4 @@
-#include<gtest/gtest.h>
-#include <stdlib.h>
-#include <time.h>
+#include <gtest/gtest.h>
 
 #include "wels_common_basis.h"
 #include "mem_align.h"
@@ -49,7 +47,6 @@ int32_t InitAndAllocInputData (PECInputCtx& pECCtx) {
     return 1;
   memset (pECCtx, 0, sizeof (SECInputCtx));
 
-  srand ((uint32_t)time (NULL));
   pECCtx->iMbWidth = rand() % MAX_MB_WIDTH; //give a constrained max width
   pECCtx->iMbHeight = rand() % MAX_MB_HEIGHT; //give a constrained max height
   pECCtx->iLinesize[0] = pECCtx->iMbWidth << 4;
@@ -103,7 +100,6 @@ int32_t InitAndAllocInputData (PECInputCtx& pECCtx) {
 }
 
 void InitECCopyData (PECInputCtx pECCtx) {
-  srand ((uint32_t)time (NULL));
   const int32_t kiMbNum = pECCtx->iMbWidth * pECCtx->iMbHeight;
   int i;
   //init pMbCorrectlyDecodedFlag
@@ -167,19 +163,19 @@ void DoAncErrorConSliceCopy (PECInputCtx pECCtx) {
           //Y component
           pDstData = pDstPic->pData[0] + iMbY * 16 * iDstStride + iMbX * 16;
           for (i = 0; i < 16; ++i) {
-            memset (pDstData, 0, 16);
+            memset (pDstData, 128, 16);
             pDstData += iDstStride;
           }
           //U component
           pDstData = pDstPic->pData[1] + iMbY * 8 * iDstStride / 2 + iMbX * 8;
           for (i = 0; i < 8; ++i) {
-            memset (pDstData, 0, 8);
+            memset (pDstData, 128, 8);
             pDstData += iDstStride / 2;
           }
           //V component
           pDstData = pDstPic->pData[2] + iMbY * 8 * iDstStride / 2 + iMbX * 8;
           for (i = 0; i < 8; ++i) {
-            memset (pDstData, 0, 8);
+            memset (pDstData, 128, 8);
             pDstData += iDstStride / 2;
           }
         } //
@@ -242,7 +238,7 @@ TEST (ErrorConTest, DoErrorConFrameCopy) {
   DoErrorConFrameCopy (pECCtx->pCtx);
 
   int32_t iLumaSize = pECCtx->iMbWidth * pECCtx->iMbHeight * 256;
-  memset (pECCtx->sAncPic.pData[0], 0, iLumaSize * 3 / 2); //should be the same as known EC method, here all 0
+  memset (pECCtx->sAncPic.pData[0], 128, iLumaSize * 3 / 2); //should be the same as known EC method, here all 128
   bOK = ComparePictureDataI420 (pECCtx->sAncPic.pData[0], pECCtx->sWelsPic.pData[0], pECCtx->iLinesize[0],
                                 pECCtx->iMbHeight * 16);
   EXPECT_EQ (bOK, true);

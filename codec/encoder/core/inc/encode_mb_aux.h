@@ -122,12 +122,28 @@ void WelsQuantFour4x4_neon (int16_t* pDct, const int16_t* pFF, const int16_t* pM
 void WelsQuantFour4x4Max_neon (int16_t* pDct, const int16_t* pFF, const int16_t* pMF, int16_t* pMax);
 #endif
 
+#ifdef	HAVE_NEON_AARCH64
+void WelsHadamardT4Dc_AArch64_neon (int16_t* pLumaDc, int16_t* pDct);
+int32_t WelsHadamardQuant2x2_AArch64_neon (int16_t* pRes, const int16_t kiFF, int16_t iMF, int16_t* pDct, int16_t* pBlock);
+int32_t WelsHadamardQuant2x2Skip_AArch64_neon (int16_t* pRes, int16_t iFF,  int16_t iMF);
+int32_t WelsHadamardQuant2x2SkipKernel_AArch64_neon (int16_t* pRes, int16_t iThreshold); // avoid divide operator
+
+void WelsDctT4_AArch64_neon (int16_t* pDct,  uint8_t* pPixel1, int32_t iStride1, uint8_t* pPixel2, int32_t iStride2);
+void WelsDctFourT4_AArch64_neon (int16_t* pDct,  uint8_t* pPixel1, int32_t iStride1, uint8_t* pPixel2, int32_t iStride2);
+
+int32_t WelsGetNoneZeroCount_AArch64_neon (int16_t* pLevel);
+
+void WelsQuant4x4_AArch64_neon (int16_t* pDct, const int16_t* pFF, const int16_t* pMF);
+void WelsQuant4x4Dc_AArch64_neon (int16_t* pDct, int16_t iFF, int16_t iMF);
+void WelsQuantFour4x4_AArch64_neon (int16_t* pDct, const int16_t* pFF, const int16_t* pMF);
+void WelsQuantFour4x4Max_AArch64_neon (int16_t* pDct, const int16_t* pFF, const int16_t* pMF, int16_t* pMax);
+#endif
 #if defined(__cplusplus)
 }
 #endif//__cplusplus
 
-__align16 (extern const int16_t, g_kiQuantInterFF[58][8]);
+ALIGNED_DECLARE (extern const int16_t, g_kiQuantInterFF[58][8], 16);
 #define g_iQuantIntraFF (g_kiQuantInterFF +6 )
-__align16 (extern const int16_t, g_kiQuantMF[52][8]) ;
+ALIGNED_DECLARE (extern const int16_t, g_kiQuantMF[52][8], 16);
 }
 #endif//ENCODE_MB_AUX_H

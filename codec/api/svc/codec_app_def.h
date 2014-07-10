@@ -58,6 +58,7 @@ typedef enum {
   dsBitstreamError	= 0x04,	/* Error bitstreams(maybe broken internal frame) the decoder cared */
   dsDepLayerLost		= 0x08,	/* Dependented layer is ever lost */
   dsNoParamSets		= 0x10, /* No parameter set NALs involved */
+  dsDataErrorConcealed  = 0x20, /* current data Error concealed specified */
 
   /* Errors derived from logic level */
   dsInvalidArgument	= 0x1000,	/* Invalid argument specified */
@@ -90,6 +91,7 @@ typedef enum {
   ENCODER_LTR_MARKING_FEEDBACK,
   ENCOCER_LTR_MARKING_PERIOD,
   ENCODER_OPTION_LTR,
+  ENCODER_OPTION_COMPLEXITY,
 
   ENCODER_OPTION_ENABLE_SSEI,               //enable SSEI: true--enable ssei; false--disable ssei
   ENCODER_OPTION_ENABLE_PREFIX_NAL_ADDING,   //enable prefix: true--enable prefix; false--disable prefix
@@ -241,24 +243,12 @@ enum {
   WELS_LOG_ERROR		= 1 << 0,	// Error log iLevel
   WELS_LOG_WARNING	= 1 << 1,	// Warning log iLevel
   WELS_LOG_INFO		= 1 << 2,	// Information log iLevel
-  WELS_LOG_DEBUG		= 1 << 3,	// Debug log iLevel
-  WELS_LOG_RESV		= 1 << 4,	// Resversed log iLevel
-  WELS_LOG_LEVEL_COUNT = 5,
+  WELS_LOG_DEBUG		= 1 << 3,	// Debug log, critical algo log
+  WELS_LOG_DETAIL		= 1 << 4,	// per packet/frame log
+  WELS_LOG_RESV		= 1 << 5,	// Resversed log iLevel
+  WELS_LOG_LEVEL_COUNT = 6,
   WELS_LOG_DEFAULT	= WELS_LOG_DEBUG	// Default log iLevel in Wels codec
 };
-
-typedef enum{
-  FRAMEIDC_IDR              = 0x00,
-  FRAMEIDC_I                = 0x04,
-  FRAMEIDC_LTR              = 0x08,
-  FRAMEIDC_T0               = 0x10,
-  FRAMEIDC_T1               = 0x11,
-  FRAMEIDC_T2               = 0x12,
-  FRAMEIDC_T3               = 0x13,
-  FRAMEIDC_T4               = 0x14,
-  FRAMEIDC_UNKNOWN          = 0x20,
-  FRAMEIDC_INVALID          = 0xFF,
-}EFrameIDC;
 
 typedef struct {
   SliceModeEnum uiSliceMode; //by default, uiSliceMode will be SM_SINGLE_SLICE
@@ -283,12 +273,16 @@ typedef enum {
   SCREEN_CONTENT_REAL_TIME,//screen content signal
 } EUsageType;
 
+typedef enum {
+  LOW_COMPLEXITY, //the lowest compleixty,the fastest speed,
+  MEDIUM_COMPLEXITY, //medium complexity, medium speed,medium quality
+  HIGH_COMPLEXITY, //high complexity, lowest speed, high quality
+} ECOMPLEXITY_MODE;
 // TODO:  Refine the parameters definition.
 // SVC Encoding Parameters
 typedef struct TagEncParamBase {
   EUsageType
   iUsageType;	//application type;// CAMERA_VIDEO_REAL_TIME: //camera video signal; SCREEN_CONTENT_REAL_TIME: screen content signal;
-  int		iInputCsp;	// color space of input sequence
 
   int		iPicWidth;			// width of picture in samples
   int		iPicHeight;			// height of picture in samples
@@ -302,7 +296,6 @@ typedef struct TagEncParamBase {
 typedef struct TagEncParamExt {
   EUsageType
   iUsageType;	//application type;// CAMERA_VIDEO_REAL_TIME: //camera video signal; SCREEN_CONTENT_REAL_TIME: screen content signal;
-  int		iInputCsp;	// color space of input sequence
 
   int		iPicWidth;			// width of picture in samples
   int		iPicHeight;			// height of picture in samples
@@ -314,9 +307,9 @@ typedef struct TagEncParamExt {
   int		iSpatialLayerNum;	// layer number at spatial level
   SSpatialLayerConfig sSpatialLayers[MAX_SPATIAL_LAYER_NUM];
 
+  ECOMPLEXITY_MODE iComplexityMode;
   unsigned int		uiIntraPeriod;		// period of Intra frame
   int		        iNumRefFrame;		// number of reference frame used
-  unsigned int	    uiFrameToBeCoded;	// frame to be encoded (at input frame rate)
   bool    bEnableSpsPpsIdAddition;
   bool    bPrefixNalAddingCtrl;
   bool	  bEnableSSEI;
@@ -376,8 +369,6 @@ typedef struct {
   unsigned char uiSpatialId;
   unsigned char uiQualityId;
 
-  unsigned char uiPriorityId; //ignore it currently
-
   unsigned char uiLayerType;
 
   int	iNalCount;					// Count number of NAL coded already
@@ -388,12 +379,14 @@ typedef struct {
 
 typedef struct {
   int		iTemporalId;	// Temporal ID
-  EFrameIDC	eFrameIdc;
+  //The sub sequence layers are ordered hierarchically based on their dependency on each other so that any picture in a layer shall not be
+  //predicted from any picture on any higher layer.
+  int	  iSubSeqId;  //refer to D.2.11 Sub-sequence information SEI message semantics
 
   int		iLayerNum;
   SLayerBSInfo	sLayerInfo[MAX_LAYER_NUM_OF_FRAME];
 
-  EVideoFrameType eOutputFrameType;
+  EVideoFrameType eFrameType;
   long long uiTimeStamp;
 } SFrameBSInfo, *PFrameBSInfo;
 
@@ -426,9 +419,9 @@ typedef struct TagLevelInfo {
   ELevelIdc uiLevelIdc;    //the level info
 } SLevelInfo;
 
-typedef struct TagDeliveryStatus{
+typedef struct TagDeliveryStatus {
   int iDropNum;      //the number of video frames that are dropped continuously before delivery to encoder, which is used by screen content.
   int iDropFrameType; // the frame type that is dropped
   int iDropFrameSize; // the frame size that is dropped
-}SDeliveryStatus;
+} SDeliveryStatus;
 #endif//WELS_VIDEO_CODEC_APPLICATION_DEFINITION_H__

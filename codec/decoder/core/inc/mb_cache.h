@@ -57,23 +57,18 @@ namespace WelsDec {
 
 ////////////////////////mapping scan index////////////////////////
 
-// for data sharing cross modules and try to reduce size of binary generated
-extern const uint8_t g_kuiMbNonZeroCountIdx[24];
-extern const uint8_t g_kuiCache30ScanIdx[16];
-extern const uint8_t g_kuiCacheNzcScanIdx[24];
-
 extern const uint8_t g_kuiScan4[16];
 
 typedef struct TagNeighborAvail {
-  int32_t iTopAvail;
-  int32_t iLeftAvail;
-  int32_t iRightTopAvail;
-  int32_t iLeftTopAvail;  //used for check intra_pred_mode avail or not   //1: avail; 0: unavail
+int32_t iTopAvail;
+int32_t iLeftAvail;
+int32_t iRightTopAvail;
+int32_t iLeftTopAvail;  //used for check intra_pred_mode avail or not   //1: avail; 0: unavail
 
-  int32_t iLeftType;
-  int32_t iTopType;
-  int32_t iLeftTopType;
-  int32_t iRightTopType;
+int32_t iLeftType;
+int32_t iTopType;
+int32_t iLeftTopType;
+int32_t iRightTopType;
 } SNeighAvail, *PNeighAvail;
 
 } // namespace WelsDec

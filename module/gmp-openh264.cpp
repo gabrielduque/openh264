@@ -204,95 +204,39 @@ class OpenH264VideoEncoder : public GMPVideoEncoder {
     if (rv) {
       return GMPVideoGenericErr;
     }
-    if (maxPayloadSize <= 0) {
-      SEncParamBase param;
-      memset (&param, 0, sizeof (param));
 
-      GMPLOG (GL_INFO, "Initializing encoder at "
-              << codecSettings.mWidth
-              << "x"
-              << codecSettings.mHeight
-              << "@"
-              << static_cast<int> (codecSettings.mMaxFramerate)
-              << "max payload size="
-              << maxPayloadSize);
+    SEncParamBase param;
+    memset (&param, 0, sizeof (param));
 
-      // Translate parameters.
-      param.iUsageType = CAMERA_VIDEO_REAL_TIME;
-      param.iPicWidth = codecSettings.mWidth;
-      param.iPicHeight = codecSettings.mHeight;
-      param.iTargetBitrate = codecSettings.mStartBitrate * 1000;
-      GMPLOG (GL_INFO, "Initializing Bit Rate at: Start: "
-              << codecSettings.mStartBitrate
-              << "; Min: "
-              << codecSettings.mMinBitrate
-              << "; Max: "
-              << codecSettings.mMaxBitrate);
+    GMPLOG (GL_INFO, "Initializing encoder at "
+            << codecSettings.mWidth
+            << "x"
+            << codecSettings.mHeight
+            << "@"
+            << static_cast<int> (codecSettings.mMaxFramerate)
+            << "max payload size="
+            << maxPayloadSize);
 
-      param.iRCMode = RC_BITRATE_MODE;
+    // Translate parameters.
+    param.iUsageType = CAMERA_VIDEO_REAL_TIME;
+    param.iPicWidth = codecSettings.mWidth;
+    param.iPicHeight = codecSettings.mHeight;
+    param.iTargetBitrate = codecSettings.mStartBitrate * 1000;
+    GMPLOG (GL_INFO, "Initializing Bit Rate at: Start: "
+            << codecSettings.mStartBitrate
+            << "; Min: "
+            << codecSettings.mMinBitrate
+            << "; Max: "
+            << codecSettings.mMaxBitrate);
+    param.iRCMode = RC_BITRATE_MODE;
 
-      // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
-      param.fMaxFrameRate = static_cast<float> (codecSettings.mMaxFramerate);
-      param.iInputCsp = videoFormatI420;
+    // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
+    param.fMaxFrameRate = static_cast<float> (codecSettings.mMaxFramerate);
 
-      rv = encoder_->Initialize (&param);
-      if (rv) {
-        GMPLOG (GL_ERROR, "Couldn't initialize encoder");
-        return GMPVideoGenericErr;
-      }
-    } else {
-      SEncParamExt param;
-      memset (&param, 0, sizeof (param));
-      encoder_->GetDefaultParams (&param);
-
-      GMPLOG (GL_INFO, "Initializing encoder at "
-              << codecSettings.mWidth
-              << "x"
-              << codecSettings.mHeight
-              << "@"
-              << static_cast<int> (codecSettings.mMaxFramerate)
-              << "max payload size="
-              << maxPayloadSize);
-
-      // Translate parameters.
-      param.iUsageType = CAMERA_VIDEO_REAL_TIME;
-      param.iInputCsp = videoFormatI420;
-      param.iPicWidth = codecSettings.mWidth;
-      param.iPicHeight = codecSettings.mHeight;
-      param.iRCMode = RC_BITRATE_MODE;
-      param.iTargetBitrate = codecSettings.mStartBitrate * 1000;
-      param.iMaxBitrate = codecSettings.mMaxBitrate * 1000;
-      GMPLOG (GL_INFO, "Initializing Bit Rate at: Start: "
-              << codecSettings.mStartBitrate
-              << "; Min: "
-              << codecSettings.mMinBitrate
-              << "; Max: "
-              << codecSettings.mMaxBitrate);
-      //for controlling the NAL size (normally for packetization-mode=0)
-      param.uiMaxNalSize = maxPayloadSize;
-
-      // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
-      param.fMaxFrameRate = static_cast<float> (codecSettings.mMaxFramerate);
-
-      // Set up layers. Currently we have one layer.
-      SSpatialLayerConfig* layer = &param.sSpatialLayers[0];
-
-      layer->iVideoWidth = codecSettings.mWidth;
-      layer->iVideoHeight = codecSettings.mHeight;
-      layer->fFrameRate = param.fMaxFrameRate;
-      layer->iSpatialBitrate = param.iTargetBitrate;
-      layer->iMaxSpatialBitrate = param.iMaxBitrate;
-
-      // Based on guidance from Cisco.
-      layer->sSliceCfg.uiSliceMode = SM_DYN_SLICE;
-      layer->sSliceCfg.sSliceArgument.uiSliceSizeConstraint = maxPayloadSize;
-
-      rv = encoder_->InitializeExt (&param);
-      if (rv) {
-        GMPLOG (GL_ERROR, "Couldn't initialize encoder");
-        return GMPVideoGenericErr;
-      }
-
+    rv = encoder_->Initialize (&param);
+    if (rv) {
+      GMPLOG (GL_ERROR, "Couldn't initialize encoder");
+      return GMPVideoGenericErr;
     }
 
     max_payload_size_ = maxPayloadSize;
@@ -316,6 +260,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder {
     assert (!frameTypes.empty());
     if (frameTypes.empty()) {
       GMPLOG (GL_ERROR, "No frame types provided");
+      inputImage->Destroy();
       return GMPVideoGenericErr;
     }
 
@@ -331,6 +276,15 @@ class OpenH264VideoEncoder : public GMPVideoEncoder {
                  GMPVideoFrameType frame_type) {
     SFrameBSInfo encoded;
 
+    if (frame_type  == kGMPKeyFrame) {
+      encoder_->ForceIntraFrame (true);
+      if (!inputImage)
+        return;
+    }
+    if (!inputImage) {
+      GMPLOG (GL_ERROR, "no input image");
+      return;
+    }
     SSourcePicture src;
 
     src.iColorFormat = videoFormatI420;
@@ -360,7 +314,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder {
     GMPVideoFrameType encoded_type;
     bool has_frame = false;
 
-    switch (encoded.eOutputFrameType) {
+    switch (encoded.eFrameType) {
     case videoFrameTypeIDR:
       encoded_type = kGMPKeyFrame;
       has_frame = true;
@@ -379,7 +333,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder {
     case videoFrameTypeIPMixed://this type is currently not suppported
     case videoFrameTypeInvalid:
       GMPLOG (GL_ERROR, "Couldn't encode frame. Type = "
-              << encoded.eOutputFrameType);
+              << encoded.eFrameType);
       break;
     default:
       // The API is defined as returning a type.
@@ -388,6 +342,11 @@ class OpenH264VideoEncoder : public GMPVideoEncoder {
     }
 
     if (!has_frame) {
+      // This frame must be destroyed on the main thread.
+      g_platform_api->syncrunonmainthread (WrapTask (
+                                             this,
+                                             &OpenH264VideoEncoder::DestroyInputFrame_m,
+                                             inputImage));
       return;
     }
 
@@ -407,6 +366,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder {
     GMPVideoErr err = host_->CreateFrame (kGMPEncodedVideoFrame, &ftmp);
     if (err != GMPVideoNoErr) {
       GMPLOG (GL_ERROR, "Error creating encoded frame");
+      frame->Destroy();
       return;
     }
 
@@ -430,6 +390,7 @@ class OpenH264VideoEncoder : public GMPVideoEncoder {
     if (err != GMPVideoNoErr) {
       GMPLOG (GL_ERROR, "Error allocating frame data");
       f->Destroy();
+      frame->Destroy();
       return;
     }
 
@@ -464,6 +425,11 @@ class OpenH264VideoEncoder : public GMPVideoEncoder {
     callback_->Encoded (f, info);
 
     stats_.FrameOut();
+  }
+
+  // These frames must be destroyed on the main thread.
+  void DestroyInputFrame_m (GMPVideoi420Frame* frame) {
+    frame->Destroy();
   }
 
   virtual GMPVideoErr SetChannelParameters (uint32_t aPacketLoss, uint32_t aRTT) {

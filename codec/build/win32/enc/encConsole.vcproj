@@ -42,18 +42,15 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
-				TypeLibraryName=".\..\..\..\..\..\bin\Debug/encConsole.tlb"
-				HeaderFileName=""
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\..\console\enc\inc,..\..\..\api\svc,..\..\..\encoder\core\inc,..\..\..\common\inc,..\..\..\processing\interface"
+				AdditionalIncludeDirectories="..\..\..\console\enc\inc,..\..\..\console\common\inc,..\..\..\api\svc,..\..\..\encoder\core\inc,..\..\..\common\inc,..\..\..\processing\interface"
 				PreprocessorDefinitions="_DEBUG;_CONSOLE;"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				PrecompiledHeaderFile=".\..\..\..\obj\encConsole\Debug/encConsole.pch"
 				AssemblerListingLocation=".\..\..\..\obj\encConsole\Debug/"
 				ObjectFile=".\..\..\..\obj\encConsole\Debug/"
 				ProgramDataBaseFileName=".\..\..\..\obj\encConsole\Debug/"
@@ -76,7 +73,6 @@
 				AdditionalDependencies="$(OutDir)\welsenc.lib"
 				OutputFile="$(OutDir)\encConsole.exe"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="..\..\..\bin"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)\encConsole.pdb"
 				GenerateMapFile="true"
@@ -133,19 +129,15 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
-				TargetEnvironment="3"
-				TypeLibraryName=".\..\..\..\..\..\bin\Debug/encConsole.tlb"
-				HeaderFileName=""
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\..\console\enc\inc,..\..\..\api\svc,..\..\..\encoder\core\inc,..\..\..\common\inc,..\..\..\processing\interface"
+				AdditionalIncludeDirectories="..\..\..\console\enc\inc,..\..\..\console\common\inc,..\..\..\api\svc,..\..\..\encoder\core\inc,..\..\..\common\inc,..\..\..\processing\interface"
 				PreprocessorDefinitions="_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				PrecompiledHeaderFile=".\..\..\..\obj\encConsole\Debug/encConsole.pch"
 				AssemblerListingLocation=".\..\..\..\obj\encConsole\Debug/"
 				ObjectFile=".\..\..\..\obj\encConsole\Debug/"
 				ProgramDataBaseFileName=".\..\..\..\obj\encConsole\Debug/"
@@ -168,7 +160,6 @@
 				AdditionalDependencies="$(OutDir)\welsenc.lib"
 				OutputFile="$(OutDir)\encConsole.exe"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="..\..\..\bin"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)\encConsole.pdb"
 				GenerateMapFile="true"
@@ -225,19 +216,16 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
-				TypeLibraryName=".\..\..\..\..\..\bin\Release/encConsole.tlb"
-				HeaderFileName=""
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories="..\..\..\console\enc\inc,..\..\..\api\svc,..\..\..\encoder\core\inc,..\..\..\common\inc,..\..\..\processing\interface"
+				AdditionalIncludeDirectories="..\..\..\console\enc\inc,..\..\..\console\common\inc,..\..\..\api\svc,..\..\..\encoder\core\inc,..\..\..\common\inc,..\..\..\processing\interface"
 				PreprocessorDefinitions="NDEBUG;_CONSOLE;X86_ASM;"
 				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				PrecompiledHeaderFile=".\..\..\..\obj\encConsole\Release/encConsole.pch"
 				AssemblerListingLocation=".\..\..\..\obj\encConsole\Release/"
 				ObjectFile=".\..\..\..\obj\encConsole\Release/"
 				ProgramDataBaseFileName=".\..\..\..\obj\encConsole\Release/"
@@ -260,7 +248,6 @@
 				AdditionalDependencies="$(OutDir)\welsenc.lib"
 				OutputFile="$(OutDir)\encConsole.exe"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="..\..\..\bin"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)\encConsole.pdb"
 				GenerateMapFile="false"
@@ -317,20 +304,16 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
-				TargetEnvironment="3"
-				TypeLibraryName=".\..\..\..\..\..\bin\Release/encConsole.tlb"
-				HeaderFileName=""
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories="..\..\..\console\enc\inc,..\..\..\api\svc,..\..\..\encoder\core\inc,..\..\..\common\inc,..\..\..\processing\interface"
+				AdditionalIncludeDirectories="..\..\..\console\enc\inc,..\..\..\console\common\inc,..\..\..\api\svc,..\..\..\encoder\core\inc,..\..\..\common\inc,..\..\..\processing\interface"
 				PreprocessorDefinitions="NDEBUG;_CONSOLE"
 				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				PrecompiledHeaderFile=".\..\..\..\obj\encConsole\Release/encConsole.pch"
 				AssemblerListingLocation=".\..\..\..\obj\encConsole\Release/"
 				ObjectFile=".\..\..\..\obj\encConsole\Release/"
 				ProgramDataBaseFileName=".\..\..\..\obj\encConsole\Release/"
@@ -353,7 +336,6 @@
 				AdditionalDependencies="$(OutDir)\welsenc.lib"
 				OutputFile="$(OutDir)\encConsole.exe"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="..\..\..\bin"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)\encConsole.pdb"
 				GenerateMapFile="false"
@@ -395,7 +377,7 @@
 			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 			>
 			<File
-				RelativePath="..\..\..\console\enc\src\read_config.cpp"
+				RelativePath="..\..\..\console\common\src\read_config.cpp"
 				>
 			</File>
 			<File
@@ -408,7 +390,7 @@
 			Filter="h;hpp;hxx;hm;inl"
 			>
 			<File
-				RelativePath="..\..\..\console\enc\inc\read_config.h"
+				RelativePath="..\..\..\console\common\inc\read_config.h"
 				>
 			</File>
 		</Filter>

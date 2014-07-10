@@ -57,7 +57,6 @@
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				PrecompiledHeaderFile=".\..\..\..\obj\encoder\core\Debug/WelsEncCore.pch"
 				AssemblerListingLocation=".\..\..\..\obj\encoder\core\Debug/"
 				ObjectFile=".\..\..\..\obj\encoder\core\Debug/"
 				ProgramDataBaseFileName=".\..\..\..\obj\encoder\core\Debug/"
@@ -134,7 +133,6 @@
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				PrecompiledHeaderFile=".\..\..\..\obj\encoder\core\Debug/WelsEncCore.pch"
 				AssemblerListingLocation=".\..\..\..\obj\encoder\core\Debug/"
 				ObjectFile=".\..\..\..\obj\encoder\core\Debug/"
 				ProgramDataBaseFileName=".\..\..\..\obj\encoder\core\Debug/"
@@ -183,6 +181,7 @@
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -207,13 +206,11 @@
 				Optimization="3"
 				InlineFunctionExpansion="2"
 				FavorSizeOrSpeed="1"
-				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="..\..\..\common\inc;..\..\..\encoder\core\inc,..\..\..\api\svc;..\..\..\processing\interface"
 				PreprocessorDefinitions="NDEBUG;_LIB;X86_ASM"
 				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				PrecompiledHeaderFile=".\..\..\..\obj\encoder\core\Release/WelsEncCore.pch"
 				AssemblerListingLocation=".\..\..\..\obj\encoder\core\Release/"
 				ObjectFile=".\..\..\..\obj\encoder\core\Release/"
 				ProgramDataBaseFileName=".\..\..\..\obj\encoder\core\Release/"
@@ -233,7 +230,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				AdditionalOptions="/LTCG"
 				OutputFile="$(OutDir)\welsecore.lib"
 			/>
 			<Tool
@@ -263,6 +259,7 @@
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -288,13 +285,11 @@
 				Optimization="3"
 				InlineFunctionExpansion="2"
 				FavorSizeOrSpeed="1"
-				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="..\..\..\common\inc;..\..\..\encoder\core\inc,..\..\..\api\svc;..\..\..\processing\interface"
 				PreprocessorDefinitions="NDEBUG;_LIB;X86_ASM"
 				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				PrecompiledHeaderFile=".\..\..\..\obj\encoder\core\Release/WelsEncCore.pch"
 				AssemblerListingLocation=".\..\..\..\obj\encoder\core\Release/"
 				ObjectFile=".\..\..\..\obj\encoder\core\Release/"
 				ProgramDataBaseFileName=".\..\..\..\obj\encoder\core\Release/"
@@ -314,7 +309,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				AdditionalOptions="/LTCG"
 				OutputFile="$(OutDir)\welsecore.lib"
 			/>
 			<Tool
@@ -345,6 +339,10 @@
 			>
 			<File
 				RelativePath="..\..\..\encoder\core\src\au_set.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\common\src\common_tables.cpp"
 				>
 			</File>
 			<File
@@ -710,6 +708,10 @@
 			</File>
 			<File
 				RelativePath="..\..\..\encoder\core\inc\wels_common_basis.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\encoder\core\inc\wels_common_defs.h"
 				>
 			</File>
 			<File

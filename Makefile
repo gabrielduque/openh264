@@ -6,6 +6,7 @@ CCAS=$(CC)
 CXX_O=-o $@
 CXX_LINK_O=-o $@
 AR_OPTS=cr $@
+LINK_LOCAL_DIR=-L.
 LINK_LIB=-l$(1)
 CFLAGS_OPT=-O3
 CFLAGS_DEBUG=-g
@@ -16,6 +17,7 @@ SHARED=-shared
 OBJ=o
 PROJECT_NAME=openh264
 MODULE_NAME=gmpopenh264
+GMP_API_BRANCH=Firefox32
 CCASFLAGS=$(CFLAGS)
 
 ifeq (,$(wildcard ./gmp-api))
@@ -66,18 +68,18 @@ ifneq ($(V),Yes)
 endif
 
 
-INCLUDES = -Icodec/api/svc -Icodec/common/inc
+INCLUDES += -Icodec/api/svc -Icodec/common/inc
 
-DECODER_INCLUDES = \
+DECODER_INCLUDES += \
     -Icodec/decoder/core/inc \
     -Icodec/decoder/plus/inc
 
-ENCODER_INCLUDES = \
+ENCODER_INCLUDES += \
     -Icodec/encoder/core/inc \
     -Icodec/encoder/plus/inc \
     -Icodec/processing/interface
 
-PROCESSING_INCLUDES = \
+PROCESSING_INCLUDES += \
     -Icodec/processing/interface \
     -Icodec/processing/src/common \
     -Icodec/processing/src/scrolldetection
@@ -90,22 +92,25 @@ CODEC_UNITTEST_INCLUDES += \
     -Igtest/include \
     -Icodec/common/inc \
 
-H264DEC_INCLUDES = $(DECODER_INCLUDES) -Icodec/console/dec/inc
-H264DEC_LDFLAGS = -L. $(call LINK_LIB,decoder) $(call LINK_LIB,common)
-H264DEC_DEPS = $(LIBPREFIX)decoder.$(LIBSUFFIX) $(LIBPREFIX)common.$(LIBSUFFIX)
+CONSOLE_COMMON_INCLUDES += \
+    -Icodec/console/common/inc
 
-H264ENC_INCLUDES = $(ENCODER_INCLUDES) -Icodec/console/enc/inc
-H264ENC_LDFLAGS = -L. $(call LINK_LIB,encoder) $(call LINK_LIB,processing) $(call LINK_LIB,common)
-H264ENC_DEPS = $(LIBPREFIX)encoder.$(LIBSUFFIX) $(LIBPREFIX)processing.$(LIBSUFFIX) $(LIBPREFIX)common.$(LIBSUFFIX)
+H264DEC_INCLUDES += $(DECODER_INCLUDES) $(CONSOLE_COMMON_INCLUDES) -Icodec/console/dec/inc
+H264DEC_LDFLAGS = $(LINK_LOCAL_DIR) $(call LINK_LIB,decoder) $(call LINK_LIB,common) $(call LINK_LIB,console_common)
+H264DEC_DEPS = $(LIBPREFIX)decoder.$(LIBSUFFIX) $(LIBPREFIX)common.$(LIBSUFFIX) $(LIBPREFIX)console_common.$(LIBSUFFIX)
 
-CODEC_UNITTEST_LDFLAGS = -L. $(call LINK_LIB,gtest) $(call LINK_LIB,decoder) $(call LINK_LIB,encoder) $(call LINK_LIB,processing) $(call LINK_LIB,common) $(CODEC_UNITTEST_LDFLAGS_SUFFIX)
+H264ENC_INCLUDES += $(ENCODER_INCLUDES) $(CONSOLE_COMMON_INCLUDES) -Icodec/console/enc/inc
+H264ENC_LDFLAGS = $(LINK_LOCAL_DIR) $(call LINK_LIB,encoder) $(call LINK_LIB,processing) $(call LINK_LIB,common) $(call LINK_LIB,console_common)
+H264ENC_DEPS = $(LIBPREFIX)encoder.$(LIBSUFFIX) $(LIBPREFIX)processing.$(LIBSUFFIX) $(LIBPREFIX)common.$(LIBSUFFIX) $(LIBPREFIX)console_common.$(LIBSUFFIX)
+
+CODEC_UNITTEST_LDFLAGS = $(LINK_LOCAL_DIR) $(call LINK_LIB,gtest) $(call LINK_LIB,decoder) $(call LINK_LIB,encoder) $(call LINK_LIB,processing) $(call LINK_LIB,common) $(CODEC_UNITTEST_LDFLAGS_SUFFIX)
 CODEC_UNITTEST_DEPS = $(LIBPREFIX)gtest.$(LIBSUFFIX) $(LIBPREFIX)decoder.$(LIBSUFFIX) $(LIBPREFIX)encoder.$(LIBSUFFIX) $(LIBPREFIX)processing.$(LIBSUFFIX) $(LIBPREFIX)common.$(LIBSUFFIX)
-DECODER_UNITTEST_INCLUDES = $(CODEC_UNITTEST_INCLUDES) $(DECODER_INCLUDES) -Itest -Itest/decoder
-ENCODER_UNITTEST_INCLUDES = $(CODEC_UNITTEST_INCLUDES) $(ENCODER_INCLUDES) -Itest -Itest/encoder
-PROCESSING_UNITTEST_INCLUDES = $(CODEC_UNITTEST_INCLUDES) $(PROCESSING_INCLUDES) -Itest -Itest/processing
-API_TEST_INCLUDES = $(CODEC_UNITTEST_INCLUDES) -Itest -Itest/api
-COMMON_UNITTEST_INCLUDES = $(CODEC_UNITTEST_INCLUDES) $(DECODER_INCLUDES) -Itest -Itest/common
-MODULE_INCLUDES = -Igmp-api
+DECODER_UNITTEST_INCLUDES += $(CODEC_UNITTEST_INCLUDES) $(DECODER_INCLUDES) -Itest -Itest/decoder
+ENCODER_UNITTEST_INCLUDES += $(CODEC_UNITTEST_INCLUDES) $(ENCODER_INCLUDES) -Itest -Itest/encoder
+PROCESSING_UNITTEST_INCLUDES += $(CODEC_UNITTEST_INCLUDES) $(PROCESSING_INCLUDES) -Itest -Itest/processing
+API_TEST_INCLUDES += $(CODEC_UNITTEST_INCLUDES) -Itest -Itest/api
+COMMON_UNITTEST_INCLUDES += $(CODEC_UNITTEST_INCLUDES) $(DECODER_INCLUDES) -Itest -Itest/common
+MODULE_INCLUDES += -Igmp-api
 
 .PHONY: test gtest-bootstrap clean
 
@@ -118,7 +123,8 @@ endif
 	$(QUIET)rm -f $(OBJS) $(OBJS:.$(OBJ)=.d) $(LIBRARIES) $(BINARIES)
 
 gmp-bootstrap:
-	git clone https://github.com/mozilla/gmp-api gmp-api
+	if [ ! -d gmp-api ] ; then git clone https://github.com/mozilla/gmp-api gmp-api ; fi
+	cd gmp-api && git fetch origin && git checkout $(GMP_API_BRANCH)
 
 gtest-bootstrap:
 	svn co https://googletest.googlecode.com/svn/trunk/ gtest
@@ -151,6 +157,7 @@ ifneq (android, $(OS))
 ifneq (ios, $(OS))
 include codec/console/dec/targets.mk
 include codec/console/enc/targets.mk
+include codec/console/common/targets.mk
 endif
 endif
 
@@ -172,7 +179,7 @@ $(LIBPREFIX)$(PROJECT_NAME).$(SHAREDLIBSUFFIX): $(ENCODER_OBJS) $(DECODER_OBJS) 
 
 ifeq ($(HAVE_GMP_API),Yes)
 plugin: $(LIBPREFIX)$(MODULE_NAME).$(SHAREDLIBSUFFIX)
-PLUGINS += $(LIBPREFIX)$(MODULE_NAME).$(SHAREDLIBSUFFIX)
+LIBRARIES += $(LIBPREFIX)$(MODULE_NAME).$(SHAREDLIBSUFFIX)
 else
 plugin:
 	@echo "./gmp-api : No such file or directory."
@@ -181,7 +188,7 @@ endif
 
 $(LIBPREFIX)$(MODULE_NAME).$(SHAREDLIBSUFFIX): $(MODULE_OBJS) $(ENCODER_OBJS) $(DECODER_OBJS) $(PROCESSING_OBJS) $(COMMON_OBJS)
 	$(QUIET)rm -f $@
-	$(QUIET_CXX)$(CXX) $(SHARED) $(LDFLAGS) $(CXX_LINK_O) $+ $(SHLDFLAGS)
+	$(QUIET_CXX)$(CXX) $(SHARED) $(LDFLAGS) $(CXX_LINK_O) $+ $(SHLDFLAGS) $(MODULE_LDFLAGS)
 
 install-headers:
 	mkdir -p $(PREFIX)/include/wels
@@ -233,7 +240,7 @@ codec_unittest$(EXEEXT): $(LIBPREFIX)ut.$(SHAREDLIBSUFFIX)
 
 clean_Android: clean_Android_ut
 clean_Android_ut:
-	cd ./test/build/android && $(NDKROOT)/ndk-build APP_ABI=$(APP_ABI) clean && ant clean
+	-cd ./test/build/android && $(NDKROOT)/ndk-build APP_ABI=$(APP_ABI) clean && ant clean
 
 else
 codec_unittest$(EXEEXT): $(DECODER_UNITTEST_OBJS) $(ENCODER_UNITTEST_OBJS) $(PROCESSING_UNITTEST_OBJS) $(API_TEST_OBJS) $(COMMON_UNITTEST_OBJS) $(CODEC_UNITTEST_DEPS)

@@ -228,6 +228,8 @@ int32_t WelsRequestMem (PWelsDecoderContext pCtx, const int32_t kiMbWidth, const
     }
   }
 
+  pCtx->pPreviousDecodedPictureInDpb = NULL;
+
   // currently only active for LIST_0 due to have no B frames
   iErr = CreatePicBuff (pCtx, &pCtx->pPicBuff[LIST_0], iPicQueueSize, kiPicWidth, kiPicHeight);
   if (iErr != ERR_NONE)
@@ -292,6 +294,9 @@ void WelsOpenDecoder (PWelsDecoderContext pCtx) {
   pCtx->bReferenceLostAtT0Flag	= true;	// should be true to waiting IDR at incoming AU bits following, 6/4/2010
 #endif //LONG_TERM_REF
   pCtx->bNewSeqBegin = true;
+  pCtx->bDecErrorConedFlag = false; //default: decoder normal status
+  pCtx->bPrintFrameErrorTraceFlag = true;
+  pCtx->iIgnoredErrorInfoPacketCount = 0;
 }
 
 /*!
@@ -309,6 +314,8 @@ void WelsCloseDecoder (PWelsDecoderContext pCtx) {
 #else
   pCtx->bReferenceLostAtT0Flag = false;
 #endif
+  pCtx->bNewSeqBegin = false;
+  pCtx->bPrintFrameErrorTraceFlag = false;
 }
 
 /*!
@@ -334,7 +341,7 @@ int32_t DecoderConfigParam (PWelsDecoderContext pCtx, const SDecodingParam* kpPa
     pCtx->eVideoType = VIDEO_BITSTREAM_DEFAULT;
   }
 
-  WelsLog (pCtx, WELS_LOG_INFO, "eVideoType: %d\n", pCtx->eVideoType);
+  WelsLog (& (pCtx->sLogCtx), WELS_LOG_INFO, "eVideoType: %d\n", pCtx->eVideoType);
 
   return 0;
 }
@@ -598,14 +605,16 @@ int32_t SyncPictureResolutionExt (PWelsDecoderContext pCtx, const int32_t kiMbWi
 
   iErr = WelsRequestMem (pCtx, kiMbWidth, kiMbHeight);	// common memory used
   if (ERR_NONE != iErr) {
-    WelsLog (pCtx, WELS_LOG_WARNING, "SyncPictureResolutionExt()::WelsRequestMem--buffer allocated failure.\n");
+    WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING,
+             "SyncPictureResolutionExt()::WelsRequestMem--buffer allocated failure.\n");
     pCtx->iErrorCode = dsOutOfMemory;
     return iErr;
   }
 
   iErr = InitialDqLayersContext (pCtx, kiPicWidth, kiPicHeight);
   if (ERR_NONE != iErr) {
-    WelsLog (pCtx, WELS_LOG_WARNING, "SyncPictureResolutionExt()::InitialDqLayersContext--buffer allocated failure.\n");
+    WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING,
+             "SyncPictureResolutionExt()::InitialDqLayersContext--buffer allocated failure.\n");
     pCtx->iErrorCode = dsOutOfMemory;
   }
 
@@ -644,7 +653,6 @@ void AssignFuncPointerForRec (PWelsDecoderContext pCtx) {
   pCtx->pGetIChromaPredFunc[C_PRED_DC_T  ] = WelsIChromaPredDcTop_c;
   pCtx->pGetIChromaPredFunc[C_PRED_DC_128] = WelsIChromaPredDcNA_c;
 
-  InitDctClipTable();
   pCtx->pIdctResAddPredFunc	= IdctResAddPred_c;
 
 #if defined(HAVE_NEON)

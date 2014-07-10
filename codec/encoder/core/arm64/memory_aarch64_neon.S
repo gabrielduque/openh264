@@ -1,6 +1,6 @@
 /*!
  * \copy
- *     Copyright (c)  2008-2013, Cisco Systems
+ *     Copyright (c)  2013, Cisco Systems
  *     All rights reserved.
  *
  *     Redistribution and use in source and binary forms, with or without
@@ -28,50 +28,36 @@
  *     ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *     POSSIBILITY OF SUCH DAMAGE.
  *
- *  read_config.h
- *
- *  Abstract
- *      Class for reading parameter settings in a configure file.
- *
- *  History
- *      08/18/2008 Created
- *
- *****************************************************************************/
-#ifndef READ_CONFIG_H__
-#define READ_CONFIG_H__
+ */
 
-#include <stdlib.h>
-#include <string>
-#include "wels_const.h"
-using namespace std;
-
-typedef struct tagFilesSet {
-  string strBsFile;
-  string strSeqFile;	// for cmd lines
-  string strLayerCfgFile[MAX_DEPENDENCY_LAYER];
-  char	 sRecFileName[MAX_DEPENDENCY_LAYER][MAX_FNAME_LEN];
-} SFilesSet;
+#ifdef  HAVE_NEON_AARCH64
+.text
+#include "arm_arch64_common_macro.S"
 
 
-class CReadConfig {
- public:
-  CReadConfig();
-  CReadConfig (const char* pConfigFileName);
-  CReadConfig (const string& pConfigFileName);
-  virtual ~CReadConfig();
+WELS_ASM_AARCH64_FUNC_BEGIN WelsSetMemZero_AArch64_neon
+  eor v0.16b, v0.16b, v0.16b
+  cmp x1, #32
+  b.eq mem_zero_32_neon_start
+  b.lt mem_zero_24_neon_start
+mem_zero_loop:
+  subs x1, x1, #64
+  st1 {v0.16b}, [x0], #16
+  st1 {v0.16b}, [x0], #16
+  st1 {v0.16b}, [x0], #16
+  st1 {v0.16b}, [x0], #16
+  b.ne mem_zero_loop
+  b mem_zero_end
 
-  void Openf (const char* strFile);
-  long ReadLine (string* strVal, const int iValSize = 4);
-  const bool EndOfFile();
-  const int GetLines();
-  const bool ExistFile();
-  const string& GetFileName();
+mem_zero_32_neon_start:
+  st1 {v0.16b}, [x0], #16
+  st1 {v0.16b}, [x0], #16
+  b mem_zero_end
+mem_zero_24_neon_start:
+  st1 {v0.16b}, [x0], #16
+  st1 {v0.8b}, [x0], #8
+mem_zero_end:
 
- private:
-  FILE*			m_pCfgFile;
-  string			m_strCfgFileName;
-  unsigned long	m_iLines;
-};
+WELS_ASM_AARCH64_FUNC_END
 
-#endif	// READ_CONFIG_H__
-
+#endif

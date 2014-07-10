@@ -30,6 +30,7 @@
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -58,12 +59,11 @@
 				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				PrecompiledHeaderFile=".\..\..\..\obj\decoder\core\release/WelsDecCore.pch"
 				AssemblerListingLocation=".\..\..\..\obj\decoder\core\release/"
 				ObjectFile=".\..\..\..\obj\decoder\core\release/"
 				ProgramDataBaseFileName=".\..\..\..\obj\decoder\core\release/"
 				WarningLevel="3"
-				DebugInformationFormat="0"
+				DebugInformationFormat="3"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -106,6 +106,7 @@
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -135,12 +136,11 @@
 				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				PrecompiledHeaderFile=".\..\..\..\obj\decoder\core\release/WelsDecCore.pch"
 				AssemblerListingLocation=".\..\..\..\obj\decoder\core\release/"
 				ObjectFile=".\..\..\..\obj\decoder\core\release/"
 				ProgramDataBaseFileName=".\..\..\..\obj\decoder\core\release/"
 				WarningLevel="3"
-				DebugInformationFormat="0"
+				DebugInformationFormat="3"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -210,7 +210,6 @@
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				PrecompiledHeaderFile=".\..\..\..\obj\decoder\core\debug/WelsDecCore.pch"
 				AssemblerListingLocation=".\..\..\..\obj\decoder\core\debug/"
 				ObjectFile=".\..\..\..\obj\decoder\core\debug/"
 				ProgramDataBaseFileName=".\..\..\..\obj\decoder\core\debug/"
@@ -286,7 +285,6 @@
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				PrecompiledHeaderFile=".\..\..\..\obj\decoder\core\debug/WelsDecCore.pch"
 				AssemblerListingLocation=".\..\..\..\obj\decoder\core\debug/"
 				ObjectFile=".\..\..\..\obj\decoder\core\debug/"
 				ProgramDataBaseFileName=".\..\..\..\obj\decoder\core\debug/"
@@ -830,6 +828,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\..\..\common\inc\wels_common_defs.h"
+					>
+				</File>
+				<File
 					RelativePath="..\..\..\decoder\core\inc\wels_const.h"
 					>
 				</File>
@@ -844,6 +846,10 @@
 				</File>
 				<File
 					RelativePath="..\..\..\decoder\core\src\bit_stream.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\..\common\src\common_tables.cpp"
 					>
 				</File>
 				<File

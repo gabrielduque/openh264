@@ -36,7 +36,7 @@
 #include "cpu_core.h"
 namespace WelsSVCEnc {
 
-__align16 (const int16_t, g_kiQuantInterFF[58][8]) = {
+ALIGNED_DECLARE (const int16_t, g_kiQuantInterFF[58][8], 16) = {
   /* 0*/ {   0,   1,   0,   1,   1,   1,   1,   1 },
   /* 1*/ {   0,   1,   0,   1,   1,   1,   1,   1 },
   /* 2*/ {   1,   1,   1,   1,   1,   1,   1,   1 },
@@ -100,7 +100,7 @@ __align16 (const int16_t, g_kiQuantInterFF[58][8]) = {
 
 
 
-__align16 (const int16_t, g_kiQuantMF[52][8]) = {
+ALIGNED_DECLARE (const int16_t, g_kiQuantMF[52][8], 16) = {
   /* 0*/	{26214, 16132, 26214, 16132, 16132, 10486, 16132, 10486 },
   /* 1*/	{23832, 14980, 23832, 14980, 14980,  9320, 14980,  9320 },
   /* 2*/	{20164, 13108, 20164, 13108, 13108,  8388, 13108,  8388 },
@@ -455,7 +455,12 @@ int32_t WelsHadamardQuant2x2Skip_neon (int16_t* pRes, int16_t iFF,  int16_t iMF)
   return WelsHadamardQuant2x2SkipKernel_neon (pRes, iThreshold);
 }
 #endif
-
+#ifdef	HAVE_NEON_AARCH64
+int32_t WelsHadamardQuant2x2Skip_AArch64_neon (int16_t* pRes, int16_t iFF,  int16_t iMF) {
+  int16_t iThreshold = ((1 << 16) - 1) / iMF - iFF;
+  return WelsHadamardQuant2x2SkipKernel_AArch64_neon (pRes, iThreshold);
+}
+#endif
 void WelsInitEncodingFuncs (SWelsFuncPtrList* pFuncList, uint32_t  uiCpuFlag) {
   pFuncList->pfCopy8x8Aligned			= WelsCopy8x8_c;
   pFuncList->pfCopy16x16Aligned		=
@@ -540,6 +545,29 @@ void WelsInitEncodingFuncs (SWelsFuncPtrList* pFuncList, uint32_t  uiCpuFlag) {
     pFuncList->pfCopy16x16NotAligned	= WelsCopy16x16NotAligned_neon;
     pFuncList->pfCopy16x8NotAligned		= WelsCopy16x8NotAligned_neon;
     pFuncList->pfDctFourT4				= WelsDctFourT4_neon;
+  }
+#endif
+
+#if defined(HAVE_NEON_AARCH64)
+  if (uiCpuFlag & WELS_CPU_NEON) {
+    pFuncList->pfQuantizationHadamard2x2		= WelsHadamardQuant2x2_AArch64_neon;
+    pFuncList->pfQuantizationHadamard2x2Skip	= WelsHadamardQuant2x2Skip_AArch64_neon;
+    pFuncList->pfDctT4					= WelsDctT4_AArch64_neon;
+    pFuncList->pfCopy8x8Aligned			= WelsCopy8x8_AArch64_neon;
+    pFuncList->pfCopy8x16Aligned		= WelsCopy8x16_AArch64_neon;
+
+    pFuncList->pfGetNoneZeroCount		= WelsGetNoneZeroCount_AArch64_neon;
+    pFuncList->pfTransformHadamard4x4Dc	= WelsHadamardT4Dc_AArch64_neon;
+
+    pFuncList->pfQuantization4x4		= WelsQuant4x4_AArch64_neon;
+    pFuncList->pfQuantizationDc4x4		= WelsQuant4x4Dc_AArch64_neon;
+    pFuncList->pfQuantizationFour4x4	= WelsQuantFour4x4_AArch64_neon;
+    pFuncList->pfQuantizationFour4x4Max	= WelsQuantFour4x4Max_AArch64_neon;
+
+    pFuncList->pfCopy16x16Aligned		= WelsCopy16x16_AArch64_neon;
+    pFuncList->pfCopy16x16NotAligned	= WelsCopy16x16NotAligned_AArch64_neon;
+    pFuncList->pfCopy16x8NotAligned		= WelsCopy16x8NotAligned_AArch64_neon;
+    pFuncList->pfDctFourT4				= WelsDctFourT4_AArch64_neon;
   }
 #endif
 }

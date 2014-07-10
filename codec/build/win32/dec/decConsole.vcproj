@@ -42,23 +42,21 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
-				TypeLibraryName=".\..\..\..\..\bin\win32\Release/decConsole.tlb"
-				HeaderFileName=""
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories="..\..\..\console\dec\inc,..\..\..\api\svc,..\..\..\common\inc"
+				AdditionalIncludeDirectories="..\..\..\console\dec\inc,..\..\..\console\common\inc,..\..\..\api\svc,..\..\..\common\inc"
 				PreprocessorDefinitions="NDEBUG;_CONSOLE"
 				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				PrecompiledHeaderFile=".\..\..\..\obj\decConsole\Release/decConsole.pch"
 				AssemblerListingLocation=".\..\..\..\obj\decConsole\Release/"
 				ObjectFile=".\..\..\..\obj\decConsole\Release/"
 				ProgramDataBaseFileName=".\..\..\..\obj\decConsole\Release/"
 				WarningLevel="3"
+				DebugInformationFormat="3"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -76,7 +74,6 @@
 				AdditionalDependencies="$(OutDir)\welsdec.lib"
 				OutputFile="$(OutDir)\decConsole.exe"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="..\..\..\..\bin\win32"
 				ProgramDatabaseFile="$(OutDir)\decConsole.pdb"
 				GenerateMapFile="false"
 				SubSystem="1"
@@ -131,24 +128,21 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
-				TargetEnvironment="3"
-				TypeLibraryName=".\..\..\..\..\bin\win32\Release/decConsole.tlb"
-				HeaderFileName=""
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories="..\..\..\console\dec\inc,..\..\..\api\svc,..\..\..\common\inc"
+				AdditionalIncludeDirectories="..\..\..\console\dec\inc,..\..\..\console\common\inc,..\..\..\api\svc,..\..\..\common\inc"
 				PreprocessorDefinitions="NDEBUG;_CONSOLE"
 				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				PrecompiledHeaderFile=".\..\..\..\obj\decConsole\Release/decConsole.pch"
 				AssemblerListingLocation=".\..\..\..\obj\decConsole\Release/"
 				ObjectFile=".\..\..\..\obj\decConsole\Release/"
 				ProgramDataBaseFileName=".\..\..\..\obj\decConsole\Release/"
 				WarningLevel="3"
+				DebugInformationFormat="3"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -166,7 +160,6 @@
 				AdditionalDependencies="$(OutDir)\welsdec.lib"
 				OutputFile="$(OutDir)\decConsole.exe"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="..\..\..\..\bin\win64"
 				ProgramDatabaseFile="$(OutDir)\decConsole.pdb"
 				GenerateMapFile="false"
 				SubSystem="1"
@@ -221,18 +214,15 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
-				TypeLibraryName=".\..\..\..\..\bin\win32\Debug/decConsole.tlb"
-				HeaderFileName=""
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\..\console\dec\inc,..\..\..\api\svc,..\..\..\common\inc"
+				AdditionalIncludeDirectories="..\..\..\console\dec\inc,..\..\..\console\common\inc,..\..\..\api\svc,..\..\..\common\inc"
 				PreprocessorDefinitions="_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				PrecompiledHeaderFile=".\..\..\..\obj\decConsole\Debug/decConsole.pch"
 				AssemblerListingLocation=".\..\..\..\obj\decConsole\Debug/"
 				ObjectFile=".\..\..\..\obj\decConsole\Debug/"
 				ProgramDataBaseFileName=".\..\..\..\obj\decConsole\Debug/"
@@ -256,7 +246,6 @@
 				AdditionalDependencies="$(OutDir)\welsdec.lib"
 				OutputFile="$(OutDir)\decConsoled.exe"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="..\..\..\..\bin\win32"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)\decConsoled.pdb"
 				SubSystem="1"
@@ -311,19 +300,15 @@
 			/>
 			<Tool
 				Name="VCMIDLTool"
-				TargetEnvironment="3"
-				TypeLibraryName=".\..\..\..\..\bin\win32\Debug/decConsole.tlb"
-				HeaderFileName=""
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\..\console\dec\inc,..\..\..\api\svc,..\..\..\common\inc"
+				AdditionalIncludeDirectories="..\..\..\console\dec\inc,..\..\..\console\common\inc,..\..\..\api\svc,..\..\..\common\inc"
 				PreprocessorDefinitions="_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				PrecompiledHeaderFile=".\..\..\..\obj\decConsole\Debug/decConsole.pch"
 				AssemblerListingLocation=".\..\..\..\obj\decConsole\Debug/"
 				ObjectFile=".\..\..\..\obj\decConsole\Debug/"
 				ProgramDataBaseFileName=".\..\..\..\obj\decConsole\Debug/"
@@ -347,7 +332,6 @@
 				AdditionalDependencies="$(OutDir)\welsdec.lib"
 				OutputFile="$(OutDir)\decConsoled.exe"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="..\..\..\..\bin\win64"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)\decConsoled.pdb"
 				SubSystem="1"
@@ -395,7 +379,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\..\console\dec\src\read_config.cpp"
+				RelativePath="..\..\..\console\common\src\read_config.cpp"
 				>
 			</File>
 		</Filter>
@@ -408,7 +392,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\..\console\dec\inc\read_config.h"
+				RelativePath="..\..\..\console\common\inc\read_config.h"
 				>
 			</File>
 		</Filter>

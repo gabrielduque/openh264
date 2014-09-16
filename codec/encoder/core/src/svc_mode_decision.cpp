@@ -45,7 +45,7 @@
 #include "svc_base_layer_md.h"
 #include "svc_mode_decision.h"
 
-namespace WelsSVCEnc {
+namespace WelsEnc {
 
 //////////////
 // MD for enhancement layers
@@ -216,7 +216,7 @@ bool CheckChromaCost (sWelsEncCtx* pEncCtx, SWelsMD* pWelsMd, SMbCache* pMbCache
 
 //01/17/2013. USE the NEW BGD Pskip with COLOR CHECK for screen content and camera because of color artifact seen in test
 bool WelsMdInterJudgeBGDPskip (void* pCtx, void* pMd, SSlice* pSlice, SMB* pCurMb, SMbCache* pMbCache,
-                                     bool* bKeepSkip) {
+                               bool* bKeepSkip) {
   sWelsEncCtx* pEncCtx = (sWelsEncCtx*)pCtx;
   SWelsMD* pWelsMd = (SWelsMD*)pMd;
 
@@ -662,4 +662,4 @@ void SetScrollingMvToMd (void* pVaa, void* pMd) {
 void SetScrollingMvToMdNull (void* pVaa, void* pWelsMd) {
 }
 
-} // namespace WelsSVCEnc
+} // namespace WelsEnc

@@ -34,7 +34,7 @@
 #include "ls_defines.h"
 #include "encode_mb_aux.h"
 #include "cpu_core.h"
-namespace WelsSVCEnc {
+namespace WelsEnc {
 
 ALIGNED_DECLARE (const int16_t, g_kiQuantInterFF[58][8], 16) = {
   /* 0*/ {   0,   1,   0,   1,   1,   1,   1,   1 },
@@ -553,8 +553,8 @@ void WelsInitEncodingFuncs (SWelsFuncPtrList* pFuncList, uint32_t  uiCpuFlag) {
     pFuncList->pfQuantizationHadamard2x2		= WelsHadamardQuant2x2_AArch64_neon;
     pFuncList->pfQuantizationHadamard2x2Skip	= WelsHadamardQuant2x2Skip_AArch64_neon;
     pFuncList->pfDctT4					= WelsDctT4_AArch64_neon;
-    //pFuncList->pfCopy8x8Aligned			= WelsCopy8x8_AArch64_neon; // will enable in next update
-    //pFuncList->pfCopy8x16Aligned		= WelsCopy8x16_AArch64_neon; // will enable in next update
+    pFuncList->pfCopy8x8Aligned			= WelsCopy8x8_AArch64_neon;
+    pFuncList->pfCopy8x16Aligned		= WelsCopy8x16_AArch64_neon;
 
     pFuncList->pfGetNoneZeroCount		= WelsGetNoneZeroCount_AArch64_neon;
     pFuncList->pfTransformHadamard4x4Dc	= WelsHadamardT4Dc_AArch64_neon;
@@ -564,9 +564,9 @@ void WelsInitEncodingFuncs (SWelsFuncPtrList* pFuncList, uint32_t  uiCpuFlag) {
     pFuncList->pfQuantizationFour4x4	= WelsQuantFour4x4_AArch64_neon;
     pFuncList->pfQuantizationFour4x4Max	= WelsQuantFour4x4Max_AArch64_neon;
 
-    //pFuncList->pfCopy16x16Aligned		= WelsCopy16x16_AArch64_neon; // will enable in next update
-    //pFuncList->pfCopy16x16NotAligned	= WelsCopy16x16NotAligned_AArch64_neon; // will enable in next update
-    //pFuncList->pfCopy16x8NotAligned		= WelsCopy16x8NotAligned_AArch64_neon; // will enable in next update
+    pFuncList->pfCopy16x16Aligned		= WelsCopy16x16_AArch64_neon;
+    pFuncList->pfCopy16x16NotAligned	= WelsCopy16x16NotAligned_AArch64_neon;
+    pFuncList->pfCopy16x8NotAligned		= WelsCopy16x8NotAligned_AArch64_neon;
     pFuncList->pfDctFourT4				= WelsDctFourT4_AArch64_neon;
   }
 #endif

@@ -46,6 +46,7 @@
 #include "typedefs.h"
 #include "mem_align.h"
 #include "utils.h"
+#include "version.h"
 
 //#include "macros.h"
 #include "decoder.h"
@@ -64,7 +65,6 @@ extern "C" {
 #include <stdio.h>
 #include <stdarg.h>
 #include <sys/types.h>
-#include <sys/timeb.h>
 #else
 #include <sys/time.h>
 #endif
@@ -189,7 +189,7 @@ long CWelsDecoder::Initialize (const SDecodingParam* pParam) {
   }
 
   if (pParam == NULL) {
-    WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "CWelsDecoder::Initialize(), invalid input argument.");
+    WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_ERROR, "CWelsDecoder::Initialize(), invalid input argument.");
     return cmInitParaError;
   }
 
@@ -211,7 +211,8 @@ void CWelsDecoder::UninitDecoder (void) {
   if (NULL == m_pDecContext)
     return;
 
-  WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "into CWelsDecoder::uninit_decoder()..");
+  WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "CWelsDecoder::uninit_decoder(), openh264 codec version = %s.",
+           VERSION_NUMBER);
 
   WelsEndDecoder (m_pDecContext);
 
@@ -221,19 +222,18 @@ void CWelsDecoder::UninitDecoder (void) {
     m_pDecContext	= NULL;
   }
 
-  WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "left CWelsDecoder::uninit_decoder()..");
 }
 
 // the return value of this function is not suitable, it need report failure info to upper layer.
 void CWelsDecoder::InitDecoder (void) {
 
-  WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "CWelsDecoder::init_decoder()..");
+  WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "CWelsDecoder::init_decoder(), openh264 codec version = %s",
+           VERSION_NUMBER);
 
   m_pDecContext	= (PWelsDecoderContext)WelsMalloc (sizeof (SWelsDecoderContext), "m_pDecContext");
 
   WelsInitDecoder (m_pDecContext, &m_pWelsTrace->m_sLogCtx);
 
-  WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "CWelsDecoder::init_decoder().. left");
 }
 
 /*
@@ -263,12 +263,10 @@ long CWelsDecoder::SetOption (DECODER_OPTION eOptID, void* pOption) {
 
     return cmResultSuccess;
   } else if (eOptID == DECODER_OPTION_ERROR_CON_IDC) { // Indicate error concealment status
-    if (pOption == NULL) //Default: SLICE_COPY, enable
-      iVal = ERROR_CON_SLICE_COPY;
-    else
-      iVal = * ((int*)pOption); //EC method
-    m_pDecContext->iErrorConMethod = iVal;
-    return cmResultSuccess;
+    WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_WARNING,
+             "CWelsDecoder::SetOption for ERROR_CON_IDC not permmited! Current eErrorConMethod = %d. Value can be set in Initialize() only!",
+             (int32_t) m_pDecContext->eErrorConMethod);
+    return cmInitParaError;
   } else if (eOptID == DECODER_OPTION_TRACE_LEVEL) {
     if (m_pWelsTrace) {
       uint32_t level = * ((uint32_t*)pOption);
@@ -279,6 +277,8 @@ long CWelsDecoder::SetOption (DECODER_OPTION eOptID, void* pOption) {
     if (m_pWelsTrace) {
       WelsTraceCallback callback = * ((WelsTraceCallback*)pOption);
       m_pWelsTrace->SetTraceCallback (callback);
+      WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "CWelsDecoder::SetOption(), openh264 codec version = %s.",
+               VERSION_NUMBER);
     }
     return cmResultSuccess;
   } else if (eOptID == DECODER_OPTION_TRACE_CALLBACK_CONTEXT) {
@@ -305,7 +305,7 @@ long CWelsDecoder::GetOption (DECODER_OPTION eOptID, void* pOption) {
     return cmInitParaError;
 
   if (DECODER_OPTION_DATAFORMAT == eOptID) {
-    iVal = m_pDecContext->iOutputColorFormat;
+    iVal = (int32_t) m_pDecContext->eOutputColorFormat;
     * ((int*)pOption)	= iVal;
     return cmResultSuccess;
   } else if (DECODER_OPTION_END_OF_STREAM == eOptID) {
@@ -341,7 +341,7 @@ long CWelsDecoder::GetOption (DECODER_OPTION eOptID, void* pOption) {
     * ((int*)pOption) = iVal;
     return cmResultSuccess;
   } else if (DECODER_OPTION_ERROR_CON_IDC == eOptID) {
-    iVal = m_pDecContext->iErrorConMethod;
+    iVal = (int) m_pDecContext->eErrorConMethod;
     * ((int*)pOption) = iVal;
     return cmResultSuccess;
   }
@@ -401,7 +401,7 @@ DECODING_STATE CWelsDecoder::DecodeFrame2 (const unsigned char* kpSrc,
     //for AVC bitstream (excluding AVC with temporal scalability, including TP), as long as error occur, SHOULD notify upper layer key frame loss.
     if ((IS_PARAM_SETS_NALS (eNalType) || NAL_UNIT_CODED_SLICE_IDR == eNalType) ||
         (VIDEO_BITSTREAM_AVC == m_pDecContext->eVideoType)) {
-      if (m_pDecContext->iErrorConMethod == ERROR_CON_DISABLE) {
+      if (m_pDecContext->eErrorConMethod == ERROR_CON_DISABLE) {
 #ifdef LONG_TERM_REF
         m_pDecContext->bParamSetsLostFlag = true;
 #else
@@ -411,9 +411,23 @@ DECODING_STATE CWelsDecoder::DecodeFrame2 (const unsigned char* kpSrc,
       }
     }
 
-    WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "decode failed, failure type:%d \n",
-             m_pDecContext->iErrorCode);
+    if (m_pDecContext->bPrintFrameErrorTraceFlag) {
+      WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "decode failed, failure type:%d \n",
+               m_pDecContext->iErrorCode);
+      m_pDecContext->bPrintFrameErrorTraceFlag = false;
+    } else {
+      m_pDecContext->iIgnoredErrorInfoPacketCount ++;
+      if (m_pDecContext->iIgnoredErrorInfoPacketCount == INT_MAX) {
+        WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_WARNING, "continuous error reached INT_MAX! Restart as 0.");
+        m_pDecContext->iIgnoredErrorInfoPacketCount = 0;
+      }
+    }
     return (DECODING_STATE)m_pDecContext->iErrorCode;
+  } else { //decoding correct, but may have ECed status
+    if (m_pDecContext->bDecErrorConedFlag) {
+      m_pDecContext->iErrorCode |= dsDataErrorConcealed;
+      return dsDataErrorConcealed;
+    }
   }
 
   return dsErrorFree;
@@ -463,7 +477,24 @@ DECODING_STATE CWelsDecoder::DecodeFrameEx (const unsigned char* kpSrc,
 
 
 using namespace WelsDec;
+/*
+*       WelsGetDecoderCapability
+*       @return: DecCapability information
+*/
+int WelsGetDecoderCapability (SDecoderCapability* pDecCapability) {
+  memset (pDecCapability, 0, sizeof (SDecoderCapability));
+  pDecCapability->iProfileIdc = 66; //Baseline
+  pDecCapability->iProfileIop = 0xE0; //11100000b
+  pDecCapability->iLevelIdc = 32; //level_idc = 3.2
+  pDecCapability->iMaxMbps = 216000; //from level_idc = 3.2
+  pDecCapability->iMaxFs = 5120; //from level_idc = 3.2
+  pDecCapability->iMaxCpb = 20000; //from level_idc = 3.2
+  pDecCapability->iMaxDpb = 20480; //from level_idc = 3.2
+  pDecCapability->iMaxBr = 20000; //from level_idc = 3.2
+  pDecCapability->bRedPicCap = 0; //not support redundant pic
 
+  return ERR_NONE;
+}
 /* WINAPI is indeed in prefix due to sync to application layer callings!! */
 
 /*

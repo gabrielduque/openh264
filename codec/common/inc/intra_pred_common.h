@@ -1,6 +1,6 @@
 /*!
  * \copy
- *     Copyright (c)  2013, Cisco Systems
+ *     Copyright (c)  2009-2013, Cisco Systems
  *     All rights reserved.
  *
  *     Redistribution and use in source and binary forms, with or without
@@ -28,71 +28,49 @@
  *     ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *     POSSIBILITY OF SUCH DAMAGE.
  *
+ *
+ * \file	intra_pred_common.h
+ *
+ * \brief	interfaces for intra predictor about 16x16.
+ *
+ * \date	4/2/2014 Created
+ *
+ *************************************************************************************
  */
 
-#ifdef _WIN32
-#include <windows.h>
-#include <tchar.h>
-#endif
+#ifndef INTRA_PRED_COMMON_H
+#define INTRA_PRED_COMMON_H
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-
-#include "crt_util_safe_x.h"	// Safe CRT routines like utils for cross platforms
-
-#include "welsCodecTrace.h"
-#include "utils.h"
+#include "typedefs.h"
 
 
+void WelsI16x16LumaPredV_c (uint8_t* pPred, uint8_t* pRef, const int32_t kiStride);
+void WelsI16x16LumaPredH_c (uint8_t* pPred, uint8_t* pRef, const int32_t kiStride);
 
-static void welsStderrTrace (void* ctx, int level, const char* string) {
-  fprintf (stderr, "%s\n", string);
+
+#if defined(__cplusplus)
+extern "C" {
+#endif//__cplusplus
+
+#if defined(X86_ASM)
+//for intra-prediction ASM functions
+void WelsI16x16LumaPredV_sse2 (uint8_t* pPred, uint8_t* pRef, const int32_t kiStride);
+void WelsI16x16LumaPredH_sse2 (uint8_t* pPred, uint8_t* pRef, const int32_t kiStride);
+#endif//X86_ASM
+
+#if defined(HAVE_NEON)
+void WelsI16x16LumaPredV_neon (uint8_t* pPred, uint8_t* pRef, const int32_t kiStride);
+void WelsI16x16LumaPredH_neon (uint8_t* pPred, uint8_t* pRef, const int32_t kiStride);
+#endif//HAVE_NEON
+
+#if defined(HAVE_NEON_AARCH64)
+void WelsI16x16LumaPredV_AArch64_neon (uint8_t* pPred, uint8_t* pRef, const int32_t kiStride);
+void WelsI16x16LumaPredH_AArch64_neon (uint8_t* pPred, uint8_t* pRef, const int32_t kiStride);
+#endif//HAVE_NEON_AARCH64
+#if defined(__cplusplus)
 }
-
-welsCodecTrace::welsCodecTrace() {
-
-  m_iTraceLevel = WELS_LOG_DEFAULT;
-  m_fpTrace = welsStderrTrace;
-  m_pTraceCtx = NULL;
-
-  m_sLogCtx.pLogCtx = this;
-  m_sLogCtx.pfLog = StaticCodecTrace;
-}
-
-welsCodecTrace::~welsCodecTrace() {
-  m_fpTrace = NULL;
-}
+#endif//__cplusplus
+#endif//
 
 
-
-void welsCodecTrace::StaticCodecTrace (void* pCtx, const int32_t iLevel, const char* Str_Format, va_list vl) {
-  welsCodecTrace* self = (welsCodecTrace*) pCtx;
-  self->CodecTrace (iLevel, Str_Format, vl);
-}
-
-void welsCodecTrace::CodecTrace (const int32_t iLevel, const char* Str_Format, va_list vl) {
-  if (m_iTraceLevel < iLevel) {
-    return;
-  }
-
-  char pBuf[MAX_LOG_SIZE] = {0};
-  WelsVsnprintf (pBuf, MAX_LOG_SIZE, Str_Format, vl);	// confirmed_safe_unsafe_usage
-  if (m_fpTrace) {
-    m_fpTrace (m_pTraceCtx, iLevel, pBuf);
-  }
-}
-
-void welsCodecTrace::SetTraceLevel (const int32_t iLevel) {
-  if (iLevel >= 0)
-    m_iTraceLevel	= iLevel;
-}
-
-void welsCodecTrace::SetTraceCallback (WelsTraceCallback func) {
-  m_fpTrace = func;
-}
-
-void welsCodecTrace::SetTraceCallbackContext (void* ctx) {
-  m_pTraceCtx = ctx;
-}
 

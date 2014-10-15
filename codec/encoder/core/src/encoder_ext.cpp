@@ -75,7 +75,6 @@ int32_t WelsCodeOnePicPartition (sWelsEncCtx* pCtx,
  * \return	successful - 0; otherwise none 0 for failed
  */
 int32_t ParamValidation (SLogContext* pLogCtx, SWelsSvcCodingParam* pCfg) {
-  float fMaxFrameRate = 0.0f;
   const float fEpsn = 0.000001f;
   int32_t i = 0;
 
@@ -128,24 +127,12 @@ int32_t ParamValidation (SLogContext* pLogCtx, SWelsSvcCodingParam* pCfg) {
       return ENC_RETURN_INVALIDINPUT;
     }
     if (UINT_MAX == GetLogFactor (fDlp->fOutputFrameRate, fDlp->fInputFrameRate)) {
-      WelsLog (pLogCtx, WELS_LOG_ERROR,
-               "Invalid settings in input frame rate(%.6f) and output frame rate(%.6f) of layer #%d config file: iResult of output frame rate divided by input frame rate should be power of 2(i.e,in/pOut=2^n)..",
-               fDlp->fInputFrameRate, fDlp->fOutputFrameRate, i);
-      return ENC_RETURN_INVALIDINPUT;
+      WelsLog (pLogCtx, WELS_LOG_WARNING,
+               "AUTO CORRECT: Invalid settings in input frame rate(%.6f) and output frame rate(%.6f) of layer #%d config file: iResult of output frame rate divided by input frame rate should be power of 2(i.e,in/pOut=2^n). \n Auto correcting Output Framerate to Input Framerate %f!\n",
+               fDlp->fInputFrameRate, fDlp->fOutputFrameRate, i, fDlp->fInputFrameRate);
+      fDlp->fOutputFrameRate = fDlp->fInputFrameRate;
     }
   }
-
-  for (i = 0; i < pCfg->iSpatialLayerNum; ++ i) {
-    SSpatialLayerInternal* fDlp = &pCfg->sDependencyLayers[i];
-    if (fDlp->fInputFrameRate > fMaxFrameRate)
-      fMaxFrameRate	= fDlp->fInputFrameRate;
-  }
-
-  if (fMaxFrameRate > fEpsn && (fMaxFrameRate - pCfg->fMaxFrameRate > fEpsn
-                                || fMaxFrameRate - pCfg->fMaxFrameRate < -fEpsn)) {
-    pCfg->fMaxFrameRate	= fMaxFrameRate;
-  }
-
 
   if ((pCfg->iRCMode != RC_OFF_MODE) && (pCfg->iRCMode != RC_QUALITY_MODE) && (pCfg->iRCMode != RC_BUFFERBASED_MODE)
       && (pCfg->iRCMode != RC_BITRATE_MODE)) {
@@ -166,6 +153,12 @@ int32_t ParamValidation (SLogContext* pLogCtx, SWelsSvcCodingParam* pCfg) {
         WelsLog (pLogCtx, WELS_LOG_ERROR, "Invalid bitrate settings in layer %d, bitrate= %d", i,
                  pSpatialLayer->iSpatialBitrate);
         return ENC_RETURN_INVALIDINPUT;
+      }
+      if (pSpatialLayer->iMaxSpatialBitrate < pSpatialLayer->iSpatialBitrate * 1.1f) {
+        WelsLog (pLogCtx, WELS_LOG_WARNING,
+          "MaxSpatialBitrate (%d) should set be larger than 1.1 times of SpatialBitrate (%d)",
+          pSpatialLayer->iMaxSpatialBitrate, pSpatialLayer->iSpatialBitrate);
+ //       pSpatialLayer->iSpatialBitrate = (int32_t) (pSpatialLayer->iMaxSpatialBitrate/1.1f);
       }
     }
     if (iTotalBitrate > pCfg->iTargetBitrate) {
@@ -195,6 +188,12 @@ int32_t ParamValidationExt (SLogContext* pLogCtx, SWelsSvcCodingParam* pCodingPa
   if ((pCodingParam->iUsageType != CAMERA_VIDEO_REAL_TIME) && (pCodingParam->iUsageType != SCREEN_CONTENT_REAL_TIME)) {
     WelsLog (pLogCtx, WELS_LOG_ERROR, "ParamValidationExt(),Invalid usage type = %d", pCodingParam->iUsageType);
     return ENC_RETURN_UNSUPPORTED_PARA;
+  }
+  if ((pCodingParam->iUsageType == SCREEN_CONTENT_REAL_TIME) && (!pCodingParam->bIsLosslessLink
+      && pCodingParam->bEnableLongTermReference)) {
+    WelsLog (pLogCtx, WELS_LOG_WARNING,
+             "ParamValidationExt(), setting lossy link for LTR under screen, which is not supported yet! Auto disabled LTR!");
+    pCodingParam->bEnableLongTermReference = false;
   }
   if (pCodingParam->iSpatialLayerNum < 1 || pCodingParam->iSpatialLayerNum > MAX_DEPENDENCY_LAYER) {
     WelsLog (pLogCtx, WELS_LOG_ERROR, "ParamValidationExt(), monitor invalid pCodingParam->iSpatialLayerNum: %d!",
@@ -1254,7 +1253,7 @@ int32_t RequestMemoryVaaScreen (SVAAFrameInfo* pVaa,  CMemoryAlign* pMa,  const 
 void ReleaseMemoryVaaScreen (SVAAFrameInfo* pVaa,  CMemoryAlign* pMa, const int32_t iNumRef) {
   SVAAFrameInfoExt* pVaaExt = static_cast<SVAAFrameInfoExt*> (pVaa);
   if (pVaaExt && pMa && pVaaExt->pVaaBlockStaticIdc[0]) {
-    pMa->WelsFree (pVaaExt->pVaaBlockStaticIdc[0], "pVaa->pVaaBlockStaticIdc");
+    pMa->WelsFree (pVaaExt->pVaaBlockStaticIdc[0], "pVaa->pVaaBlockStaticIdc[0]");
 
     for (int32_t idx = 0; idx < iNumRef; idx++) {
       pVaaExt->pVaaBlockStaticIdc[idx] = NULL;
@@ -1358,7 +1357,7 @@ int32_t RequestMemorySvc (sWelsEncCtx** ppCtx) {
   iTargetSpatialBsSize = iLayerBsSize;
   iCountBsLen = iNonVclLayersBsSizeCount + iVclLayersBsSizeCount;
 
-  pParam->iNumRefFrame	= WELS_CLIP3 (pParam->iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REFERENCE_PICTURE_COUNT_NUM);
+  pParam->iNumRefFrame	= WELS_CLIP3 (pParam->iNumRefFrame, MIN_REF_PIC_COUNT, (pParam->iUsageType==CAMERA_VIDEO_REAL_TIME?MAX_REFERENCE_PICTURE_COUNT_NUM_CAMERA:MAX_REFERENCE_PICTURE_COUNT_NUM_SCREEN));
 
   // Output
   (*ppCtx)->pOut = (SWelsEncoderOutput*)pMa->WelsMalloc (sizeof (SWelsEncoderOutput), "SWelsEncoderOutput");
@@ -1470,7 +1469,7 @@ int32_t RequestMemorySvc (sWelsEncCtx** ppCtx) {
   }
 
   (*ppCtx)->pVaa->pVaaBackgroundMbFlag = (int8_t*)pMa->WelsMallocz (iCountMaxMbNum * sizeof (int8_t),
-                                         "pVaa->vaa_skip_mb_flag");
+                                         "pVaa->pVaaBackgroundMbFlag");
   WELS_VERIFY_RETURN_PROC_IF (1, (NULL == (*ppCtx)->pVaa->pVaaBackgroundMbFlag), FreeMemorySvc (ppCtx))
 
   (*ppCtx)->pVaa->sVaaCalcInfo.pSad8x8 = static_cast<int32_t (*)[4]>
@@ -1488,10 +1487,10 @@ int32_t RequestMemorySvc (sWelsEncCtx** ppCtx) {
 
   if ((*ppCtx)->pSvcParam->bEnableBackgroundDetection) { //BGD control
     (*ppCtx)->pVaa->sVaaCalcInfo.pSumOfDiff8x8 = static_cast<int32_t (*)[4]>
-        (pMa->WelsMallocz (iCountMaxMbNum * 4 * sizeof (int32_t), "pVaa->sVaaCalcInfo.sd_16x16"));
+        (pMa->WelsMallocz (iCountMaxMbNum * 4 * sizeof (int32_t), "pVaa->sVaaCalcInfo.pSumOfDiff8x8"));
     WELS_VERIFY_RETURN_PROC_IF (1, (NULL == (*ppCtx)->pVaa->sVaaCalcInfo.pSumOfDiff8x8), FreeMemorySvc (ppCtx))
     (*ppCtx)->pVaa->sVaaCalcInfo.pMad8x8 = static_cast<uint8_t (*)[4]>
-                                           (pMa->WelsMallocz (iCountMaxMbNum * 4 * sizeof (uint8_t), "pVaa->sVaaCalcInfo.mad_16x16"));
+                                           (pMa->WelsMallocz (iCountMaxMbNum * 4 * sizeof (uint8_t), "pVaa->sVaaCalcInfo.pMad8x8"));
     WELS_VERIFY_RETURN_PROC_IF (1, (NULL == (*ppCtx)->pVaa->sVaaCalcInfo.pMad8x8), FreeMemorySvc (ppCtx))
   }
 
@@ -2014,6 +2013,11 @@ int32_t WelsInitEncoderExt (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pCodingPar
     WelsLog (pLogCtx, WELS_LOG_ERROR, "WelsInitEncoderExt(), ParamValidationExt failed return %d.", iRet);
     return iRet;
   }
+  iRet	=	pCodingParam->DetermineTemporalSettings();
+  if (iRet != ENC_RETURN_SUCCESS) {
+    WelsLog (pLogCtx, WELS_LOG_ERROR, "WelsInitEncoderExt(), DetermineTemporalSettings failed return %d (check in/out frame rate and temporal layer setting!)", iRet);
+    return iRet;
+  }
   iRet = GetMultipleThreadIdc (pLogCtx, pCodingParam, iSliceNum, iCacheLineSize, uiCpuFeatureFlags);
   if (iRet != 0) {
     WelsLog (pLogCtx, WELS_LOG_ERROR, "WelsInitEncoderExt(), GetMultipleThreadIdc failed return %d.", iRet);
@@ -2033,7 +2037,6 @@ int32_t WelsInitEncoderExt (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pCodingPar
   pCtx->pMemAlign = new CMemoryAlign (iCacheLineSize);
   WELS_VERIFY_RETURN_PROC_IF (1, (NULL == pCtx->pMemAlign), FreeMemorySvc (&pCtx))
 
-  pCodingParam->DetermineTemporalSettings();
   iRet = AllocCodingParam (&pCtx->pSvcParam, pCtx->pMemAlign);
   if (iRet != 0) {
     FreeMemorySvc (&pCtx);
@@ -2593,7 +2596,8 @@ void PreprocessSliceCoding (sWelsEncCtx* pCtx) {
         pFeatureSearchPreparation->pRefBlockFeature = pScreenBlockFeatureStorage;
         if (pFeatureSearchPreparation->bFMESwitchFlag
             && !pScreenBlockFeatureStorage->bRefBlockFeatureCalculated) {
-          PerformFMEPreprocess (pFuncList, pCurLayer->pRefOri[0], pFeatureSearchPreparation->pFeatureOfBlock,
+          SPicture* pRef = (pCtx->pSvcParam->bEnableLongTermReference ? pCurLayer->pRefOri[0] : pCurLayer->pRefPic);
+          PerformFMEPreprocess (pFuncList, pRef, pFeatureSearchPreparation->pFeatureOfBlock,
                                 pScreenBlockFeatureStorage);
         }
 
@@ -2950,7 +2954,8 @@ int32_t GetSubSequenceId (sWelsEncCtx* pCtx, EVideoFrameType eFrameType) {
 }
 
 //loop each layer to check if have skip frame when RC and frame skip enable (maxbr>0)
-bool CheckFrameSkipBasedMaxbr (sWelsEncCtx* pCtx, int32_t iSpatialNum) {
+bool CheckFrameSkipBasedMaxbr (sWelsEncCtx* pCtx, int32_t iSpatialNum, EVideoFrameType eFrameType,
+                               const uint32_t uiTimeStamp) {
   SSpatialPicIndex* pSpatialIndexMap = &pCtx->sSpatialIndexMap[0];
   bool bSkipMustFlag = false;
   if (pCtx->pSvcParam->bEnableFrameSkip) {
@@ -2960,7 +2965,7 @@ bool CheckFrameSkipBasedMaxbr (sWelsEncCtx* pCtx, int32_t iSpatialNum) {
           break;
         }
         pCtx->uiDependencyId = (uint8_t) (pSpatialIndexMap + i)->iDid;
-        pCtx->pFuncList->pfRc.pfWelsRcPicDelayJudge (pCtx);
+        pCtx->pFuncList->pfRc.pfWelsRcPicDelayJudge (pCtx, eFrameType, uiTimeStamp);
         if (true == pCtx->pWelsSvcRc[pCtx->uiDependencyId].bSkipFlag) {
           bSkipMustFlag = true;
           break;
@@ -3024,18 +3029,21 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   if (iSpatialNum < 1) {	// skip due to temporal layer settings (different frame rate)
     ++ pCtx->iCodingIndex;
     pFbi->eFrameType = videoFrameTypeSkip;
+    WelsLog (& (pCtx->sLogCtx), WELS_LOG_DEBUG,"[Rc] Frame timestamp = %8"PRId64", skip one frame", (int64_t)pSrcPic->uiTimeStamp);
     return ENC_RETURN_SUCCESS;
   }
 
   eFrameType = DecideFrameType (pCtx, iSpatialNum);
   if (eFrameType == videoFrameTypeSkip) {
     pFbi->eFrameType = eFrameType;
+    WelsLog (& (pCtx->sLogCtx), WELS_LOG_DEBUG,"[Rc] Frame timestamp = %8"PRId64", skip one frame", (int64_t)pSrcPic->uiTimeStamp);
     return ENC_RETURN_SUCCESS;
   }
 
   //loop each layer to check if have skip frame when RC and frame skip enable
-  if (CheckFrameSkipBasedMaxbr (pCtx, iSpatialNum)) {
+  if (CheckFrameSkipBasedMaxbr (pCtx, iSpatialNum, eFrameType, (uint32_t)pSrcPic->uiTimeStamp)) {
     pFbi->eFrameType = videoFrameTypeSkip;
+    WelsLog (& (pCtx->sLogCtx), WELS_LOG_DEBUG,"[Rc] Frame timestamp = %8"PRId64", skip one frame", (int64_t)pSrcPic->uiTimeStamp);
     return ENC_RETURN_SUCCESS;
   }
 
@@ -3162,6 +3170,9 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
       pFbi->eFrameType = videoFrameTypeIDR;
       pCtx->iEncoderError = ENC_RETURN_CORRECTED;
       return ENC_RETURN_CORRECTED;
+    }
+    if (pCtx->eSliceType != I_SLICE) {
+      pCtx->pFuncList->pAfterBuildRefList (pCtx);
     }
 #ifdef LONG_TERM_REF_DUMP
     DumpRef (pCtx);
@@ -3416,6 +3427,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
     }
 
     pCtx->pFuncList->pfRc.pfWelsRcPictureInfoUpdate (pCtx, iLayerSize);
+    RcTraceFrameBits (pCtx,pSrcPic->uiTimeStamp);
     pCtx->pDecPic->iFrameAverageQp = pCtx->pWelsSvcRc->iAverageFrameQp;
 
     //update scc related
@@ -3741,7 +3753,7 @@ int32_t WelsEncoderParamAdjust (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pNewPa
   } else {
     /* maybe adjustment introduced in bitrate or little settings adjustment and so on.. */
     pNewParam->iNumRefFrame								= WELS_CLIP3 (pNewParam->iNumRefFrame, MIN_REF_PIC_COUNT,
-                                            MAX_REFERENCE_PICTURE_COUNT_NUM);
+      (pNewParam->iUsageType==CAMERA_VIDEO_REAL_TIME?MAX_REFERENCE_PICTURE_COUNT_NUM_CAMERA:MAX_REFERENCE_PICTURE_COUNT_NUM_SCREEN));
     pNewParam->iLoopFilterDisableIdc					= WELS_CLIP3 (pNewParam->iLoopFilterDisableIdc, 0, 6);
     pNewParam->iLoopFilterAlphaC0Offset				= WELS_CLIP3 (pNewParam->iLoopFilterAlphaC0Offset, -6, 6);
     pNewParam->iLoopFilterBetaOffset					= WELS_CLIP3 (pNewParam->iLoopFilterBetaOffset, -6, 6);
@@ -3846,7 +3858,7 @@ void WelsEncoderApplyLTR (SLogContext* pLogCtx, sWelsEncCtx** ppCtx, SLTRConfig*
     }
     iNumRefFrame		= ((uiGopSize >> 1) > 1) ? ((uiGopSize >> 1) + sConfig.iLTRRefNum) : (MIN_REF_PIC_COUNT +
                       sConfig.iLTRRefNum);
-    iNumRefFrame		= WELS_CLIP3 (iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REFERENCE_PICTURE_COUNT_NUM);
+    iNumRefFrame		= WELS_CLIP3 (iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REFERENCE_PICTURE_COUNT_NUM_CAMERA);
 
   }
   if (sConfig.iNumRefFrame < iNumRefFrame)

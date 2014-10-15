@@ -294,6 +294,8 @@ int ParseConfig (CReadConfig& cRdCfg, SSourcePicture* pSrcPic, SEncParamExt& pSv
         pSvcParam.iLTRRefNum = atoi (strTag[1].c_str());
       } else if (strTag[0].compare ("LtrMarkPeriod") == 0) {
         pSvcParam.iLtrMarkPeriod	= (uint32_t)atoi (strTag[1].c_str());
+      } else if (strTag[0].compare ("LosslessLink") == 0) {
+        pSvcParam.bIsLosslessLink	= atoi (strTag[1].c_str()) ? true : false;
       } else if (strTag[0].compare ("NumLayers") == 0) {
         pSvcParam.iSpatialLayerNum	= (int8_t)atoi (strTag[1].c_str());
         if (pSvcParam.iSpatialLayerNum > MAX_DEPENDENCY_LAYER || pSvcParam.iSpatialLayerNum <= 0) {
@@ -805,10 +807,10 @@ int ProcessEncoding (ISVCEncoder* pPtrEnc, int argc, char** argv, bool bConfigFi
       break;
     // To encoder this frame
     iStart	= WelsTime();
+    pSrcPic->uiTimeStamp = WELS_ROUND (iFrameIdx * (1000 / sSvcParam.fMaxFrameRate));
     int iEncFrames = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
     iTotal += WelsTime() - iStart;
-
-    // fixed issue in case dismatch source picture introduced by frame skipped, 1/12/2010
+    ++ iFrameIdx;
     if (videoFrameTypeSkip == sFbi.eFrameType) {
       continue;
     }
@@ -859,7 +861,6 @@ int ProcessEncoding (ISVCEncoder* pPtrEnc, int argc, char** argv, bool bConfigFi
       fprintf (stderr, "EncodeFrame(), ret: %d, frame index: %d.\n", iEncFrames, iFrameIdx);
     }
 
-    ++ iFrameIdx;
   }
 
   if (iActualFrameEncodedCount > 0) {

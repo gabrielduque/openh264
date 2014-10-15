@@ -325,7 +325,7 @@ int CWelsH264SVCEncoder::InitializeInternal (SWelsSvcCodingParam* pCfg) {
     if (pCfg->iNumRefFrame == AUTO_REF_PIC_COUNT) {
       pCfg->iNumRefFrame		= ((pCfg->uiGopSize >> 1) > 1) ? ((pCfg->uiGopSize >> 1) + pCfg->iLTRRefNum) :
                               (MIN_REF_PIC_COUNT + pCfg->iLTRRefNum);
-      pCfg->iNumRefFrame		= WELS_CLIP3 (pCfg->iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REFERENCE_PICTURE_COUNT_NUM);
+      pCfg->iNumRefFrame		= WELS_CLIP3 (pCfg->iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REFERENCE_PICTURE_COUNT_NUM_CAMERA);
     }
   }
   if (pCfg->iNumRefFrame > pCfg->iMaxNumRefFrame)
@@ -346,6 +346,10 @@ int CWelsH264SVCEncoder::InitializeInternal (SWelsSvcCodingParam* pCfg) {
   TraceParamInfo (pCfg);
   if (WelsInitEncoderExt (&m_pEncContext, pCfg, &m_pWelsTrace->m_sLogCtx)) {
     WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_ERROR, "CWelsH264SVCEncoder::Initialize(), WelsInitEncoderExt failed.");
+    WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_DEBUG,
+             "Problematic Input Base Param: iUsageType=%d, Resolution=%dx%d, FR=%f, TLayerNum=%d, DLayerNum=%d",
+             pCfg->iUsageType, pCfg->iPicWidth, pCfg->iPicHeight, pCfg->fMaxFrameRate, pCfg->iTemporalLayerNum,
+             pCfg->iSpatialLayerNum);
     Uninitialize();
     return cmInitParaError;
   }
@@ -519,8 +523,10 @@ void CWelsH264SVCEncoder::CheckLevelSetting (int32_t iLayer, ELevelIdc uiLevelId
   }
 }
 void CWelsH264SVCEncoder::CheckReferenceNumSetting (int32_t iNumRef) {
+  int32_t iRefUpperBound = (m_pEncContext->pSvcParam->iUsageType == CAMERA_VIDEO_REAL_TIME) ?
+                           MAX_REFERENCE_PICTURE_COUNT_NUM_CAMERA : MAX_REFERENCE_PICTURE_COUNT_NUM_SCREEN;
   m_pEncContext->pSvcParam->iNumRefFrame = iNumRef;
-  if ((iNumRef < MIN_REF_PIC_COUNT) || (iNumRef > MAX_REFERENCE_PICTURE_COUNT_NUM)) {
+  if ((iNumRef < MIN_REF_PIC_COUNT) || (iNumRef > iRefUpperBound)) {
     m_pEncContext->pSvcParam->iNumRefFrame = AUTO_REF_PIC_COUNT;
     WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_WARNING,
              "doesn't support the number of reference frame(%d) change to auto select mode", iNumRef);
@@ -662,6 +668,11 @@ int CWelsH264SVCEncoder::SetOption (ENCODER_OPTION eOptionId, void* pOption) {
     if (sConfig.iSpatialLayerNum < 1) {
       return cmInitParaError;
     }
+    if (sConfig.DetermineTemporalSettings()) {
+      return cmInitParaError;
+    }
+
+    /* New configuration available here */
     iTargetWidth	= sConfig.iPicWidth;
     iTargetHeight	= sConfig.iPicHeight;
     if (m_iMaxPicWidth != iTargetWidth
@@ -674,9 +685,6 @@ int CWelsH264SVCEncoder::SetOption (ENCODER_OPTION eOptionId, void* pOption) {
              "CWelsH264SVCEncoder::SetOption():ENCODER_OPTION_SVC_ENCODE_PARAM_EXT, m_uiCountFrameNum= %d, m_iCspInternal= 0x%x",
              m_uiCountFrameNum, m_iCspInternal);
 #endif//REC_FRAME_COUNT
-
-    /* New configuration available here */
-    sConfig.DetermineTemporalSettings();
 
     /* Check every field whether there is new request for memory block changed or else, Oct. 24, 2008 */
     WelsEncoderParamAdjust (&m_pEncContext, &sConfig);
@@ -905,13 +913,13 @@ int CWelsH264SVCEncoder::SetOption (ENCODER_OPTION eOptionId, void* pOption) {
   }
   break;
   case ENCODER_OPTION_COMPLEXITY: {
-    int32_t iValue = * (static_cast<int32_t*>(pOption));
+    int32_t iValue = * (static_cast<int32_t*> (pOption));
     m_pEncContext->pSvcParam->iComplexityMode = (ECOMPLEXITY_MODE)iValue;
   }
   break;
   case ENCODER_OPTION_IS_LOSSLESS_LINK: {
-    bool bValue = * (static_cast<bool*>(pOption));
-    m_pEncContext->pSvcParam->bIsLossLessLink = bValue;
+    bool bValue = * (static_cast<bool*> (pOption));
+    m_pEncContext->pSvcParam->bIsLosslessLink = bValue;
   }
   break;
   default:

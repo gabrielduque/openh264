@@ -218,7 +218,9 @@ int32_t InitFunctionPointers (SWelsFuncPtrList* pFuncList, SWelsSvcCodingParam* 
   WelsBlockFuncInit (&pFuncList->pfSetNZCZero, uiCpuFlag);
 
   InitFillNeighborCacheInterFunc (pFuncList, pParam->bEnableBackgroundDetection);
-  InitRefListMgrFunc (pFuncList, pParam->iUsageType);
+
+  InitRefListMgrFunc (pFuncList, pParam->bEnableLongTermReference, bScreenContent);
+
   return iReturn;
 }
 

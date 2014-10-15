@@ -30,69 +30,54 @@
  *
  */
 
-#ifdef _WIN32
-#include <windows.h>
-#include <tchar.h>
+
+#ifdef  HAVE_NEON
+.text
+#include "arm_arch_common_macro.S"
+
+WELS_ASM_FUNC_BEGIN WelsI16x16LumaPredV_neon
+    //Get the top line data to 'q0'
+    sub  r3, r1, r2
+    vldm r3, {d0, d1}
+
+    //mov  r2, #16
+    mov  r3, #4
+    //Set the top line to the each line of MB(16*16)
+loop_0_get_i16x16_luma_pred_v:
+    vst1.8 {d0,d1}, [r0]!
+    vst1.8 {d0,d1}, [r0]!
+    vst1.8 {d0,d1}, [r0]!
+    vst1.8 {d0,d1}, [r0]!
+    subs  r3, #1
+    bne  loop_0_get_i16x16_luma_pred_v
+WELS_ASM_FUNC_END
+
+
+WELS_ASM_FUNC_BEGIN WelsI16x16LumaPredH_neon
+    //stmdb sp!, {r4, lr}
+    sub  r1, r1, #1
+    mov  r3, #4
+loop_0_get_i16x16_luma_pred_h:
+    //Get one byte data from left side
+    vld1.8 {d0[],d1[]}, [r1], r2
+    vld1.8 {d2[],d3[]}, [r1], r2
+    vld1.8 {d4[],d5[]}, [r1], r2
+    vld1.8 {d6[],d7[]}, [r1], r2
+
+    //Set the line of MB using the left side byte data
+    vst1.8 {d0,d1}, [r0]!
+    //add r0, #16
+    vst1.8 {d2,d3}, [r0]!
+    //add r0, #16
+    vst1.8 {d4,d5}, [r0]!
+    //add r0, #16
+    vst1.8 {d6,d7}, [r0]!
+    //add r0, #16
+
+    subs  r3, #1
+    bne  loop_0_get_i16x16_luma_pred_h
+
+WELS_ASM_FUNC_END
+
+
 #endif
-
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-
-#include "crt_util_safe_x.h"	// Safe CRT routines like utils for cross platforms
-
-#include "welsCodecTrace.h"
-#include "utils.h"
-
-
-
-static void welsStderrTrace (void* ctx, int level, const char* string) {
-  fprintf (stderr, "%s\n", string);
-}
-
-welsCodecTrace::welsCodecTrace() {
-
-  m_iTraceLevel = WELS_LOG_DEFAULT;
-  m_fpTrace = welsStderrTrace;
-  m_pTraceCtx = NULL;
-
-  m_sLogCtx.pLogCtx = this;
-  m_sLogCtx.pfLog = StaticCodecTrace;
-}
-
-welsCodecTrace::~welsCodecTrace() {
-  m_fpTrace = NULL;
-}
-
-
-
-void welsCodecTrace::StaticCodecTrace (void* pCtx, const int32_t iLevel, const char* Str_Format, va_list vl) {
-  welsCodecTrace* self = (welsCodecTrace*) pCtx;
-  self->CodecTrace (iLevel, Str_Format, vl);
-}
-
-void welsCodecTrace::CodecTrace (const int32_t iLevel, const char* Str_Format, va_list vl) {
-  if (m_iTraceLevel < iLevel) {
-    return;
-  }
-
-  char pBuf[MAX_LOG_SIZE] = {0};
-  WelsVsnprintf (pBuf, MAX_LOG_SIZE, Str_Format, vl);	// confirmed_safe_unsafe_usage
-  if (m_fpTrace) {
-    m_fpTrace (m_pTraceCtx, iLevel, pBuf);
-  }
-}
-
-void welsCodecTrace::SetTraceLevel (const int32_t iLevel) {
-  if (iLevel >= 0)
-    m_iTraceLevel	= iLevel;
-}
-
-void welsCodecTrace::SetTraceCallback (WelsTraceCallback func) {
-  m_fpTrace = func;
-}
-
-void welsCodecTrace::SetTraceCallbackContext (void* ctx) {
-  m_pTraceCtx = ctx;
-}
-

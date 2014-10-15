@@ -47,11 +47,6 @@
 #include "codec_app_def.h"
 
 namespace WelsEnc {
-typedef enum {
-RECIEVE_UNKOWN = 0,
-RECIEVE_SUCCESS = 1,
-RECIEVE_FAILED = 2,
-} LTR_MARKING_RECEIVE_STATE;
 
 typedef enum {
 LTR_DIRECT_MARK = 0,
@@ -98,7 +93,7 @@ bool CheckCurMarkFrameNumUsed (sWelsEncCtx* pCtx);
 */
 void WelsMarkPic (void* pCtx);
 
-void InitRefListMgrFunc (SWelsFuncPtrList* pFuncList, EUsageType eUsageType);
+void InitRefListMgrFunc (SWelsFuncPtrList* pFuncList, const bool bEnableLongTermReference, const bool bScreenContent);
 
 #ifdef LONG_TERM_REF_DUMP
 void DumpRef (sWelsEncCtx* ctx);

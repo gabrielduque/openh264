@@ -30,69 +30,26 @@
  *
  */
 
-#ifdef _WIN32
-#include <windows.h>
-#include <tchar.h>
+#ifdef  HAVE_NEON_AARCH64
+.text
+#include "arm_arch64_common_macro.S"
+
+//for Luma 16x16
+WELS_ASM_AARCH64_FUNC_BEGIN WelsI16x16LumaPredV_AArch64_neon
+    sub     x3, x1, x2
+    ld1     {v0.16b}, [x3]
+.rept 16
+    st1     {v0.16b}, [x0], 16
+.endr
+WELS_ASM_AARCH64_FUNC_END
+
+WELS_ASM_AARCH64_FUNC_BEGIN WelsI16x16LumaPredH_AArch64_neon
+    sub     x3, x1, #1
+.rept 16
+    ld1r    {v0.16b}, [x3], x2
+    st1     {v0.16b}, [x0], 16
+.endr
+WELS_ASM_AARCH64_FUNC_END
+
 #endif
-
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-
-#include "crt_util_safe_x.h"	// Safe CRT routines like utils for cross platforms
-
-#include "welsCodecTrace.h"
-#include "utils.h"
-
-
-
-static void welsStderrTrace (void* ctx, int level, const char* string) {
-  fprintf (stderr, "%s\n", string);
-}
-
-welsCodecTrace::welsCodecTrace() {
-
-  m_iTraceLevel = WELS_LOG_DEFAULT;
-  m_fpTrace = welsStderrTrace;
-  m_pTraceCtx = NULL;
-
-  m_sLogCtx.pLogCtx = this;
-  m_sLogCtx.pfLog = StaticCodecTrace;
-}
-
-welsCodecTrace::~welsCodecTrace() {
-  m_fpTrace = NULL;
-}
-
-
-
-void welsCodecTrace::StaticCodecTrace (void* pCtx, const int32_t iLevel, const char* Str_Format, va_list vl) {
-  welsCodecTrace* self = (welsCodecTrace*) pCtx;
-  self->CodecTrace (iLevel, Str_Format, vl);
-}
-
-void welsCodecTrace::CodecTrace (const int32_t iLevel, const char* Str_Format, va_list vl) {
-  if (m_iTraceLevel < iLevel) {
-    return;
-  }
-
-  char pBuf[MAX_LOG_SIZE] = {0};
-  WelsVsnprintf (pBuf, MAX_LOG_SIZE, Str_Format, vl);	// confirmed_safe_unsafe_usage
-  if (m_fpTrace) {
-    m_fpTrace (m_pTraceCtx, iLevel, pBuf);
-  }
-}
-
-void welsCodecTrace::SetTraceLevel (const int32_t iLevel) {
-  if (iLevel >= 0)
-    m_iTraceLevel	= iLevel;
-}
-
-void welsCodecTrace::SetTraceCallback (WelsTraceCallback func) {
-  m_fpTrace = func;
-}
-
-void welsCodecTrace::SetTraceCallbackContext (void* ctx) {
-  m_pTraceCtx = ctx;
-}
 

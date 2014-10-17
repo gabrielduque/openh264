@@ -384,7 +384,7 @@ void PrintHelp() {
 
 int ParseCommandLine (int argc, char** argv, SSourcePicture* pSrcPic, SEncParamExt& pSvcParam, SFilesSet& sFileSet) {
   char* pCommand = NULL;
-  SLayerPEncCtx sLayerCtx[3];
+  SLayerPEncCtx sLayerCtx[MAX_SPATIAL_LAYER_NUM];
   int n = 0;
   string str_ ("SlicesAssign");
 
@@ -892,7 +892,7 @@ INSIDE_MEM_FREE:
     pFileYUV = NULL;
   }
   if (pYUV) {
-    delete pYUV;
+    delete[] pYUV;
     pYUV = NULL;
   }
   if (pSrcPic) {

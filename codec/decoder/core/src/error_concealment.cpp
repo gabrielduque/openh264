@@ -41,7 +41,8 @@
 namespace WelsDec {
 //Init
 void InitErrorCon (PWelsDecoderContext pCtx) {
-  if (pCtx->eErrorConMethod == ERROR_CON_SLICE_COPY) {
+  if ((pCtx->eErrorConMethod == ERROR_CON_SLICE_COPY) || (pCtx->eErrorConMethod == ERROR_CON_SLICE_COPY_CROSS_IDR)
+      || (pCtx->eErrorConMethod == ERROR_CON_SLICE_COPY_CROSS_IDR_FREEZE_RES_CHANGE)) {
     pCtx->sCopyFunc.pCopyLumaFunc = WelsCopy16x16_c;
     pCtx->sCopyFunc.pCopyChromaFunc = WelsCopy8x8_c;
 
@@ -79,6 +80,8 @@ void DoErrorConFrameCopy (PWelsDecoderContext pCtx) {
   uint32_t uiHeightInPixelY = (pCtx->pSps->iMbHeight) << 4;
   int32_t iStrideY = pDstPic->iLinesize[0];
   int32_t iStrideUV = pDstPic->iLinesize[1];
+  if ((pCtx->eErrorConMethod == ERROR_CON_FRAME_COPY) && (pCtx->pCurDqLayer->sLayerInfo.sNalHeaderExt.bIdrFlag))
+    pSrcPic = NULL; //no cross IDR method, should fill in data instead of copy
   if (pSrcPic == NULL) { //no ref pic, assign specific data to picture
     memset (pDstPic->pData[0], 128, uiHeightInPixelY * iStrideY);
     memset (pDstPic->pData[1], 128, (uiHeightInPixelY >> 1) * iStrideUV);
@@ -97,10 +100,13 @@ void DoErrorConSliceCopy (PWelsDecoderContext pCtx) {
   int32_t iMbHeight = (int32_t) pCtx->pSps->iMbHeight;
   PPicture pDstPic = pCtx->pDec;
   PPicture pSrcPic = pCtx->pPreviousDecodedPictureInDpb;
+  if ((pCtx->eErrorConMethod == ERROR_CON_SLICE_COPY) && (pCtx->pCurDqLayer->sLayerInfo.sNalHeaderExt.bIdrFlag))
+    pSrcPic = NULL; //no cross IDR method, should fill in data instead of copy
 
+  int32_t iMbNum = pCtx->pSps->iMbWidth * pCtx->pSps->iMbHeight;
   //uint8_t *pDstData[3], *pSrcData[3];
   bool* pMbCorrectlyDecodedFlag = pCtx->pCurDqLayer->pMbCorrectlyDecodedFlag;
-
+  int32_t iMbEcedNum = 0;
   //Do slice copy late
   int32_t iMbXyIndex;
   uint8_t* pSrcData, *pDstData;
@@ -110,6 +116,7 @@ void DoErrorConSliceCopy (PWelsDecoderContext pCtx) {
     for (int32_t iMbX = 0; iMbX < iMbWidth; ++iMbX) {
       iMbXyIndex = iMbY * iMbWidth + iMbX;
       if (!pMbCorrectlyDecodedFlag[iMbXyIndex]) {
+        iMbEcedNum++;
         if (pSrcPic != NULL) {
           iSrcStride = pSrcPic->iLinesize[0];
           //Y component
@@ -147,6 +154,9 @@ void DoErrorConSliceCopy (PWelsDecoderContext pCtx) {
       } //!pMbCorrectlyDecodedFlag[iMbXyIndex]
     } //iMbX
   } //iMbY
+
+  pCtx->sDecoderStatistics.uiAvgEcRatio = (pCtx->sDecoderStatistics.uiAvgEcRatio * pCtx->sDecoderStatistics.uiEcFrameNum)
+                                          + ((iMbEcedNum * 100) / iMbNum) ;
 }
 
 
@@ -183,9 +193,12 @@ void ImplementErrorCon (PWelsDecoderContext pCtx) {
   if (ERROR_CON_DISABLE == pCtx->eErrorConMethod) {
     pCtx->iErrorCode |= dsBitstreamError;
     return;
-  } else if (ERROR_CON_FRAME_COPY == pCtx->eErrorConMethod) {
+  } else if ((ERROR_CON_FRAME_COPY == pCtx->eErrorConMethod)
+             || (ERROR_CON_FRAME_COPY_CROSS_IDR == pCtx->eErrorConMethod)) {
     DoErrorConFrameCopy (pCtx);
-  } else if (ERROR_CON_SLICE_COPY == pCtx->eErrorConMethod) {
+  } else if ((ERROR_CON_SLICE_COPY == pCtx->eErrorConMethod)
+             || (ERROR_CON_SLICE_COPY_CROSS_IDR == pCtx->eErrorConMethod)
+             || (ERROR_CON_SLICE_COPY_CROSS_IDR_FREEZE_RES_CHANGE == pCtx->eErrorConMethod)) {
     DoErrorConSliceCopy (pCtx);
   } //TODO add other EC methods here in the future
   pCtx->iErrorCode |= dsDataErrorConcealed;

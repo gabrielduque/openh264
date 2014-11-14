@@ -133,7 +133,10 @@ typedef enum {
 typedef enum {
   ERROR_CON_DISABLE = 0,
   ERROR_CON_FRAME_COPY,
-  ERROR_CON_SLICE_COPY
+  ERROR_CON_SLICE_COPY,
+  ERROR_CON_FRAME_COPY_CROSS_IDR,
+  ERROR_CON_SLICE_COPY_CROSS_IDR,
+  ERROR_CON_SLICE_COPY_CROSS_IDR_FREEZE_RES_CHANGE
 } ERROR_CON_IDC;
 
 typedef enum { //feedback that whether or not have VCL NAL in current AU
@@ -402,6 +405,7 @@ typedef struct {
   SLayerBSInfo	sLayerInfo[MAX_LAYER_NUM_OF_FRAME];
 
   EVideoFrameType eFrameType;
+  int   iFrameSizeInBytes;
   long long uiTimeStamp;
 } SFrameBSInfo, *PFrameBSInfo;
 
@@ -461,8 +465,8 @@ typedef struct TagParserBsInfo {
 } SParserBsInfo, PParserBsInfo;
 
 typedef struct TagVideoEncoderStatistics {
-  unsigned int uWidth;					// the width of encoded frame
-  unsigned int uHeight;					// the height of encoded frame
+  unsigned int uiWidth;					// the width of encoded frame
+  unsigned int uiHeight;					// the height of encoded frame
   //following standard, will be 16x aligned, if there are multiple spatial, this is of the highest
   float fAverageFrameSpeedInMs; // Average_Encoding_Time
 
@@ -475,23 +479,23 @@ typedef struct TagVideoEncoderStatistics {
   unsigned int uiSkippedFrameCount; // number of frames
 
   unsigned int uiResolutionChangeTimes; // uiResolutionChangeTimes
-  unsigned int uIDRReqNum;				// number of IDR requests
-  unsigned int uIDRSentNum;				// number of actual IDRs sent
-  unsigned int uLTRSentNum;				// number of LTR sent/marked
+  unsigned int uiIDRReqNum;				// number of IDR requests
+  unsigned int uiIDRSentNum;				// number of actual IDRs sent
+  unsigned int uiLTRSentNum;				// number of LTR sent/marked
 } SEncoderStatistics; // in building, coming soon
 
 typedef struct TagVideoDecoderStatistics {
-  unsigned int uWidth;					// the width of encode/decode frame
-  unsigned int uHeight;					// the height of encode/decode frame
+  unsigned int uiWidth;					// the width of encode/decode frame
+  unsigned int uiHeight;					// the height of encode/decode frame
   float fAverageFrameSpeedInMs; // Average_Decoding_Time
-
   unsigned int uiDecodedFrameCount; // number of frames
   unsigned int uiResolutionChangeTimes; // uiResolutionChangeTimes
-  unsigned int
-  uiAvgEcRatio; // when EC is on, the average ratio of correct or EC areas, can be an indicator of reconstruction quality
-  unsigned int uIDRReqNum;	// number of actual IDR request
-  unsigned int uLTRReqNum;	// number of actual LTR request
-  unsigned int uIDRRecvNum;	// number of actual IDR received
+  unsigned int uiIDRRecvNum;	// number of actual IDR received
+  //EC on related
+  unsigned int uiAvgEcRatio; // when EC is on, the average ratio of correct or EC areas, can be an indicator of reconstruction quality
+  unsigned int uiEcIDRNum;	// number of actual unintegrity IDR or not received but eced
+  unsigned int uiEcFrameNum; //
+  unsigned int uiIDRLostNum;//Decoder detect out the number of lost IDR lost
 } SDecoderStatistics; // in building, coming soon
 
 #endif//WELS_VIDEO_CODEC_APPLICATION_DEFINITION_H__

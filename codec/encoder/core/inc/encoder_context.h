@@ -221,11 +221,14 @@ typedef struct TagWelsEncCtx {
   SEncoderStatistics sEncoderStatistics;
   int32_t            iStatisticsLogInterval;
   int64_t            iLastStatisticsLogTs;
+  int64_t            iTotalEncodedBits;
+  int64_t            iLastStatisticsBits;
+  int64_t            iLastStatisticsFrameCount;
 
   int32_t iEncoderError;
   WELS_MUTEX					mutexEncoderError;
   bool bDeliveryFlag;
-
+  SStateCtx sWelsCabacContexts[4][WELS_QP_MAX + 1][WELS_CONTEXT_COUNT];
 #ifdef ENABLE_FRAME_DUMP
   bool bDependencyRecFlag[MAX_DEPENDENCY_LAYER];
   bool bRecFlag;

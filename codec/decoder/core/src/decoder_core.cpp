@@ -83,6 +83,7 @@ static inline int32_t DecodeFrameConstruction (PWelsDecoderContext pCtx, uint8_t
   } else if (pCurDq->sLayerInfo.sNalHeaderExt.bIdrFlag
              && (pCtx->iErrorCode == dsErrorFree)) { //complete non-ECed IDR frame done
     pCtx->pDec->bIsComplete = true;
+    pCtx->bFreezeOutput = false;
   }
 
   pCtx->iTotalNumMbRec = 0;
@@ -103,15 +104,31 @@ static inline int32_t DecodeFrameConstruction (PWelsDecoderContext pCtx, uint8_t
   ppDst[2] = ppDst[2] + pCtx->sFrameCrop.iTopOffset  * pPic->iLinesize[1] + pCtx->sFrameCrop.iLeftOffset;
   pDstInfo->iBufferStatus = 1;
 
+  bool bOutResChange = (pCtx->iLastImgWidthInPixel != pDstInfo->UsrData.sSystemBuffer.iWidth)
+                       || (pCtx->iLastImgHeightInPixel != pDstInfo->UsrData.sSystemBuffer.iHeight);
+  pCtx->iLastImgWidthInPixel = pDstInfo->UsrData.sSystemBuffer.iWidth;
+  pCtx->iLastImgHeightInPixel = pDstInfo->UsrData.sSystemBuffer.iHeight;
   if (pCtx->eErrorConMethod == ERROR_CON_DISABLE) //no buffer output if EC is disabled and frame incomplete
     pDstInfo->iBufferStatus = (int32_t) (bFrameCompleteFlag
                                          && pPic->bIsComplete); // When EC disable, ECed picture not output
+  else if (pCtx->eErrorConMethod == ERROR_CON_SLICE_COPY_CROSS_IDR_FREEZE_RES_CHANGE && pCtx->iErrorCode && bOutResChange)
+    pCtx->bFreezeOutput = true;
+
+
+  if ((pDstInfo->iBufferStatus == 1) && (pCurDq->sLayerInfo.sNalHeaderExt.bIdrFlag)) {
+    if (pPic->bIsComplete)
+      pCtx->sDecoderStatistics.uiIDRRecvNum++;
+    else
+      pCtx->sDecoderStatistics.uiEcIDRNum++;
+  }
 
   if (pDstInfo->iBufferStatus == 0) {
     if (!bFrameCompleteFlag)
       pCtx->iErrorCode |= dsBitstreamError;
     return -1;
   }
+  if (pCtx->bFreezeOutput)
+    pDstInfo->iBufferStatus = 0;
 
   return 0;
 }
@@ -386,6 +403,9 @@ int32_t WelsInitMemory (PWelsDecoderContext pCtx) {
   pCtx->bEndOfStreamFlag	= false;
   pCtx->iImgWidthInPixel	= 0;
   pCtx->iImgHeightInPixel	= 0;
+  pCtx->iLastImgWidthInPixel	= 0;
+  pCtx->iLastImgHeightInPixel	= 0;
+  pCtx->bFreezeOutput = false;
 
   return ERR_NONE;
 }
@@ -707,8 +727,11 @@ int32_t ParseSliceHeaderSyntaxs (PWelsDecoderContext pCtx, PBitStringAux pBs, co
   }
 
   if (pPps->bEntropyCodingModeFlag) {
-    WelsLog (pLogCtx, WELS_LOG_WARNING, "ParseSliceHeaderSyntaxs(): CABAC in Enhancement layer not supported.");
-    return GENERATE_ERROR_NO (ERR_LEVEL_SLICE_HEADER, ERR_INFO_UNSUPPORTED_CABAC_EL);
+    if (pSliceHead->eSliceType != I_SLICE && pSliceHead->eSliceType != SI_SLICE) {
+      WELS_READ_VERIFY (BsGetUe (pBs, &uiCode));
+      pSliceHead->iCabacInitIdc = uiCode;
+    } else
+      pSliceHead->iCabacInitIdc = 0;
   }
 
   WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //slice_qp_delta
@@ -971,6 +994,8 @@ int32_t UpdateAccessUnit (PWelsDecoderContext pCtx) {
     }
     if (uiActualIdx ==
         pCurAu->uiActualUnitsNum) {	// no found IDR nal within incoming AU, need exit to avoid mosaic issue, 11/19/2009
+
+      pCtx->sDecoderStatistics.uiIDRLostNum++;
       WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING,
                "UpdateAccessUnit():::::Key frame lost.....CAN NOT find IDR from current AU.");
       pCtx->iErrorCode |= dsRefLost;
@@ -1021,6 +1046,10 @@ int32_t InitialDqLayersContext (PWelsDecoderContext pCtx, const int32_t kiMaxWid
                            "pCtx->sMb.pLumaQp[]");
     pCtx->sMb.pChromaQp[i] = (int8_t*)WelsMalloc (pCtx->sMb.iMbWidth * pCtx->sMb.iMbHeight * sizeof (int8_t),
                              "pCtx->sMb.pChromaQp[]");
+    pCtx->sMb.pMvd[i][0] = (int16_t (*)[16][2])WelsMalloc (pCtx->sMb.iMbWidth * pCtx->sMb.iMbHeight * sizeof (
+                             int16_t) * MV_A * MB_BLOCK4x4_NUM, "pCtx->sMb.pMvd[][]");
+    pCtx->sMb.pCbfDc[i] = (uint8_t*)WelsMalloc (pCtx->sMb.iMbWidth * pCtx->sMb.iMbHeight * sizeof (uint8_t),
+                          "pCtx->sMb.pCbfDc[]");
     pCtx->sMb.pNzc[i] = (int8_t (*)[24])WelsMalloc (pCtx->sMb.iMbWidth * pCtx->sMb.iMbHeight * sizeof (int8_t) * 24,
                         "pCtx->sMb.pNzc[]");
     pCtx->sMb.pNzcRs[i] = (int8_t (*)[24])WelsMalloc (pCtx->sMb.iMbWidth * pCtx->sMb.iMbHeight * sizeof (int8_t) * 24,
@@ -1057,6 +1086,8 @@ int32_t InitialDqLayersContext (PWelsDecoderContext pCtx, const int32_t kiMaxWid
                             (NULL == pCtx->sMb.pRefIndex[i][0]) ||
                             (NULL == pCtx->sMb.pLumaQp[i]) ||
                             (NULL == pCtx->sMb.pChromaQp[i]) ||
+                            (NULL == pCtx->sMb.pMvd[i][0]) ||
+                            (NULL == pCtx->sMb.pCbfDc[i]) ||
                             (NULL == pCtx->sMb.pNzc[i]) ||
                             (NULL == pCtx->sMb.pNzcRs[i]) ||
                             (NULL == pCtx->sMb.pScaledTCoeff[i]) ||
@@ -1075,7 +1106,6 @@ int32_t InitialDqLayersContext (PWelsDecoderContext pCtx, const int32_t kiMaxWid
     pCtx->pDqLayersList[i] = pDq;
     ++ i;
   } while (i < LAYER_NUM_EXCHANGEABLE);
-
 
   pCtx->bInitialDqLayersMem	= true;
   pCtx->iPicWidthReq			= kiMaxWidth;
@@ -1122,6 +1152,16 @@ void UninitialDqLayersContext (PWelsDecoderContext pCtx) {
       WelsFree (pCtx->sMb.pChromaQp[i], "pCtx->sMb.pChromaQp[]");
 
       pCtx->sMb.pChromaQp[i] = NULL;
+    }
+
+    if (pCtx->sMb.pMvd[i][0]) {
+      WelsFree (pCtx->sMb.pMvd[i][0], "pCtx->sMb.pMvd[][]");
+      pCtx->sMb.pMvd[i][0] = NULL;
+    }
+
+    if (pCtx->sMb.pCbfDc[i]) {
+      WelsFree (pCtx->sMb.pCbfDc[i], "pCtx->sMb.pCbfDc[]");
+      pCtx->sMb.pCbfDc[i] = NULL;
     }
 
     if (pCtx->sMb.pNzc[i]) {
@@ -1754,6 +1794,8 @@ void InitCurDqLayerData (PWelsDecoderContext pCtx, PDqLayer pCurDq) {
     pCurDq->pRefIndex[0]    = pCtx->sMb.pRefIndex[0][0];
     pCurDq->pLumaQp         = pCtx->sMb.pLumaQp[0];
     pCurDq->pChromaQp       = pCtx->sMb.pChromaQp[0];
+    pCurDq->pMvd[0]       = pCtx->sMb.pMvd[0][0];
+    pCurDq->pCbfDc       = pCtx->sMb.pCbfDc[0];
     pCurDq->pNzc			= pCtx->sMb.pNzc[0];
     pCurDq->pNzcRs			= pCtx->sMb.pNzcRs[0];
     pCurDq->pScaledTCoeff   = pCtx->sMb.pScaledTCoeff[0];

@@ -3093,7 +3093,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   if (iSpatialNum < 1) {	// skip due to temporal layer settings (different frame rate)
     ++ pCtx->iCodingIndex;
     pFbi->eFrameType = videoFrameTypeSkip;
-    WelsLog (& (pCtx->sLogCtx), WELS_LOG_DEBUG, "[Rc] Frame timestamp = %lld, skip one frame, continual skipped %d frames",
+    WelsLog (& (pCtx->sLogCtx), WELS_LOG_INFO, "[Rc] Frame timestamp = %lld, skip one frame, continual skipped %d frames",
              pSrcPic->uiTimeStamp, pCtx->iContinualSkipFrames);
     return ENC_RETURN_SUCCESS;
   }
@@ -3102,7 +3102,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   if (eFrameType == videoFrameTypeSkip) {
     UpdateBufferWhenFrameSkipped(pCtx, iSpatialNum);
     pFbi->eFrameType = eFrameType;
-    WelsLog (& (pCtx->sLogCtx), WELS_LOG_DEBUG, "[Rc] Frame timestamp = %lld, skip one frame, continual skipped %d frames",
+    WelsLog (& (pCtx->sLogCtx), WELS_LOG_INFO, "[Rc] Frame timestamp = %lld, skip one frame, continual skipped %d frames",
       pSrcPic->uiTimeStamp, pCtx->iContinualSkipFrames);
     return ENC_RETURN_SUCCESS;
   }
@@ -3110,7 +3110,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   //loop each layer to check if have skip frame when RC and frame skip enable
   if (CheckFrameSkipBasedMaxbr (pCtx, iSpatialNum, eFrameType, (uint32_t)pSrcPic->uiTimeStamp)) {
     pFbi->eFrameType = videoFrameTypeSkip;
-    WelsLog (& (pCtx->sLogCtx), WELS_LOG_DEBUG, "[Rc] Frame timestamp = %lld, skip one frame, continual skipped %d frames",
+    WelsLog (& (pCtx->sLogCtx), WELS_LOG_INFO, "[Rc] Frame timestamp = %lld, skip one frame, continual skipped %d frames",
       pSrcPic->uiTimeStamp, pCtx->iContinualSkipFrames);
     return ENC_RETURN_SUCCESS;
   }

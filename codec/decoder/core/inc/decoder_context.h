@@ -102,6 +102,19 @@ uint8_t* pStartPos;
 uint8_t* pCurPos;
 } SDataBuffer;
 
+//limit size for SPS PPS total permitted size for parse_only
+#define SPS_PPS_BS_SIZE 128
+typedef struct TagSpsBsInfo {
+  uint8_t pSpsBsBuf [SPS_PPS_BS_SIZE];
+  int32_t iSpsId;
+  uint16_t uiSpsBsLen;
+} SSpsBsInfo;
+
+typedef struct TagPpsBsInfo {
+  uint8_t pPpsBsBuf [SPS_PPS_BS_SIZE];
+  int32_t iPpsId;
+  uint16_t uiPpsBsLen;
+} SPpsBsInfo;
 //#ifdef __cplusplus
 //extern "C" {
 //#endif//__cplusplus
@@ -210,6 +223,7 @@ SLogContext sLogCtx;
 void*				pArgDec;			// structured arguments for decoder, reserved here for extension in the future
 
 SDataBuffer                     sRawData;
+SDataBuffer                     sSavedData; //for parse only purpose
 
 // Configuration
 SDecodingParam*                 pParam;
@@ -223,7 +237,7 @@ int32_t				iImgWidthInPixel;	// width of image in pixel reconstruction picture t
 int32_t				iImgHeightInPixel;// height of image in pixel reconstruction picture to be output
 int32_t				iLastImgWidthInPixel;	// width of image in last successful pixel reconstruction picture to be output
 int32_t				iLastImgHeightInPixel;// height of image in last successful pixel reconstruction picture to be output
-bool bFreezeOutput;
+bool bFreezeOutput; // indicating current frame freezing. Default: true
 
 
 // Derived common elements
@@ -334,6 +348,14 @@ bool       bNewSeqBegin;
 bool       bNextNewSeqBegin;
 int        iOverwriteFlags;
 ERROR_CON_IDC eErrorConMethod; //
+
+//for Parse only
+bool bParseOnly;
+SSpsBsInfo sSpsBsInfo [MAX_SPS_COUNT];
+SSpsBsInfo sSubsetSpsBsInfo [MAX_PPS_COUNT];
+SPpsBsInfo sPpsBsInfo [MAX_PPS_COUNT];
+SParserBsInfo* pParserBsInfo;
+
 PPicture pPreviousDecodedPictureInDpb; //pointer to previously decoded picture in DPB for error concealment
 PGetIntraPredFunc pGetI16x16LumaPredFunc[7];		//h264_predict_copy_16x16;
 PGetIntraPredFunc pGetI4x4LumaPredFunc[14];		// h264_predict_4x4_t
@@ -378,6 +400,9 @@ SWelsCabacCtx   pCabacCtx[WELS_CONTEXT_COUNT];
 PWelsCabacDecEngine   pCabacDecEngine;
 double dDecTime;
 SDecoderStatistics sDecoderStatistics;// For real time debugging
+int32_t iECMVs[16][2];
+PPicture pECRefPic[16];
+unsigned long long uiTimeStamp;
 } SWelsDecoderContext, *PWelsDecoderContext;
 
 static inline void ResetActiveSPSForEachLayer (PWelsDecoderContext pCtx) {

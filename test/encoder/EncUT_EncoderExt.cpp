@@ -143,6 +143,9 @@ void EncoderInterfaceTest::InitializeParamExt() {
 TEST_F (EncoderInterfaceTest, EncoderAdditionalOptionSetTest) {
   int iResult, iValue, iReturn;
   float fValue, fReturn;
+  int uiTraceLevel = WELS_LOG_QUIET;
+
+  pPtrEnc->SetOption (ENCODER_OPTION_TRACE_LEVEL, &uiTraceLevel);
 
   InitializeParamExt();
   iResult = pPtrEnc->InitializeExt (pParamExt);
@@ -206,9 +209,13 @@ TEST_F (EncoderInterfaceTest, EncoderAdditionalOptionSetTest) {
   sInfo.iBitrate = rand() % 100000 - 100;
   sInfo.iLayer = static_cast<LAYER_NUM> (pParamExt->iSpatialLayerNum);
   iResult = pPtrEnc->SetOption (eOptionId, &sInfo);
+  pPtrEnc->GetOption (ENCODER_OPTION_SVC_ENCODE_PARAM_EXT, pParamExt);
   if (sInfo.iBitrate <= 0)
     EXPECT_EQ (iResult, static_cast<int> (cmInitParaError));
-  else {
+  else if (pParamExt->sSpatialLayers[sInfo.iLayer].iSpatialBitrate >
+           pParamExt->sSpatialLayers[sInfo.iLayer].iMaxSpatialBitrate) {
+    EXPECT_EQ (iResult, static_cast<int> (cmInitParaError));
+  } else {
     EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
     sReturn.iLayer = static_cast<LAYER_NUM> (pParamExt->iSpatialLayerNum);
     iResult = pPtrEnc->GetOption (eOptionId, &sReturn);
@@ -224,9 +231,13 @@ TEST_F (EncoderInterfaceTest, EncoderAdditionalOptionSetTest) {
   sInfo.iBitrate = rand() % 100000 - 100;
   sInfo.iLayer = static_cast<LAYER_NUM> (pParamExt->iSpatialLayerNum);
   iResult = pPtrEnc->SetOption (eOptionId, &sInfo);
+  pPtrEnc->GetOption (ENCODER_OPTION_SVC_ENCODE_PARAM_EXT, pParamExt);
   if (sInfo.iBitrate <= 0)
     EXPECT_EQ (iResult, static_cast<int> (cmInitParaError));
-  else {
+  else if (pParamExt->sSpatialLayers[sInfo.iLayer].iSpatialBitrate >
+           pParamExt->sSpatialLayers[sInfo.iLayer].iMaxSpatialBitrate) {
+    EXPECT_EQ (iResult, static_cast<int> (cmInitParaError));
+  } else {
     EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
     sReturn.iLayer = static_cast<LAYER_NUM> (pParamExt->iSpatialLayerNum);
     iResult = pPtrEnc->GetOption (eOptionId, &sReturn);
@@ -247,6 +258,9 @@ TEST_F (EncoderInterfaceTest, EncoderAdditionalOptionSetTest) {
   iResult = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
   EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
   pSrcPic->uiTimeStamp += 30;
+
+  uiTraceLevel = WELS_LOG_ERROR;
+  pPtrEnc->SetOption (ENCODER_OPTION_TRACE_LEVEL, &uiTraceLevel);
 }
 
 TEST_F (EncoderInterfaceTest, TemporalLayerSettingTest) {
@@ -438,6 +452,9 @@ void GetValidEncParamBase (SEncParamBase* pEncParamBase) {
   pEncParamBase->iPicWidth = VALID_SIZE (pEncParamBase->iPicWidth);
   pEncParamBase->iPicHeight = VALID_SIZE (pEncParamBase->iPicHeight);
   pEncParamBase->iTargetBitrate = rand() + 1; //!=0
+  int32_t iLevelMaxBitrate = WelsCommon::g_ksLevelLimits[LEVEL_5_0 - 1].uiMaxBR * CpbBrNalFactor;
+  if (pEncParamBase->iTargetBitrate > iLevelMaxBitrate)
+    pEncParamBase->iTargetBitrate = iLevelMaxBitrate;
   pEncParamBase->iRCMode = RC_BITRATE_MODE; //-1, 0, 1, 2
   pEncParamBase->fMaxFrameRate = rand() + 0.5f; //!=0
 }
@@ -460,6 +477,37 @@ TEST_F (EncoderInterfaceTest, BasicInitializeTest) {
   iResult = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
   EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
   EXPECT_EQ (sFbi.eFrameType, static_cast<int> (videoFrameTypeIDR));
+
+  iResult = pPtrEnc->Uninitialize();
+  EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
+}
+
+TEST_F (EncoderInterfaceTest, BaseParamSettingTest) {
+  SEncParamBase sEncParamBase;
+  GetValidEncParamBase (&sEncParamBase);
+
+  int iResult = pPtrEnc->Initialize (&sEncParamBase);
+  EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
+  if (iResult != cmResultSuccess) {
+    fprintf (stderr, "Unexpected ParamBase? \
+                 iUsageType=%d, Pic=%dx%d, TargetBitrate=%d, iRCMode=%d, fMaxFrameRate=%.1f\n",
+             sEncParamBase.iUsageType, sEncParamBase.iPicWidth, sEncParamBase.iPicHeight,
+             sEncParamBase.iTargetBitrate, sEncParamBase.iRCMode, sEncParamBase.fMaxFrameRate);
+  }
+
+  PrepareOneSrcFrame();
+
+  iResult = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
+  EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
+  EXPECT_EQ (sFbi.eFrameType, static_cast<int> (videoFrameTypeIDR));
+
+  GetValidEncParamBase (&sEncParamBase);
+  iResult = pPtrEnc->SetOption (ENCODER_OPTION_SVC_ENCODE_PARAM_BASE, &sEncParamBase);
+
+  PrepareOneSrcFrame();
+
+  iResult = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
+  EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
 
   iResult = pPtrEnc->Uninitialize();
   EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
@@ -584,12 +632,14 @@ TEST_F (EncoderInterfaceTest, ForceIntraFrameWithTemporal) {
   sEncParamExt.iPicWidth = MB_SIZE + abs ((rand() * 2) % (MAX_WIDTH - MB_SIZE));
   sEncParamExt.iPicHeight = MB_SIZE + abs ((rand() * 2) % (MAX_HEIGHT - MB_SIZE));
   sEncParamExt.iTargetBitrate = rand() + 1; //!=0
+  int32_t iLevelMaxBitrate = WelsCommon::g_ksLevelLimits[LEVEL_5_0 - 1].uiMaxBR * CpbBrNalFactor;
+  if (sEncParamExt.iTargetBitrate > iLevelMaxBitrate)
+    sEncParamExt.iTargetBitrate = iLevelMaxBitrate;
   sEncParamExt.iRCMode = RC_BITRATE_MODE; //-1, 0, 1, 2
   sEncParamExt.fMaxFrameRate = rand() + 0.5f; //!=0
   sEncParamExt.sSpatialLayers[0].iVideoWidth = sEncParamExt.iPicWidth;
   sEncParamExt.sSpatialLayers[0].iVideoHeight = sEncParamExt.iPicHeight;
   sEncParamExt.sSpatialLayers[0].iSpatialBitrate = sEncParamExt.iTargetBitrate;
-
   int iTargetTemporalLayerNum = rand() % MAX_TEMPORAL_LAYER_NUM;
   sEncParamExt.iTemporalLayerNum = (iTargetTemporalLayerNum > 2) ? iTargetTemporalLayerNum : 2;
 

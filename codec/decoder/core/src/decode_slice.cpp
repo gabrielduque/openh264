@@ -893,7 +893,7 @@ int32_t WelsDecodeMbCabacPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
 int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNalUnit pNalCur) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
   PFmo pFmo = pCtx->pFmo;
-  int32_t i, iRet;
+  int32_t iRet;
   int32_t iNextMbXyIndex, iSliceIdc;
 
   PSlice pSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
@@ -956,29 +956,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   pCurLayer->iMbX =  iMbX;
   pCurLayer->iMbY = iMbY;
   pCurLayer->iMbXyIndex = iNextMbXyIndex;
-
-  if (pSliceHeaderExt->bSliceSkipFlag == 1) {
-    for (i = 0; i < (int32_t)pSliceHeaderExt->uiNumMbsInSlice; i++) {
-      pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
-
-
-      pCurLayer->pResidualPredFlag[iNextMbXyIndex] = 1;
-
-      if (pSliceHeaderExt->sSliceHeader.pPps->uiNumSliceGroups > 1) {
-        iNextMbXyIndex = FmoNextMb (pFmo, iNextMbXyIndex);
-      } else {
-        ++iNextMbXyIndex;
-      }
-
-      iMbX = iNextMbXyIndex % pCurLayer->iMbWidth;
-      iMbY = iNextMbXyIndex % pCurLayer->iMbHeight;
-
-      pCurLayer->iMbX =  iMbX;
-      pCurLayer->iMbY = iMbY;
-      pCurLayer->iMbXyIndex = iNextMbXyIndex;
-    }
-    return 0;
-  }
 
   do {
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) {	// slice group boundary or end of a frame
@@ -1644,15 +1621,25 @@ void WelsBlockFuncInit (SBlockFunc*   pFunc,  int32_t iCpu) {
   //TO DO add neon and X86
 #ifdef	HAVE_NEON
   if (iCpu & WELS_CPU_NEON) {
-
+    pFunc->pWelsBlockZero16x16Func	    = WelsBlockZero16x16_neon;
+    pFunc->pWelsBlockZero8x8Func	    = WelsBlockZero8x8_neon;
   }
 #endif
 
 #ifdef	HAVE_NEON_AARCH64
   if (iCpu & WELS_CPU_NEON) {
-
+    pFunc->pWelsBlockZero16x16Func	    = WelsBlockZero16x16_AArch64_neon;
+    pFunc->pWelsBlockZero8x8Func	    = WelsBlockZero8x8_AArch64_neon;
   }
 #endif
+
+#if defined(X86_ASM)
+  if (iCpu & WELS_CPU_SSE2) {
+    pFunc->pWelsBlockZero16x16Func	    = WelsBlockZero16x16_sse2;
+    pFunc->pWelsBlockZero8x8Func	    = WelsBlockZero8x8_sse2;
+  }
+#endif
+
 }
 
 void SetNonZeroCount_c (int8_t* pNonZeroCount) {

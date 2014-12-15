@@ -97,7 +97,7 @@ void WelsSliceHeaderExtInit (sWelsEncCtx* pEncCtx, SDqLayer* pCurLayer, SSlice* 
   pCurSliceHeader->iFirstMbInSlice = WelsGetFirstMbOfSlice (pCurLayer->pSliceEncCtx, pSlice->uiSliceIdx);
 
   pCurSliceHeader->iFrameNum      = pEncCtx->iFrameNum;
-  pCurSliceHeader->uiIdrPicId     = pEncCtx->sPSOVector.uiIdrPicId; //??
+  pCurSliceHeader->uiIdrPicId     = pEncCtx->uiIdrPicId;
 
   pCurSliceHeader->iPicOrderCntLsb          = pEncCtx->pEncPic->iFramePoc;	// 0
 
@@ -160,7 +160,7 @@ void WelsCountMbType (int32_t (*iMbCount)[18], const EWelsSliceType keSt, const 
     ++ iMbCount[keSt][Inter16x8];
     break;
   case MB_TYPE_8x16:
-    ++ iMbCount[eSt][Inter8x16];
+    ++ iMbCount[keSt][Inter8x16];
     break;
   case MB_TYPE_8x8:
     ++ iMbCount[keSt][Inter8x8];

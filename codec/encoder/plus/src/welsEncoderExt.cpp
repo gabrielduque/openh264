@@ -166,8 +166,7 @@ void CWelsH264SVCEncoder::InitEncoder (void) {
   if (m_pWelsTrace == NULL) {
     return;
   }
-  WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "CWelsH264SVCEncoder::InitEncoder(), openh264 codec version = %s",
-           VERSION_NUMBER);
+  m_pWelsTrace->SetCodecInstance (this);
 }
 
 /* Interfaces override from ISVCEncoder */
@@ -184,6 +183,9 @@ int CWelsH264SVCEncoder::Initialize (const SEncParamBase* argv) {
   if (m_pWelsTrace == NULL) {
     return cmMallocMemeError;
   }
+
+  WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "CWelsH264SVCEncoder::InitEncoder(), openh264 codec version = %s",
+           VERSION_NUMBER);
 
   if (NULL == argv) {
     WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_ERROR, "CWelsH264SVCEncoder::Initialize(), invalid argv= 0x%p",
@@ -208,6 +210,9 @@ int CWelsH264SVCEncoder::InitializeExt (const SEncParamExt* argv) {
   if (m_pWelsTrace == NULL) {
     return cmMallocMemeError;
   }
+
+  WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO, "CWelsH264SVCEncoder::InitEncoder(), openh264 codec version = %s",
+           VERSION_NUMBER);
 
   if (NULL == argv) {
     WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_ERROR, "CWelsH264SVCEncoder::InitializeExt(), invalid argv= 0x%p",
@@ -1040,7 +1045,8 @@ int CWelsH264SVCEncoder::SetOption (ENCODER_OPTION eOptionId, void* pOption) {
   break;
   case ENCODER_OPTION_BITS_VARY_PERCENTAGE: {
     int32_t iValue = * (static_cast<int32_t*> (pOption));
-    m_pEncContext->pSvcParam->iBitsVaryPercentage = iValue;
+    m_pEncContext->pSvcParam->iBitsVaryPercentage = WELS_CLIP3(iValue,0,100);
+    WelsEncoderApplyBitVaryRang(&m_pWelsTrace->m_sLogCtx, m_pEncContext->pSvcParam, m_pEncContext->pSvcParam->iBitsVaryPercentage);
     WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO,
              "CWelsH264SVCEncoder::SetOption():ENCODER_OPTION_BITS_VARY_PERCENTAGE,iBitsVaryPercentage = %d", iValue);
   }

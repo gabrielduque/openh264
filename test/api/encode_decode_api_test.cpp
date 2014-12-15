@@ -96,6 +96,7 @@ class EncodeDecodeTestBase : public ::testing::TestWithParam<EncodeDecodeFilePar
     param_.fMaxFrameRate = framerate;
     param_.iRCMode = RC_OFF_MODE; //rc off
     param_.iMultipleThreadIdc = 1; //single thread
+    param_.iSpatialLayerNum = iLayers;
     for (int i = 0; i < iLayers; i++) {
       param_.sSpatialLayers[i].iVideoWidth = width >> (iLayers - i - 1);
       param_.sSpatialLayers[i].iVideoHeight = height >> (iLayers - i - 1);
@@ -560,7 +561,7 @@ TEST_P (EncodeDecodeTestAPI, GetOptionIDR) {
     EncodeOneFrame (0);
 
     if (info.eFrameType == videoFrameTypeIDR) {
-      iEncCurIdrPicId = (iSpsPpsIdAddition == 0) ? 0 : (iEncCurIdrPicId + 1);
+      iEncCurIdrPicId = iEncCurIdrPicId + 1;
     }
     //decoding after each encoding frame
     int len = 0;
@@ -1038,7 +1039,7 @@ TEST_P (EncodeDecodeTestAPI, InOutTimeStamp) {
   encoder_->Uninitialize();
   int rv = encoder_->InitializeExt (&param_);
   ASSERT_TRUE (rv == cmResultSuccess);
-  
+
   InitialEncDec (p.width, p.height);
   int32_t iTraceLevel = WELS_LOG_QUIET;
   encoder_->SetOption (ENCODER_OPTION_TRACE_LEVEL, &iTraceLevel);
@@ -1070,7 +1071,7 @@ TEST_P (EncodeDecodeTestAPI, InOutTimeStamp) {
     memset (&dstBufInfo_, 0, sizeof (SBufferInfo));
     dstBufInfo_.uiInBsTimeStamp = uiEncTimeStamp;
     rv = decoder_->DecodeFrame2 (NULL, 0, pData, &dstBufInfo_); //reconstruction
-    if(dstBufInfo_.iBufferStatus == 1) {
+    if (dstBufInfo_.iBufferStatus == 1) {
       EXPECT_EQ (uiEncTimeStamp, dstBufInfo_.uiOutYuvTimeStamp);
     }
     iIdx++;
@@ -1607,7 +1608,7 @@ TEST_F (EncodeDecodeTestAPI, SetOptionECIDC_SpecificFrameChange) {
 //loss (2 slice: 1,2):          2   0   0   1   0
 
 TEST_F (EncodeDecodeTestAPI, SetOptionECIDC_SpecificSliceChange_IDRLoss) {
-  uint32_t uiEcIdc;
+  uint32_t uiEcIdc = 2; //default set as SLICE_COPY
   uint32_t uiGet;
   EncodeDecodeFileParamBase p = kFileParamArray[0];
   prepareParam (1, 2,  p.width, p.height, p.frameRate);
@@ -1615,6 +1616,7 @@ TEST_F (EncodeDecodeTestAPI, SetOptionECIDC_SpecificSliceChange_IDRLoss) {
   encoder_->Uninitialize();
   int rv = encoder_->InitializeExt (&param_);
   ASSERT_TRUE (rv == cmResultSuccess);
+  decoder_->SetOption (DECODER_OPTION_ERROR_CON_IDC, &uiEcIdc);
   decoder_->GetOption (DECODER_OPTION_ERROR_CON_IDC, &uiGet);
   EXPECT_EQ (uiGet, (uint32_t) ERROR_CON_SLICE_COPY); //default value should be ERROR_CON_SLICE_COPY
   int32_t iTraceLevel = WELS_LOG_QUIET;
@@ -2055,19 +2057,22 @@ TEST_F (EncodeDecodeTestAPI, Engine_SVC_Switch_P) {
 }
 
 TEST_F (EncodeDecodeTestAPI, SetOptionEncParamExt) {
-  int iWidth       = (((rand() % MAX_WIDTH) >> 1) + 16) << 1;
-  int iHeight      = (((rand() % MAX_HEIGHT) >> 1) + 16) << 1;
+  int iWidth       = WELS_CLIP3 ((((rand() % MAX_WIDTH) >> 1)  + 1) << 1, 2, MAX_WIDTH);
+  int iHeight      = WELS_CLIP3 ((((rand() % MAX_HEIGHT) >> 1)  + 1) << 1, 2, MAX_HEIGHT);
   float fFrameRate = rand() + 0.5f;
   int iEncFrameNum = WELS_CLIP3 ((rand() % ENCODE_FRAME_NUM) + 1, 1, ENCODE_FRAME_NUM);
   int iSpatialLayerNum = 4;
   int iSliceNum        = 1;
   encoder_->GetDefaultParams (&param_);
   prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate);
+
   int rv = encoder_->InitializeExt (&param_);
   ASSERT_TRUE (rv == cmResultSuccess);
 
-  int32_t iTraceLevel = WELS_LOG_QUIET;
-  encoder_->SetOption (ENCODER_OPTION_TRACE_LEVEL, &iTraceLevel);
+  int iTraceLevel = WELS_LOG_QUIET;
+  rv = encoder_->SetOption (ENCODER_OPTION_TRACE_LEVEL, &iTraceLevel);
+  ASSERT_TRUE (rv == cmResultSuccess);
+
   for (int i = 0; i < iEncFrameNum; i++) {
     int iResult;
     int len = 0;
@@ -2303,7 +2308,8 @@ TEST_F (DecodeCrashTestAPI, DecoderCrashTest) {
   } while (1); //while (iLoopRound<100);
   fclose (f);
 #else
-  } while (uiLoopRound < 10);
+  }
+  while (uiLoopRound < 10);
 #endif
 
 }
@@ -2316,9 +2322,9 @@ const uint32_t kiFrameRate = 12; //DO NOT CHANGE!
 const uint32_t kiFrameNum = 100; //DO NOT CHANGE!
 const uint32_t kiMaxBsSize = 10000000; //DO NOT CHANGE!
 const char* pHashStr[] = { //DO NOT CHANGE!
-  "c58322f886a3ba958c6f60b46b98f67b5d860866",
-  "f2799e1e5f6e33c6274f4e1f6273c721475492d0",
-  "8f0fafeaa2746e04d42fb17104efb61c9dbd1a6f"
+  "02a5c2dd29af76812f9486d64dd1f4bb6f799405",
+  "45dc93584b9a4f8de60d47c0b5254d78541428e6",
+  "d62c2115520207444d481ddde0ea60d938a15c72"
 };
 
 class DecodeParseAPI : public EncodeDecodeTestBase {

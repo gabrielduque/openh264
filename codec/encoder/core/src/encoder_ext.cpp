@@ -533,6 +533,20 @@ int32_t WelsEncoderApplyBitRate (SLogContext* pLogCtx, SWelsSvcCodingParam* pPar
   }
   return ENC_RETURN_SUCCESS;
 }
+int32_t WelsEncoderApplyBitVaryRang(SLogContext* pLogCtx, SWelsSvcCodingParam* pParam, int32_t iRang){
+    SSpatialLayerConfig* pLayerParam;
+    const int32_t iNumLayers = pParam->iSpatialLayerNum;
+    for (int32_t i = 0; i < iNumLayers; i++) {
+        pLayerParam = & (pParam->sSpatialLayers[i]);
+        pLayerParam->iMaxSpatialBitrate = WELS_MIN(pLayerParam->iSpatialBitrate * (1+ iRang/100.0),pLayerParam->iMaxSpatialBitrate);
+        if (WelsBitRateVerification (pLogCtx, pLayerParam, i) != ENC_RETURN_SUCCESS)
+            return ENC_RETURN_UNSUPPORTED_PARA;
+        WelsLog (pLogCtx, WELS_LOG_INFO,
+                 "WelsEncoderApplyBitVaryRang:UpdateMaxBitrate layerId= %d,iMaxSpatialBitrate = %d", i, pLayerParam->iMaxSpatialBitrate);
+    }
+    return ENC_RETURN_SUCCESS;
+}
+
 /*!
  * \brief	acquire count number of layers and NALs based on configurable paramters dependency
  * \pParam	pCtx				sWelsEncCtx*
@@ -1335,7 +1349,6 @@ void GetMvMvdRange (SWelsSvcCodingParam* pParam, int32_t& iMvRange, int32_t& iMv
     if (pParam->sSpatialLayers[iLayer].uiLevelIdc < iMinLevelIdc)
       iMinLevelIdc = pParam->sSpatialLayers[iLayer].uiLevelIdc;
   }
-
   iMinMv = (g_ksLevelLimits[iMinLevelIdc - 1].iMinVmv) >> 2;
   iMaxMv = (g_ksLevelLimits[iMinLevelIdc - 1].iMaxVmv) >> 2;
 
@@ -1361,11 +1374,6 @@ int32_t RequestMemorySvc (sWelsEncCtx** ppCtx) {
   int32_t iResult					= 0;
   float	fCompressRatioThr		= .5f;
   const int32_t kiNumDependencyLayers	= pParam->iSpatialLayerNum;
-  int32_t iMvdRange = 0;
-  GetMvMvdRange (pParam, (*ppCtx)->iMvRange, iMvdRange);
-  const uint32_t kuiMvdInterTableSize	= (iMvdRange << 2); //intepel*4=qpel
-  const uint32_t kuiMvdInterTableStride	=  1 + (kuiMvdInterTableSize << 1);//qpel_mv_range*2=(+/-);
-  const uint32_t kuiMvdCacheAlignedSize	= kuiMvdInterTableStride * sizeof (uint16_t);
   int32_t iVclLayersBsSizeCount		= 0;
   int32_t iNonVclLayersBsSizeCount	= 0;
   int32_t iTargetSpatialBsSize			= 0;
@@ -1569,6 +1577,12 @@ int32_t RequestMemorySvc (sWelsEncCtx** ppCtx) {
     FreeMemorySvc (ppCtx);
     return 1;
   }
+
+  int32_t iMvdRange = 0;
+  GetMvMvdRange (pParam, (*ppCtx)->iMvRange, iMvdRange);
+  const uint32_t kuiMvdInterTableSize	= (iMvdRange << 2); //intepel*4=qpel
+  const uint32_t kuiMvdInterTableStride	=  1 + (kuiMvdInterTableSize << 1);//qpel_mv_range*2=(+/-);
+  const uint32_t kuiMvdCacheAlignedSize	= kuiMvdInterTableStride * sizeof (uint16_t);
 
   (*ppCtx)->iMvdCostTableSize = kuiMvdInterTableSize;
   (*ppCtx)->iMvdCostTableStride = kuiMvdInterTableStride;
@@ -3126,7 +3140,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   pLayerBsInfo->pNalLengthInByte = pCtx->pOut->pNalLen;
 
   if (eFrameType == videoFrameTypeIDR) {
-    ++ pCtx->sPSOVector.uiIdrPicId;
+    ++ pCtx->uiIdrPicId;
     //if ( pSvcParam->bEnableSSEI )
 
     // write parameter sets bitstream here
@@ -3816,7 +3830,7 @@ int32_t WelsEncoderParamAdjust (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pNewPa
       memset (((*ppCtx)->sPSOVector.sParaSetOffsetVariable[k].bUsedParaSetIdInBs), 0, MAX_PPS_COUNT * sizeof (bool));
     memcpy (sTmpPsoVariable, (*ppCtx)->sPSOVector.sParaSetOffsetVariable,
             (PARA_SET_TYPE)*sizeof (SParaSetOffsetVariable)); // confirmed_safe_unsafe_usage
-    uiTmpIdrPicId = (*ppCtx)->sPSOVector.uiIdrPicId;
+    uiTmpIdrPicId = (*ppCtx)->uiIdrPicId;
 
     SEncoderStatistics sTempEncoderStatistics = (*ppCtx)->sEncoderStatistics;
 
@@ -3834,7 +3848,8 @@ int32_t WelsEncoderParamAdjust (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pNewPa
     //for FLEXIBLE_PARASET_ID
     memcpy ((*ppCtx)->sPSOVector.sParaSetOffsetVariable, sTmpPsoVariable,
             (PARA_SET_TYPE)*sizeof (SParaSetOffsetVariable)); // confirmed_safe_unsafe_usage
-    (*ppCtx)->sPSOVector.uiIdrPicId = uiTmpIdrPicId;
+    //for LTR
+    (*ppCtx)->uiIdrPicId = uiTmpIdrPicId;
     //for sEncoderStatistics
     (*ppCtx)->sEncoderStatistics = sTempEncoderStatistics;
   } else {

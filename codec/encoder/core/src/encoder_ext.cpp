@@ -212,7 +212,7 @@ int32_t ParamValidation (SLogContext* pLogCtx, SWelsSvcCodingParam* pCfg) {
   }
 
   if ((pCfg->iRCMode != RC_OFF_MODE) && (pCfg->iRCMode != RC_QUALITY_MODE) && (pCfg->iRCMode != RC_BUFFERBASED_MODE)
-      && (pCfg->iRCMode != RC_BITRATE_MODE)&& (pCfg->iRCMode != RC_TIMESTAMP_MODE)) {
+      && (pCfg->iRCMode != RC_BITRATE_MODE) && (pCfg->iRCMode != RC_TIMESTAMP_MODE)) {
     WelsLog (pLogCtx, WELS_LOG_ERROR, "ParamValidation(),Invalid iRCMode = %d", pCfg->iRCMode);
     return ENC_RETURN_UNSUPPORTED_PARA;
   }
@@ -541,7 +541,8 @@ void WelsEncoderApplyFrameRate (SWelsSvcCodingParam* pParam) {
         || (kfMaxFrameRate - pLayerParamInternal->fInputFrameRate) < -kfEpsn) {
       pLayerParamInternal->fInputFrameRate = kfMaxFrameRate;
       fTargetOutputFrameRate = kfMaxFrameRate * fRatio;
-      pLayerParamInternal->fOutputFrameRate = (fTargetOutputFrameRate >= 6) ? fTargetOutputFrameRate : (pLayerParamInternal->fInputFrameRate);
+      pLayerParamInternal->fOutputFrameRate = (fTargetOutputFrameRate >= 6) ? fTargetOutputFrameRate :
+                                              (pLayerParamInternal->fInputFrameRate);
       pLayerParam->fFrameRate = pLayerParamInternal->fOutputFrameRate;
       //TODO:{Sijia} from design, there is no sense to have temporal layer when under 6fps even with such setting?
     }
@@ -3092,6 +3093,28 @@ int32_t GetSubSequenceId (sWelsEncCtx* pCtx, EVideoFrameType eFrameType) {
   return iSubSeqId;
 }
 
+int32_t WriteSsvcParaset(sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
+                         SLayerBSInfo*& pLayerBsInfo, int32_t& iLayerNum, int32_t& iFrameSize) {
+  int32_t iNonVclSize = 0, iCountNal = 0, iReturn;
+  iReturn = WelsWriteParameterSets (pCtx, &pLayerBsInfo->pNalLengthInByte[0], &iCountNal, &iNonVclSize);
+  WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
+  
+  pLayerBsInfo->uiSpatialId		= 0;
+  pLayerBsInfo->uiTemporalId	= 0;
+  pLayerBsInfo->uiQualityId		= 0;
+  pLayerBsInfo->uiLayerType		= NON_VIDEO_CODING_LAYER;
+  pLayerBsInfo->iNalCount		= iCountNal;
+  
+  //point to next pLayerBsInfo
+  ++ pLayerBsInfo;
+  pLayerBsInfo->pBsBuf			= pCtx->pFrameBs + pCtx->iPosBsBuffer;
+  pLayerBsInfo->pNalLengthInByte = (pLayerBsInfo - 1)->pNalLengthInByte + iCountNal;
+  //update for external countings
+  ++ iLayerNum;
+  iFrameSize += iNonVclSize;
+  return iReturn;
+}
+  
 /*!
  * \brief	core svc encoding process
  *
@@ -3189,25 +3212,9 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
 
   if (eFrameType == videoFrameTypeIDR) {
     ++ pCtx->uiIdrPicId;
-    //if ( pSvcParam->bEnableSSEI )
-
-    // write parameter sets bitstream here
-    int32_t iNonVclSize = 0;
-    pCtx->iEncoderError = WelsWriteParameterSets (pCtx, &pLayerBsInfo->pNalLengthInByte[0], &iCountNal, &iNonVclSize);
+    // write parameter sets bitstream or SEI/SSEI (if any) here
+    pCtx->iEncoderError = WriteSsvcParaset(pCtx, iSpatialNum, pLayerBsInfo, iLayerNum, iFrameSize);
     WELS_VERIFY_RETURN_IFNEQ (pCtx->iEncoderError, ENC_RETURN_SUCCESS)
-
-    pLayerBsInfo->uiSpatialId		= 0;
-    pLayerBsInfo->uiTemporalId	= 0;
-    pLayerBsInfo->uiQualityId		= 0;
-    pLayerBsInfo->uiLayerType		= NON_VIDEO_CODING_LAYER;
-    pLayerBsInfo->iNalCount		= iCountNal;
-
-    ++ pLayerBsInfo;
-    pLayerBsInfo->pBsBuf			= pCtx->pFrameBs + pCtx->iPosBsBuffer;
-    pLayerBsInfo->pNalLengthInByte = (pLayerBsInfo - 1)->pNalLengthInByte + iCountNal;
-    ++ iLayerNum;
-
-    iFrameSize += iNonVclSize;
   }
 
   pCtx->pCurDqLayer				= pCtx->ppDqLayerList[pSpatialIndexMap->iDid];

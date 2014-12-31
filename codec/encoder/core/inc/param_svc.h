@@ -287,6 +287,7 @@ typedef struct TagWelsSvcCodingParam: SEncParamExt {
 
     /* Rate Control */
     iRCMode = pCodingParam.iRCMode;    // rc mode
+    bSimulcastAVC = pCodingParam.bSimulcastAVC;
     iPaddingFlag = pCodingParam.iPaddingFlag;
 
     iTargetBitrate		= pCodingParam.iTargetBitrate;	// target bitrate

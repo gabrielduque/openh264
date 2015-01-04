@@ -3093,18 +3093,18 @@ int32_t GetSubSequenceId (sWelsEncCtx* pCtx, EVideoFrameType eFrameType) {
   return iSubSeqId;
 }
 
-int32_t WriteSsvcParaset(sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
-                         SLayerBSInfo*& pLayerBsInfo, int32_t& iLayerNum, int32_t& iFrameSize) {
+int32_t WriteSsvcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
+                          SLayerBSInfo*& pLayerBsInfo, int32_t& iLayerNum, int32_t& iFrameSize) {
   int32_t iNonVclSize = 0, iCountNal = 0, iReturn;
   iReturn = WelsWriteParameterSets (pCtx, &pLayerBsInfo->pNalLengthInByte[0], &iCountNal, &iNonVclSize);
   WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
-  
+
   pLayerBsInfo->uiSpatialId		= 0;
   pLayerBsInfo->uiTemporalId	= 0;
   pLayerBsInfo->uiQualityId		= 0;
   pLayerBsInfo->uiLayerType		= NON_VIDEO_CODING_LAYER;
   pLayerBsInfo->iNalCount		= iCountNal;
-  
+
   //point to next pLayerBsInfo
   ++ pLayerBsInfo;
   pLayerBsInfo->pBsBuf			= pCtx->pFrameBs + pCtx->iPosBsBuffer;
@@ -3114,7 +3114,82 @@ int32_t WriteSsvcParaset(sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
   iFrameSize += iNonVclSize;
   return iReturn;
 }
+
+int32_t WelsWriteOneSPS (sWelsEncCtx* pCtx, int32_t& iNalSize) {
+  //TODO
+  return ENC_RETURN_SUCCESS;
+}
+int32_t WelsWriteOnePPS (sWelsEncCtx* pCtx, int32_t& iNalSize) {
+  //TODO
+  return ENC_RETURN_SUCCESS;
+}
+
+int32_t WriteSavcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
+                          SLayerBSInfo*& pLayerBsInfo, int32_t& iLayerNum, int32_t& iFrameSize) {
+  int32_t iNonVclSize = 0, iCountNal = 0, iReturn;
+
+  // write SPS
+  iNonVclSize = 0;
+  for (int32_t k = 0; k < kiSpatialNum; k++, iCountNal++) {
+    for (int32_t iIdx = 0; iIdx < pCtx->iSpsNum; iIdx++) {
+      int32_t iNalSize = 0;
+      iReturn = WelsWriteOneSPS (pCtx, iNalSize);
+      WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
+
+      pLayerBsInfo->pNalLengthInByte[iCountNal] = iNalSize;
+      pCtx->iPosBsBuffer += iNalSize;
+      iNonVclSize += iNalSize;
+    }
+
+    pLayerBsInfo->uiSpatialId		= k;
+    pLayerBsInfo->uiTemporalId	= 0;
+    pLayerBsInfo->uiQualityId		= 0;
+    pLayerBsInfo->uiLayerType		= NON_VIDEO_CODING_LAYER;
+    pLayerBsInfo->iNalCount		= iCountNal;
+
+    //point to next pLayerBsInfo
+    ++ pLayerBsInfo;
+    pLayerBsInfo->pBsBuf			= pCtx->pFrameBs + pCtx->iPosBsBuffer;
+    pLayerBsInfo->pNalLengthInByte = (pLayerBsInfo - 1)->pNalLengthInByte + iCountNal;
+    //update for external countings
+    ++ iLayerNum;
+
+  }
+
+  // write PPS
   
+  //TODO: under new strategy, will PPS be correctly updated?
+
+  for (int32_t k = 0; k < kiSpatialNum; k++, iCountNal++) {
+    for (int32_t iIdx = 0; iIdx < pCtx->iPpsNum; iIdx++) {
+      int32_t iNalSize = 0;
+      iReturn = WelsWriteOnePPS (pCtx, iNalSize);
+      WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
+
+      pLayerBsInfo->pNalLengthInByte[iCountNal] = iNalSize;
+      pCtx->iPosBsBuffer += iNalSize;
+      iNonVclSize += iNalSize;
+    }
+
+    pLayerBsInfo->uiSpatialId		= k;
+    pLayerBsInfo->uiTemporalId	= 0;
+    pLayerBsInfo->uiQualityId		= 0;
+    pLayerBsInfo->uiLayerType		= NON_VIDEO_CODING_LAYER;
+    pLayerBsInfo->iNalCount		= iCountNal;
+
+    //point to next pLayerBsInfo
+    ++ pLayerBsInfo;
+    pLayerBsInfo->pBsBuf			= pCtx->pFrameBs + pCtx->iPosBsBuffer;
+    pLayerBsInfo->pNalLengthInByte = (pLayerBsInfo - 1)->pNalLengthInByte + iCountNal;
+    //update for external countings
+    ++ iLayerNum;
+  }
+
+  iFrameSize += iNonVclSize;
+  return iReturn;
+}
+
+
 /*!
  * \brief	core svc encoding process
  *
@@ -3213,7 +3288,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   if (eFrameType == videoFrameTypeIDR) {
     ++ pCtx->uiIdrPicId;
     // write parameter sets bitstream or SEI/SSEI (if any) here
-    pCtx->iEncoderError = WriteSsvcParaset(pCtx, iSpatialNum, pLayerBsInfo, iLayerNum, iFrameSize);
+    pCtx->iEncoderError = WriteSsvcParaset (pCtx, iSpatialNum, pLayerBsInfo, iLayerNum, iFrameSize);
     WELS_VERIFY_RETURN_IFNEQ (pCtx->iEncoderError, ENC_RETURN_SUCCESS)
   }
 

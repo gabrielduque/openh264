@@ -3345,7 +3345,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
     }
 
     iNalIdxInLayer	= 0;
-    bAvcBased	= (iCurDid == BASE_DEPENDENCY_ID);
+    bAvcBased	= ((pSvcParam->bSimulcastAVC) || (iCurDid == BASE_DEPENDENCY_ID));
     pCtx->bNeedPrefixNalFlag	= (bAvcBased &&
                                  (pSvcParam->bPrefixNalAddingCtrl ||
                                   (pSvcParam->iSpatialLayerNum > 1)));

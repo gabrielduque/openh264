@@ -65,7 +65,7 @@ static inline int32_t WelsCheckLevelLimitation (const SWelsSPS* kpSps, const SLe
     return 0;
   if (kpLevelLimit->uiMaxDPBMbs < uiNumRefFrames * uiPicInMBs)
     return 0;
-  if (iTargetBitRate
+  if ((iTargetBitRate != UNSPECIFIED_BIT_RATE)
       && ((int32_t) kpLevelLimit->uiMaxBR  * 1200) < iTargetBitRate)    //RC enabled, considering bitrate constraint
     return 0;
   //add more checks here if needed in future
@@ -86,32 +86,78 @@ int32_t WelsAdjustLevel (SSpatialLayerConfig* pSpatialLayer) {
   }
   return 1;
 }
-int32_t WelsCheckRefFrameLimitation (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam) {
-  int32_t i = 0;
-  int32_t iRefFrame = 1;
-  //get the number of reference frame according to level limitation.
-  for (i = 0; i < pParam->iSpatialLayerNum; ++ i) {
+
+int32_t WelsCheckNumRefSetting (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam) {
+  if ((pParam->iNumRefFrame > MAX_REF_PIC_COUNT) || (pParam->iNumRefFrame < MIN_REF_PIC_COUNT)) {
+    WelsLog (pLogCtx, WELS_LOG_WARNING, "iNumRefFrame setting (%d) exceeds standard, will be clipped",
+             pParam->iNumRefFrame);
+  }
+  pParam->iNumRefFrame = WELS_CLIP3 (pParam->iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REF_PIC_COUNT);
+  if ((pParam->iMaxNumRefFrame > MAX_REF_PIC_COUNT) || (pParam->iMaxNumRefFrame < MIN_REF_PIC_COUNT)) {
+    WelsLog (pLogCtx, WELS_LOG_WARNING, "iMaxNumRefFrame setting (%d) exceeds standard, will be clipped",
+             pParam->iMaxNumRefFrame);
+  }
+  pParam->iMaxNumRefFrame = WELS_CLIP3 (pParam->iMaxNumRefFrame, MIN_REF_PIC_COUNT, MAX_REF_PIC_COUNT);
+
+  if (pParam->iNumRefFrame > pParam->iMaxNumRefFrame) {
+    WelsLog (pLogCtx, WELS_LOG_WARNING, "iNumRefFrame(%d) exceeds iMaxNumRefFrame(%d), will be clipped",
+             pParam->iNumRefFrame, pParam->iMaxNumRefFrame);
+    pParam->iNumRefFrame = pParam->iMaxNumRefFrame;
+  }
+  return ENC_RETURN_SUCCESS;
+}
+
+int32_t WelsCheckRefFrameLimitationNumRefFirst (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam) {
+
+  WelsCheckNumRefSetting (pLogCtx, pParam);
+  for (int32_t i = 0; i < pParam->iSpatialLayerNum; ++ i) {
     SSpatialLayerConfig* pSpatialLayer = &pParam->sSpatialLayers[i];
-    uint32_t uiPicInMBs = ((pSpatialLayer->iVideoHeight + 15) >> 4) * ((pSpatialLayer->iVideoWidth + 15) >> 4);
+    // when it is NumRefFirst and level is unknown, the level can be set to the lowest and be adjusted later
     if (pSpatialLayer->uiLevelIdc == LEVEL_UNKNOWN) {
-      pSpatialLayer->uiLevelIdc = LEVEL_5_0;
-      WelsLog (pLogCtx, WELS_LOG_WARNING, "change level to level5.0");
-    }
-    iRefFrame = g_ksLevelLimits[pSpatialLayer->uiLevelIdc - 1].uiMaxDPBMbs / uiPicInMBs;
-    if (iRefFrame < pParam->iMaxNumRefFrame) {
-      pParam->iMaxNumRefFrame = iRefFrame;
-      if (pParam->iMaxNumRefFrame < pParam->iNumRefFrame)
-        pParam->iNumRefFrame = pParam->iMaxNumRefFrame;
-    }
-    if (pParam->iMaxNumRefFrame < 1) {
-      pParam->iMaxNumRefFrame = 1;
-      WelsLog (pLogCtx, WELS_LOG_ERROR, "error Level setting (%d)", pSpatialLayer->uiLevelIdc);
-      return ENC_RETURN_UNSUPPORTED_PARA;
+      pSpatialLayer->uiLevelIdc = LEVEL_1_0;
     }
   }
 
   return ENC_RETURN_SUCCESS;
 }
+int32_t WelsCheckRefFrameLimitationLevelIdcFirst (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam) {
+  if ((pParam->iNumRefFrame == AUTO_REF_PIC_COUNT) || (pParam->iMaxNumRefFrame == AUTO_REF_PIC_COUNT)) {
+    //no need to do the checking
+    return ENC_RETURN_SUCCESS;
+  }
+
+  WelsCheckNumRefSetting (pLogCtx, pParam);
+
+  int32_t i = 0;
+  int32_t iRefFrame;
+  //get the number of reference frame according to level limitation.
+  for (i = 0; i < pParam->iSpatialLayerNum; ++ i) {
+    SSpatialLayerConfig* pSpatialLayer = &pParam->sSpatialLayers[i];
+    if (pSpatialLayer->uiLevelIdc == LEVEL_UNKNOWN) {
+      continue;
+    }
+
+    uint32_t uiPicInMBs = ((pSpatialLayer->iVideoHeight + 15) >> 4) * ((pSpatialLayer->iVideoWidth + 15) >> 4);
+    iRefFrame = g_ksLevelLimits[pSpatialLayer->uiLevelIdc - 1].uiMaxDPBMbs / uiPicInMBs;
+
+    //check iMaxNumRefFrame
+    if (iRefFrame < pParam->iMaxNumRefFrame) {
+      WelsLog (pLogCtx, WELS_LOG_WARNING, "iMaxNumRefFrame(%d) adjusted to %d because of limitation from uiLevelIdc=%d",
+               pParam->iMaxNumRefFrame, iRefFrame, pSpatialLayer->uiLevelIdc);
+      pParam->iMaxNumRefFrame = iRefFrame;
+
+      //check iNumRefFrame
+      if (iRefFrame < pParam->iNumRefFrame) {
+        WelsLog (pLogCtx, WELS_LOG_WARNING, "iNumRefFrame(%d) adjusted to %d because of limitation from uiLevelIdc=%d",
+                 pParam->iNumRefFrame, iRefFrame, pSpatialLayer->uiLevelIdc);
+        pParam->iNumRefFrame = iRefFrame;
+      }
+    }
+  }
+
+  return ENC_RETURN_SUCCESS;
+}
+
 static inline ELevelIdc WelsGetLevelIdc (const SWelsSPS* kpSps, float fFrameRate, int32_t iTargetBitRate) {
   int32_t iOrder;
   for (iOrder = 0; iOrder < LEVEL_NUMBER; iOrder++) {
@@ -386,12 +432,7 @@ int32_t WelsInitSps (SWelsSPS* pSps, SSpatialLayerConfig* pLayerParam, SSpatialL
 
   pSps->uiProfileIdc	= pLayerParam->uiProfileIdc ? pLayerParam->uiProfileIdc : PRO_BASELINE;
 
-  if (bEnableRc)  //fixed QP condition
-    uiLevel	= WelsGetLevelIdc (pSps, pLayerParamInternal->fOutputFrameRate, pLayerParam->iSpatialBitrate);
-  else
-    uiLevel  = WelsGetLevelIdc (pSps, pLayerParamInternal->fOutputFrameRate,
-                                0); // Set tar_br = 0 to remove the bitrate constraint; a better way is to set actual tar_br as 0
-
+  uiLevel	= WelsGetLevelIdc (pSps, pLayerParamInternal->fOutputFrameRate, pLayerParam->iSpatialBitrate);
 
   if (pLayerParam->uiProfileIdc == PRO_BASELINE) {
     pSps->bConstraintSet0Flag = true;

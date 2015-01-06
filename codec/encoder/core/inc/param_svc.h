@@ -135,7 +135,7 @@ typedef struct TagWelsSvcCodingParam: SEncParamExt {
     param.fMaxFrameRate		= MAX_FRAME_RATE;	// maximal frame rate [Hz / fps]
 
     param.iComplexityMode = MEDIUM_COMPLEXITY;
-    param.iTargetBitrate			= 0;	// overall target bitrate introduced in RC module
+    param.iTargetBitrate			= UNSPECIFIED_BIT_RATE;	// overall target bitrate introduced in RC module
     param.iMaxBitrate         = UNSPECIFIED_BIT_RATE;
     param.iMultipleThreadIdc		= 1;
 
@@ -189,7 +189,7 @@ typedef struct TagWelsSvcCodingParam: SEncParamExt {
   void FillDefault() {
     FillDefault (*this);
     uiGopSize			= 1;			// GOP size (at maximal frame rate: 16)
-    iMaxNumRefFrame = 1;
+    iMaxNumRefFrame = AUTO_REF_PIC_COUNT;
     SUsedPicRect.iLeft	=
       SUsedPicRect.iTop	=
         SUsedPicRect.iWidth	=

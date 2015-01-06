@@ -90,12 +90,14 @@ int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
       break;
     }
 
-    if (WelsTargetMbConstruction (pCtx)) {
-      WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING,
-               "WelsTargetSliceConstruction():::MB(%d, %d) construction error. pCurSlice_type:%d",
-               pCurLayer->iMbX, pCurLayer->iMbY, pCurSlice->eSliceType);
+    if (!pCtx->bParseOnly) { //for parse only, actual recon MB unnecessary
+      if (WelsTargetMbConstruction (pCtx)) {
+        WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING,
+                 "WelsTargetSliceConstruction():::MB(%d, %d) construction error. pCurSlice_type:%d",
+                 pCurLayer->iMbX, pCurLayer->iMbY, pCurSlice->eSliceType);
 
-      return -1;
+        return -1;
+      }
     }
 
     ++iCountNumMb;
@@ -130,6 +132,9 @@ int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
   pCtx->pDec->iHeightInPixel = iCurLayerHeight;
 
   if ((pCurSlice->eSliceType != I_SLICE) && (pCurSlice->eSliceType != P_SLICE))
+    return 0;
+
+  if (pCtx->bParseOnly) //for parse only, deblocking should not go on
     return 0;
 
   pDeblockMb = WelsDeblockingMb;
@@ -1690,25 +1695,13 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
 }
 
 void WelsBlockFuncInit (SBlockFunc*   pFunc,  int32_t iCpu) {
-  pFunc->pWelsSetNonZeroCountFunc	    = SetNonZeroCount_c;
-
-#ifdef	HAVE_NEON
-  if (iCpu & WELS_CPU_NEON) {
-    pFunc->pWelsSetNonZeroCountFunc		= SetNonZeroCount_neon;
-  }
-#endif
-
-#ifdef	HAVE_NEON_AARCH64
-  if (iCpu & WELS_CPU_NEON) {
-    pFunc->pWelsSetNonZeroCountFunc		= SetNonZeroCount_AArch64_neon;
-  }
-#endif
-
+  pFunc->pWelsSetNonZeroCountFunc	    = WelsNonZeroCount_c;
   pFunc->pWelsBlockZero16x16Func	    = WelsBlockZero16x16_c;
-  pFunc->pWelsBlockZero8x8Func	    = WelsBlockZero8x8_c;
-  //TO DO add neon and X86
+  pFunc->pWelsBlockZero8x8Func          = WelsBlockZero8x8_c;
+
 #ifdef	HAVE_NEON
   if (iCpu & WELS_CPU_NEON) {
+    pFunc->pWelsSetNonZeroCountFunc		= WelsNonZeroCount_neon;
     pFunc->pWelsBlockZero16x16Func	    = WelsBlockZero16x16_neon;
     pFunc->pWelsBlockZero8x8Func	    = WelsBlockZero8x8_neon;
   }
@@ -1716,6 +1709,7 @@ void WelsBlockFuncInit (SBlockFunc*   pFunc,  int32_t iCpu) {
 
 #ifdef	HAVE_NEON_AARCH64
   if (iCpu & WELS_CPU_NEON) {
+    pFunc->pWelsSetNonZeroCountFunc		= WelsNonZeroCount_AArch64_neon;
     pFunc->pWelsBlockZero16x16Func	    = WelsBlockZero16x16_AArch64_neon;
     pFunc->pWelsBlockZero8x8Func	    = WelsBlockZero8x8_AArch64_neon;
   }
@@ -1723,19 +1717,12 @@ void WelsBlockFuncInit (SBlockFunc*   pFunc,  int32_t iCpu) {
 
 #if defined(X86_ASM)
   if (iCpu & WELS_CPU_SSE2) {
+    pFunc->pWelsSetNonZeroCountFunc		= WelsNonZeroCount_sse2;
     pFunc->pWelsBlockZero16x16Func	    = WelsBlockZero16x16_sse2;
     pFunc->pWelsBlockZero8x8Func	    = WelsBlockZero8x8_sse2;
   }
 #endif
 
-}
-
-void SetNonZeroCount_c (int8_t* pNonZeroCount) {
-  int32_t i;
-
-  for (i = 0; i < 24; i++) {
-    pNonZeroCount[i] = !!pNonZeroCount[i];
-  }
 }
 
 void WelsBlockInit (int16_t* pBlock, int iW, int iH, int iStride, uint8_t uiVal) {

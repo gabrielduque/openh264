@@ -87,7 +87,7 @@ int32_t WelsAdjustLevel (SSpatialLayerConfig* pSpatialLayer) {
   return 1;
 }
 
-int32_t WelsCheckNumRefSetting (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam) {
+static int32_t WelsCheckNumRefSetting (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam) {
   if ((pParam->iNumRefFrame > MAX_REF_PIC_COUNT) || (pParam->iNumRefFrame < MIN_REF_PIC_COUNT)) {
     WelsLog (pLogCtx, WELS_LOG_WARNING, "iNumRefFrame setting (%d) exceeds standard, will be clipped",
              pParam->iNumRefFrame);
@@ -104,6 +104,36 @@ int32_t WelsCheckNumRefSetting (SLogContext* pLogCtx, SWelsSvcCodingParam* pPara
              pParam->iNumRefFrame, pParam->iMaxNumRefFrame);
     pParam->iNumRefFrame = pParam->iMaxNumRefFrame;
   }
+
+  // validate LTR num
+  int32_t iCurrentSupportedLtrNum = (pParam->iUsageType == CAMERA_VIDEO_REAL_TIME) ? LONG_TERM_REF_NUM :
+                                    LONG_TERM_REF_NUM_SCREEN;
+  if ((pParam->bEnableLongTermReference) && (iCurrentSupportedLtrNum != pParam->iLTRRefNum)) {
+    WelsLog (pLogCtx, WELS_LOG_WARNING, "iLTRRefNum(%d) does not equal to currently supported %d, will be reset",
+             pParam->iLTRRefNum, iCurrentSupportedLtrNum);
+    pParam->iLTRRefNum = iCurrentSupportedLtrNum;
+  }
+
+  int32_t iNeededRefNum = (pParam->uiIntraPeriod != 1)
+                          ? (WELS_MAX (1, WELS_LOG2 (pParam->uiGopSize)) + pParam->iLTRRefNum)
+                          : 0;
+  iNeededRefNum		= WELS_CLIP3 (iNeededRefNum,
+                                MIN_REF_PIC_COUNT,
+                                (pParam->iUsageType == CAMERA_VIDEO_REAL_TIME) ? MAX_REFERENCE_PICTURE_COUNT_NUM_CAMERA :
+                                MAX_REFERENCE_PICTURE_COUNT_NUM_SCREEN);
+  if (pParam->iNumRefFrame == AUTO_REF_PIC_COUNT) {
+    pParam->iNumRefFrame = pParam->iMaxNumRefFrame = iNeededRefNum;
+  } else if (pParam->iNumRefFrame < iNeededRefNum) {
+    WelsLog (pLogCtx, WELS_LOG_WARNING,
+             "iNumRefFrame(%d) setting does not support the temporal and LTR setting, will be reset to %d",
+             pParam->iNumRefFrame, iNeededRefNum);
+    pParam->iNumRefFrame = pParam->iMaxNumRefFrame = iNeededRefNum;
+  } else {
+    // the setting is larger than needed, we will use the needed and write the max into sps and for memory to wait for further expanding
+    pParam->iMaxNumRefFrame = pParam->iNumRefFrame;
+    pParam->iNumRefFrame = iNeededRefNum;
+  }
+
   return ENC_RETURN_SUCCESS;
 }
 
@@ -117,6 +147,7 @@ int32_t WelsCheckRefFrameLimitationNumRefFirst (SLogContext* pLogCtx, SWelsSvcCo
       pSpatialLayer->uiLevelIdc = LEVEL_1_0;
     }
   }
+
 
   return ENC_RETURN_SUCCESS;
 }
@@ -152,6 +183,12 @@ int32_t WelsCheckRefFrameLimitationLevelIdcFirst (SLogContext* pLogCtx, SWelsSvc
                  pParam->iNumRefFrame, iRefFrame, pSpatialLayer->uiLevelIdc);
         pParam->iNumRefFrame = iRefFrame;
       }
+    } else {
+      //because it is level first now, so adjust max-ref
+      WelsLog (pLogCtx, WELS_LOG_INFO,
+               "iMaxNumRefFrame(%d) adjusted to %d because of uiLevelIdc=%d -- under level-idc first strategy ",
+               pParam->iMaxNumRefFrame, iRefFrame, pSpatialLayer->uiLevelIdc);
+      pParam->iMaxNumRefFrame = iRefFrame;
     }
   }
 
@@ -411,7 +448,6 @@ int32_t WelsInitSps (SWelsSPS* pSps, SSpatialLayerConfig* pLayerParam, SSpatialL
                      const uint32_t kuiSpsId, const bool kbEnableFrameCropping, bool bEnableRc,
                      const int32_t kiDlayerCount) {
   memset (pSps, 0, sizeof (SWelsSPS));
-  ELevelIdc uiLevel = LEVEL_5_2;
   pSps->uiSpsId		= kuiSpsId;
   pSps->iMbWidth	= (pLayerParam->iVideoWidth + 15) >> 4;
   pSps->iMbHeight	= (pLayerParam->iVideoHeight + 15) >> 4;
@@ -431,9 +467,6 @@ int32_t WelsInitSps (SWelsSPS* pSps, SSpatialLayerConfig* pLayerParam, SSpatialL
   }
 
   pSps->uiProfileIdc	= pLayerParam->uiProfileIdc ? pLayerParam->uiProfileIdc : PRO_BASELINE;
-
-  uiLevel	= WelsGetLevelIdc (pSps, pLayerParamInternal->fOutputFrameRate, pLayerParam->iSpatialBitrate);
-
   if (pLayerParam->uiProfileIdc == PRO_BASELINE) {
     pSps->bConstraintSet0Flag = true;
   }
@@ -444,6 +477,7 @@ int32_t WelsInitSps (SWelsSPS* pSps, SSpatialLayerConfig* pLayerParam, SSpatialL
     pSps->bConstraintSet2Flag = true;
   }
 
+  ELevelIdc uiLevel	= WelsGetLevelIdc (pSps, pLayerParamInternal->fOutputFrameRate, pLayerParam->iSpatialBitrate);
   //update level
   //for Scalable Baseline, Scalable High, and Scalable High Intra profiles.If level_idc is equal to 9, the indicated level is level 1b.
   //for the Baseline, Constrained Baseline, Main, and Extended profiles,If level_idc is equal to 11 and constraint_set3_flag is equal to 1, the indicated level is level 1b.

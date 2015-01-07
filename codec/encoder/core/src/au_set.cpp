@@ -114,25 +114,31 @@ static int32_t WelsCheckNumRefSetting (SLogContext* pLogCtx, SWelsSvcCodingParam
     pParam->iLTRRefNum = iCurrentSupportedLtrNum;
   }
 
-  int32_t iNeededRefNum = (pParam->uiIntraPeriod != 1)
-                          ? (WELS_MAX (1, WELS_LOG2 (pParam->uiGopSize)) + pParam->iLTRRefNum)
-                          : 0;
+  //TODO: here is a fix needed here, the most reasonable value should be:
+  //        iCurrentStrNum = WELS_MAX (1, WELS_LOG2 (pParam->uiGopSize));
+  //      but reference list updating need to be changed
+  int32_t iCurrentStrNum = ((pParam->iUsageType == SCREEN_CONTENT_REAL_TIME && pParam->bEnableLongTermReference)
+                            ? (WELS_MAX (1, WELS_LOG2 (pParam->uiGopSize)))
+                            : (WELS_MAX (1, (pParam->uiGopSize >> 1))));
+  int32_t iNeededRefNum = (pParam->uiIntraPeriod != 1) ? (iCurrentStrNum + pParam->iLTRRefNum) : 0;
   iNeededRefNum		= WELS_CLIP3 (iNeededRefNum,
                                 MIN_REF_PIC_COUNT,
                                 (pParam->iUsageType == CAMERA_VIDEO_REAL_TIME) ? MAX_REFERENCE_PICTURE_COUNT_NUM_CAMERA :
                                 MAX_REFERENCE_PICTURE_COUNT_NUM_SCREEN);
   if (pParam->iNumRefFrame == AUTO_REF_PIC_COUNT) {
-    pParam->iNumRefFrame = pParam->iMaxNumRefFrame = iNeededRefNum;
+    pParam->iNumRefFrame = iNeededRefNum;
   } else if (pParam->iNumRefFrame < iNeededRefNum) {
     WelsLog (pLogCtx, WELS_LOG_WARNING,
              "iNumRefFrame(%d) setting does not support the temporal and LTR setting, will be reset to %d",
              pParam->iNumRefFrame, iNeededRefNum);
-    pParam->iNumRefFrame = pParam->iMaxNumRefFrame = iNeededRefNum;
-  } else {
-    // the setting is larger than needed, we will use the needed and write the max into sps and for memory to wait for further expanding
-    pParam->iMaxNumRefFrame = pParam->iNumRefFrame;
     pParam->iNumRefFrame = iNeededRefNum;
   }
+
+  // if the setting is larger than needed, we will use the needed, and write the max into sps and for memory to wait for further expanding
+  if (pParam->iMaxNumRefFrame < pParam->iNumRefFrame) {
+    pParam->iMaxNumRefFrame = pParam->iNumRefFrame;
+  }
+  pParam->iNumRefFrame = iNeededRefNum;
 
   return ENC_RETURN_SUCCESS;
 }

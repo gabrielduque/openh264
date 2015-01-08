@@ -97,6 +97,7 @@ class EncodeDecodeTestBase : public ::testing::TestWithParam<EncodeDecodeFilePar
     param_.iRCMode = RC_OFF_MODE; //rc off
     param_.iMultipleThreadIdc = 1; //single thread
     param_.iSpatialLayerNum = iLayers;
+    param_.iNumRefFrame = AUTO_REF_PIC_COUNT;
     for (int i = 0; i < iLayers; i++) {
       param_.sSpatialLayers[i].iVideoWidth = width >> (iLayers - i - 1);
       param_.sSpatialLayers[i].iVideoHeight = height >> (iLayers - i - 1);
@@ -920,6 +921,7 @@ TEST_P (EncodeDecodeTestAPI, SetOptionECFlag_ERROR_CON_DISABLE) {
   prepareParam (1, p.slicenum,  p.width, p.height, p.frameRate);
   param_.bEnableLongTermReference = true;
   param_.iLTRRefNum = 1;
+  param_.iNumRefFrame = AUTO_REF_PIC_COUNT;
   encoder_->Uninitialize();
   int rv = encoder_->InitializeExt (&param_);
   ASSERT_TRUE (rv == cmResultSuccess);

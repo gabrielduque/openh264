@@ -87,24 +87,7 @@ int32_t WelsAdjustLevel (SSpatialLayerConfig* pSpatialLayer) {
   return 1;
 }
 
-static int32_t WelsCheckNumRefSetting (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam) {
-  if ((pParam->iNumRefFrame > MAX_REF_PIC_COUNT) || (pParam->iNumRefFrame < MIN_REF_PIC_COUNT)) {
-    WelsLog (pLogCtx, WELS_LOG_WARNING, "iNumRefFrame setting (%d) exceeds standard, will be clipped",
-             pParam->iNumRefFrame);
-  }
-  pParam->iNumRefFrame = WELS_CLIP3 (pParam->iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REF_PIC_COUNT);
-  if ((pParam->iMaxNumRefFrame > MAX_REF_PIC_COUNT) || (pParam->iMaxNumRefFrame < MIN_REF_PIC_COUNT)) {
-    WelsLog (pLogCtx, WELS_LOG_WARNING, "iMaxNumRefFrame setting (%d) exceeds standard, will be clipped",
-             pParam->iMaxNumRefFrame);
-  }
-  pParam->iMaxNumRefFrame = WELS_CLIP3 (pParam->iMaxNumRefFrame, MIN_REF_PIC_COUNT, MAX_REF_PIC_COUNT);
-
-  if (pParam->iNumRefFrame > pParam->iMaxNumRefFrame) {
-    WelsLog (pLogCtx, WELS_LOG_WARNING, "iNumRefFrame(%d) exceeds iMaxNumRefFrame(%d), will be clipped",
-             pParam->iNumRefFrame, pParam->iMaxNumRefFrame);
-    pParam->iNumRefFrame = pParam->iMaxNumRefFrame;
-  }
-
+static int32_t WelsCheckNumRefSetting (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam, bool bStrictCheck) {
   // validate LTR num
   int32_t iCurrentSupportedLtrNum = (pParam->iUsageType == CAMERA_VIDEO_REAL_TIME) ? LONG_TERM_REF_NUM :
                                     LONG_TERM_REF_NUM_SCREEN;
@@ -131,6 +114,9 @@ static int32_t WelsCheckNumRefSetting (SLogContext* pLogCtx, SWelsSvcCodingParam
     WelsLog (pLogCtx, WELS_LOG_WARNING,
              "iNumRefFrame(%d) setting does not support the temporal and LTR setting, will be reset to %d",
              pParam->iNumRefFrame, iNeededRefNum);
+    if (bStrictCheck) {
+      return ENC_RETURN_UNSUPPORTED_PARA;
+    }
     pParam->iNumRefFrame = iNeededRefNum;
   }
 
@@ -145,7 +131,10 @@ static int32_t WelsCheckNumRefSetting (SLogContext* pLogCtx, SWelsSvcCodingParam
 
 int32_t WelsCheckRefFrameLimitationNumRefFirst (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam) {
 
-  WelsCheckNumRefSetting (pLogCtx, pParam);
+  if (WelsCheckNumRefSetting (pLogCtx, pParam, true)) {
+    // we take num-ref as the honored setting but it conflicts with temporal and LTR
+    return ENC_RETURN_UNSUPPORTED_PARA;
+  }
   for (int32_t i = 0; i < pParam->iSpatialLayerNum; ++ i) {
     SSpatialLayerConfig* pSpatialLayer = &pParam->sSpatialLayers[i];
     // when it is NumRefFirst and level is unknown, the level can be set to the lowest and be adjusted later
@@ -153,8 +142,6 @@ int32_t WelsCheckRefFrameLimitationNumRefFirst (SLogContext* pLogCtx, SWelsSvcCo
       pSpatialLayer->uiLevelIdc = LEVEL_1_0;
     }
   }
-
-
   return ENC_RETURN_SUCCESS;
 }
 int32_t WelsCheckRefFrameLimitationLevelIdcFirst (SLogContext* pLogCtx, SWelsSvcCodingParam* pParam) {
@@ -163,7 +150,7 @@ int32_t WelsCheckRefFrameLimitationLevelIdcFirst (SLogContext* pLogCtx, SWelsSvc
     return ENC_RETURN_SUCCESS;
   }
 
-  WelsCheckNumRefSetting (pLogCtx, pParam);
+  WelsCheckNumRefSetting (pLogCtx, pParam, false);
 
   int32_t i = 0;
   int32_t iRefFrame;

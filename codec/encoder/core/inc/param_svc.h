@@ -335,8 +335,12 @@ typedef struct TagWelsSvcCodingParam: SEncParamExt {
     else if (uiIntraPeriod & (uiGopSize - 1))	// none multiple of GOP size
       uiIntraPeriod = ((uiIntraPeriod + uiGopSize - 1) / uiGopSize) * uiGopSize;
 
-    iNumRefFrame  = pCodingParam.iNumRefFrame;
-    if ( iNumRefFrame > iMaxNumRefFrame ) {
+    if (((pCodingParam.iNumRefFrame != AUTO_REF_PIC_COUNT)
+         && ((pCodingParam.iNumRefFrame > MAX_REF_PIC_COUNT) || (pCodingParam.iNumRefFrame < MIN_REF_PIC_COUNT)))
+        || ((iNumRefFrame != AUTO_REF_PIC_COUNT) && (pCodingParam.iNumRefFrame == AUTO_REF_PIC_COUNT))) {
+      iNumRefFrame  = pCodingParam.iNumRefFrame;
+    }
+    if ((iNumRefFrame != AUTO_REF_PIC_COUNT) && (iNumRefFrame > iMaxNumRefFrame)) {
       iMaxNumRefFrame = iNumRefFrame;
     }
     iLTRRefNum  = (pCodingParam.bEnableLongTermReference ? pCodingParam.iLTRRefNum : 0);

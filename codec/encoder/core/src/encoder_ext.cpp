@@ -245,8 +245,7 @@ int32_t ParamValidation (SLogContext* pLogCtx, SWelsSvcCodingParam* pCfg) {
   // ref-frames validation
   if (((pCfg->iUsageType == CAMERA_VIDEO_REAL_TIME) || (pCfg->iUsageType == SCREEN_CONTENT_REAL_TIME))
       ? WelsCheckRefFrameLimitationNumRefFirst (pLogCtx, pCfg)
-      : WelsCheckRefFrameLimitationLevelIdcFirst (pLogCtx, pCfg))
-  {
+      : WelsCheckRefFrameLimitationLevelIdcFirst (pLogCtx, pCfg)) {
     WelsLog (pLogCtx, WELS_LOG_ERROR, "WelsCheckRefFrameLimitation failed");
     return ENC_RETURN_INVALIDINPUT;
   }
@@ -4025,13 +4024,16 @@ int32_t WelsEncoderApplyLTR (SLogContext* pLogCtx, sWelsEncCtx** ppCtx, SLTRConf
 
   }
   if (iNumRefFrame > sConfig.iMaxNumRefFrame) {
-    WelsLog (pLogCtx, WELS_LOG_WARNING, " CWelsH264SVCEncoder::SetOption LTR flag = %d and number = %d: Required number of reference increased to %d and iMaxNumRefFrame is adjusted", 
-      sConfig.bEnableLongTermReference, sConfig.iLTRRefNum, iNumRefFrame, sConfig.iMaxNumRefFrame);
+    WelsLog (pLogCtx, WELS_LOG_WARNING,
+             " CWelsH264SVCEncoder::SetOption LTR flag = %d and number = %d: Required number of reference increased to %d and iMaxNumRefFrame is adjusted",
+             sConfig.bEnableLongTermReference, sConfig.iLTRRefNum, iNumRefFrame, sConfig.iMaxNumRefFrame);
     sConfig.iMaxNumRefFrame = iNumRefFrame;
   }
 
   if (sConfig.iNumRefFrame < iNumRefFrame) {
-    WelsLog (pLogCtx, WELS_LOG_WARNING, " CWelsH264SVCEncoder::SetOption LTR flag = %d and number = %d, Required number of reference increased from Old = %d to New = %d because of LTR setting", sConfig.bEnableLongTermReference, sConfig.iLTRRefNum, sConfig.iNumRefFrame, iNumRefFrame);
+    WelsLog (pLogCtx, WELS_LOG_WARNING,
+             " CWelsH264SVCEncoder::SetOption LTR flag = %d and number = %d, Required number of reference increased from Old = %d to New = %d because of LTR setting",
+             sConfig.bEnableLongTermReference, sConfig.iLTRRefNum, sConfig.iNumRefFrame, iNumRefFrame);
     sConfig.iNumRefFrame = iNumRefFrame;
   }
   WelsLog (pLogCtx, WELS_LOG_INFO, "CWelsH264SVCEncoder::SetOption enable LTR = %d,ltrnum = %d",

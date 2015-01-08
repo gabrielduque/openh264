@@ -921,7 +921,6 @@ TEST_P (EncodeDecodeTestAPI, SetOptionECFlag_ERROR_CON_DISABLE) {
   prepareParam (1, p.slicenum,  p.width, p.height, p.frameRate);
   param_.bEnableLongTermReference = true;
   param_.iLTRRefNum = 1;
-  param_.iNumRefFrame = AUTO_REF_PIC_COUNT;
   encoder_->Uninitialize();
   int rv = encoder_->InitializeExt (&param_);
   ASSERT_TRUE (rv == cmResultSuccess);

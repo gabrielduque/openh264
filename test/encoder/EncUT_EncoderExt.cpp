@@ -370,7 +370,6 @@ TEST_F (EncoderInterfaceTest, TemporalLayerSettingTest) {
       } else {
         pOption->iTemporalLayerNum--;
       }
-      pOption ->iNumRefFrame = AUTO_REF_PIC_COUNT;
       iResult = pPtrEnc->SetOption (eOptionId, pOption);
       EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
       pSrcPic->uiTimeStamp += 30;

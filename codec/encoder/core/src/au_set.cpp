@@ -270,11 +270,11 @@ int32_t WelsWritePpsSyntax (SWelsPPS* pPps, SBitStringAux* pBitStringAux, SParaS
 
 #if _DEBUG
   //SParaSetOffset use, 110421
-  if (INCREASING_ID & pPSOVector->iSpsPpsIdStrategy) {
+  if ((pPSOVector != NULL) && (INCREASING_ID & pPSOVector->iSpsPpsIdStrategy)) {
     const int32_t kiTmpSpsIdInBs = pPps->iSpsId +
-                                   sPSOVector->sParaSetOffsetVariable[kiParameterSetType].iParaSetIdDelta[pPps->iSpsId];
+                                   pPSOVector->sParaSetOffsetVariable[kiParameterSetType].iParaSetIdDelta[pPps->iSpsId];
     const int32_t tmp_pps_id_in_bs = pPps->iPpsId +
-                                     sPSOVector->sParaSetOffsetVariable[PARA_SET_TYPE_PPS].iParaSetIdDelta[pPps->iPpsId];
+                                     pPSOVector->sParaSetOffsetVariable[PARA_SET_TYPE_PPS].iParaSetIdDelta[pPps->iPpsId];
     assert (MAX_SPS_COUNT > kiTmpSpsIdInBs);
     assert (MAX_PPS_COUNT > tmp_pps_id_in_bs);
     assert (pPSOVector->sParaSetOffsetVariable[kiParameterSetType].bUsedParaSetIdInBs[kiTmpSpsIdInBs]);

@@ -384,6 +384,17 @@ typedef enum {
   HIGH_COMPLEXITY             ///< high complexity, lowest speed, high quality
 } ECOMPLEXITY_MODE;
 
+/**
+ * @brief Enumulate for the stategy of SPS/PPS strategy
+ */
+typedef enum {
+  CONSTANT_ID = 0,
+  INCREASING_ID = 0x01,
+  MAPPING_SPS  = 0x02,       ///
+  MAPPING_AND_INCREASING_ID  = 0x03,
+  MAPPING_AND_LIST  = 0x06,
+} EParameterSetStrategy;
+
 // TODO:  Refine the parameters definition.
 /**
 * @brief SVC Encoding Parameters
@@ -420,7 +431,7 @@ typedef struct TagEncParamExt {
   ECOMPLEXITY_MODE iComplexityMode;
   unsigned int      uiIntraPeriod;     ///< period of Intra frame
   int               iNumRefFrame;      ///< number of reference frame used
-  bool    bEnableSpsPpsIdAddition;     ///< false:not adjust ID in SPS/PPS; true: adjust ID in SPS/PPS
+  int     iSpsPpsIdStrategy;       ///< different stategy in adjust ID in SPS/PPS: 0- constant ID, 1-additional ID, 2-mapping and additional
   bool    bPrefixNalAddingCtrl;        ///< false:not use Prefix NAL; true: use Prefix NAL
   bool    bEnableSSEI;                 ///< false:not use SSEI; true: use SSEI -- TODO: planning to remove the interface of SSEI
   bool    bSimulcastAVC;               ///< (when encoding more than 1 spatial layer) false: use SVC syntax for higher layers; true: use Simulcast AVC -- coming soon

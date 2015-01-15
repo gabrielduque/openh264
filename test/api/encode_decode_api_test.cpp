@@ -97,6 +97,7 @@ class EncodeDecodeTestBase : public ::testing::TestWithParam<EncodeDecodeFilePar
     pParam->iRCMode = RC_OFF_MODE; //rc off
     pParam->iMultipleThreadIdc = 1; //single thread
     pParam->iSpatialLayerNum = iLayers;
+    pParam->iNumRefFrame = AUTO_REF_PIC_COUNT;
     for (int i = 0; i < iLayers; i++) {
       pParam->sSpatialLayers[i].iVideoWidth = width >> (iLayers - i - 1);
       pParam->sSpatialLayers[i].iVideoHeight = height >> (iLayers - i - 1);
@@ -104,9 +105,8 @@ class EncodeDecodeTestBase : public ::testing::TestWithParam<EncodeDecodeFilePar
       pParam->sSpatialLayers[i].sSliceCfg.uiSliceMode = SM_FIXEDSLCNUM_SLICE;
       pParam->sSpatialLayers[i].sSliceCfg.sSliceArgument.uiSliceNum = iSlices;
     }
-
-
   }
+
   virtual void prepareEncDecParam (const EncodeDecodeFileParamBase EncDecFileParam) {
     //for encoder
     //I420: 1(Y) + 1/4(U) + 1/4(V)
@@ -257,7 +257,7 @@ void EncodeDecodeTestAPI::RandomParamExtCombination() {
   param_.iSpatialLayerNum   = rand() % SPATIAL_LAYER_NUM_RANGE;
 
   param_.uiIntraPeriod      = rand() - 1;
-  param_.iNumRefFrame       = rand();
+  param_.iNumRefFrame       = AUTO_REF_PIC_COUNT;
   param_.iMultipleThreadIdc = rand();
 
   param_.iSpsPpsIdStrategy   = rand() % 3;

@@ -88,18 +88,6 @@ class EncodeDecodeTestBase : public ::testing::TestWithParam<EncodeDecodeFilePar
     BaseDecoderTest::TearDown();
   }
 
-<<<<<<< HEAD
-  virtual void prepareParam (int iLayers, int iSlices, int width, int height, float framerate) {
-    memset (&param_, 0, sizeof (SEncParamExt));
-    param_.iUsageType = CAMERA_VIDEO_REAL_TIME;
-    param_.iPicWidth = width;
-    param_.iPicHeight = height;
-    param_.fMaxFrameRate = framerate;
-    param_.iRCMode = RC_OFF_MODE; //rc off
-    param_.iMultipleThreadIdc = 1; //single thread
-    param_.iSpatialLayerNum = iLayers;
-    param_.iNumRefFrame = AUTO_REF_PIC_COUNT;
-=======
   virtual void prepareParam (int iLayers, int iSlices, int width, int height, float framerate, SEncParamExt* pParam) {
     memset (pParam, 0, sizeof (SEncParamExt));
     pParam->iUsageType = CAMERA_VIDEO_REAL_TIME;
@@ -109,7 +97,7 @@ class EncodeDecodeTestBase : public ::testing::TestWithParam<EncodeDecodeFilePar
     pParam->iRCMode = RC_OFF_MODE; //rc off
     pParam->iMultipleThreadIdc = 1; //single thread
     pParam->iSpatialLayerNum = iLayers;
->>>>>>> origin/sps_list
+    pParam->iNumRefFrame = AUTO_REF_PIC_COUNT;
     for (int i = 0; i < iLayers; i++) {
       pParam->sSpatialLayers[i].iVideoWidth = width >> (iLayers - i - 1);
       pParam->sSpatialLayers[i].iVideoHeight = height >> (iLayers - i - 1);
@@ -2516,7 +2504,7 @@ TEST_F (DecodeParseAPI, ParseOnly_SpecSliceLoss) {
   p.height = iHeight_;
   p.frameRate = kiFrameRate;
   p.numframes = 5;
-  prepareParam (iLayerNum, iSliceNum, p.width, p.height, p.frameRate);
+  prepareParam (iLayerNum, iSliceNum, p.width, p.height, p.frameRate, &param_);
   param_.iSpatialLayerNum = iLayerNum;
   encoder_->Uninitialize();
   int rv = encoder_->InitializeExt (&param_);

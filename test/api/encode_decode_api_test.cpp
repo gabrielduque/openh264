@@ -105,9 +105,8 @@ class EncodeDecodeTestBase : public ::testing::TestWithParam<EncodeDecodeFilePar
       pParam->sSpatialLayers[i].sSliceCfg.uiSliceMode = SM_FIXEDSLCNUM_SLICE;
       pParam->sSpatialLayers[i].sSliceCfg.sSliceArgument.uiSliceNum = iSlices;
     }
-
-
   }
+
   virtual void prepareEncDecParam (const EncodeDecodeFileParamBase EncDecFileParam) {
     //for encoder
     //I420: 1(Y) + 1/4(U) + 1/4(V)
@@ -2493,7 +2492,6 @@ TEST_F (DecodeParseAPI, ParseOnly_General) {
 #endif
 }
 
-
 //This case is for one layer only, for incomplete frame input
 //First slice is loss for random one picture with 2 slices per pic
 TEST_F (DecodeParseAPI, ParseOnly_SpecSliceLoss) {
@@ -2553,7 +2551,6 @@ TEST_F (DecodeParseAPI, ParseOnly_SpecSliceLoss) {
     iFrame++;
   } //while
 }
-
 
 //#define DEBUG_FILE_SAVE2
 TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID1) {

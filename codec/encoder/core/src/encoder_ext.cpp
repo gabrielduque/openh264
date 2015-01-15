@@ -4123,7 +4123,8 @@ int32_t WelsEncoderParamAdjust (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pNewPa
                 (pOldParam->iLTRRefNum != pNewParam->iLTRRefNum) ||
                 (pOldParam->iMultipleThreadIdc != pNewParam->iMultipleThreadIdc) ||
                 (pOldParam->bEnableBackgroundDetection != pNewParam->bEnableBackgroundDetection) ||
-                (pOldParam->bEnableAdaptiveQuant != pNewParam->bEnableAdaptiveQuant);
+                (pOldParam->bEnableAdaptiveQuant != pNewParam->bEnableAdaptiveQuant) ||
+                (pOldParam->iSpsPpsIdStrategy != pNewParam->iSpsPpsIdStrategy);
   if (pNewParam->iMaxNumRefFrame > pOldParam->iMaxNumRefFrame) {
     bNeedReset = true;
   }
@@ -4172,23 +4173,24 @@ int32_t WelsEncoderParamAdjust (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pNewPa
   if (bNeedReset) {
     SLogContext sLogCtx = (*ppCtx)->sLogCtx;
 
+    int32_t iOldSpsPpsIdStrategy = pOldParam->iSpsPpsIdStrategy;
     SParaSetOffsetVariable sTmpPsoVariable[PARA_SET_TYPE];
     int32_t  iTmpPpsIdList[MAX_DQ_LAYER_NUM * MAX_PPS_COUNT];
-    uint16_t	          uiTmpIdrPicId = (*ppCtx)->uiIdrPicId;//this is for LTR!
+    uint16_t uiTmpIdrPicId = (*ppCtx)->uiIdrPicId;//this is for LTR!
 
     SEncoderStatistics sTempEncoderStatistics = (*ppCtx)->sEncoderStatistics;
 
     SExistingParasetList sExistingParasetList;
     SExistingParasetList* pExistingParasetList = NULL;
-    if ((CONSTANT_ID != pOldParam->iSpsPpsIdStrategy) && (CONSTANT_ID != pNewParam->iSpsPpsIdStrategy)) {
 
+    if ((CONSTANT_ID != iOldSpsPpsIdStrategy) && (CONSTANT_ID != pNewParam->iSpsPpsIdStrategy)) {
       for (int32_t k = 0; k < PARA_SET_TYPE; k++) {
         memset (((*ppCtx)->sPSOVector.sParaSetOffsetVariable[k].bUsedParaSetIdInBs), 0, MAX_PPS_COUNT * sizeof (bool));
       }
       memcpy (sTmpPsoVariable, (*ppCtx)->sPSOVector.sParaSetOffsetVariable,
               (PARA_SET_TYPE)*sizeof (SParaSetOffsetVariable)); // confirmed_safe_unsafe_usage
 
-      if ((MAPPING_SPS & pOldParam->iSpsPpsIdStrategy)
+      if ((MAPPING_SPS & iOldSpsPpsIdStrategy)
           && (MAPPING_SPS & pNewParam->iSpsPpsIdStrategy)) {
         pExistingParasetList = &sExistingParasetList;
         sExistingParasetList.uiInUseSpsNum = (*ppCtx)->sPSOVector.uiInUseSpsNum;
@@ -4197,7 +4199,7 @@ int32_t WelsEncoderParamAdjust (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pNewPa
         memcpy (sExistingParasetList.sSubsetSps, (*ppCtx)->pSubsetArray, MAX_SPS_COUNT * sizeof (SSubsetSps));
       }
 
-      if ((MAPPING_AND_LIST == pOldParam->iSpsPpsIdStrategy)
+      if ((MAPPING_AND_LIST == iOldSpsPpsIdStrategy)
           && (MAPPING_AND_LIST == pNewParam->iSpsPpsIdStrategy)) {
         pExistingParasetList = &sExistingParasetList;
         sExistingParasetList.uiInUseSpsNum = (*ppCtx)->sPSOVector.uiInUseSpsNum;
@@ -4229,12 +4231,12 @@ int32_t WelsEncoderParamAdjust (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pNewPa
     (*ppCtx)->sEncoderStatistics = sTempEncoderStatistics;
 
     //load back the needed structure for iSpsPpsIdStrategy
-    if ((CONSTANT_ID != pOldParam->iSpsPpsIdStrategy) && (CONSTANT_ID != pNewParam->iSpsPpsIdStrategy)) {
+    if ((CONSTANT_ID != iOldSpsPpsIdStrategy) && (CONSTANT_ID != pNewParam->iSpsPpsIdStrategy)) {
       memcpy ((*ppCtx)->sPSOVector.sParaSetOffsetVariable, sTmpPsoVariable,
               (PARA_SET_TYPE)*sizeof (SParaSetOffsetVariable)); // confirmed_safe_unsafe_usage
     }
 
-    if ((MAPPING_AND_LIST == pOldParam->iSpsPpsIdStrategy)
+    if ((MAPPING_AND_LIST == iOldSpsPpsIdStrategy)
         && (MAPPING_AND_LIST == pNewParam->iSpsPpsIdStrategy)) {
       memcpy (((*ppCtx)->sPSOVector.iPpsIdList), iTmpPpsIdList, MAX_DQ_LAYER_NUM * MAX_PPS_COUNT * sizeof (int32_t));
     }

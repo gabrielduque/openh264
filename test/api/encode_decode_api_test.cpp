@@ -2553,7 +2553,7 @@ TEST_F (DecodeParseAPI, ParseOnly_SpecSliceLoss) {
 }
 
 //#define DEBUG_FILE_SAVE2
-TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID1) {
+TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_SPS_LISTING_AND_PPS_INCREASING1) {
 
   int iWidth       = GetRandWidth();
   int iHeight      = GetRandHeight();
@@ -2568,21 +2568,21 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID1) {
   SEncParamExt   sParam3;
   encoder_->GetDefaultParams (&sParam1);
   prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate, &sParam1);
-  sParam1.iSpsPpsIdStrategy = MAPPING_AND_INCREASING_ID;
+  sParam1.iSpsPpsIdStrategy = SPS_LISTING_AND_PPS_INCREASING;
   //prepare param2
   memcpy (&sParam2, &sParam1, sizeof (SEncParamExt));
   while (sParam2.iPicWidth == sParam1.iPicWidth) {
     sParam2.iPicWidth = GetRandWidth();
   }
   prepareParam (iSpatialLayerNum, iSliceNum, sParam2.iPicWidth, sParam2.iPicHeight, fFrameRate, &sParam2);
-  sParam2.iSpsPpsIdStrategy = MAPPING_AND_INCREASING_ID;
+  sParam2.iSpsPpsIdStrategy = SPS_LISTING_AND_PPS_INCREASING;
   //prepare param3
   memcpy (&sParam3, &sParam1, sizeof (SEncParamExt));
   while (sParam3.iPicHeight == sParam1.iPicHeight) {
     sParam3.iPicHeight = GetRandHeight();
   }
   prepareParam (iSpatialLayerNum, iSliceNum, sParam3.iPicWidth, sParam3.iPicHeight, fFrameRate, &sParam3);
-  sParam3.iSpsPpsIdStrategy = MAPPING_AND_INCREASING_ID;
+  sParam3.iSpsPpsIdStrategy = SPS_LISTING_AND_PPS_INCREASING;
 
   //prepare output if needed
   FILE* fEnc =  NULL;
@@ -2663,7 +2663,7 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID1) {
 }
 
 #define DEBUG_FILE_SAVE5
-TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID2) {
+TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_SPS_LISTING_AND_PPS_INCREASING2) {
   //usage 3: 2 Params with different num_ref, encode IDR0, P1, IDR2;
   //the bs will show two SPS and different PPS
 
@@ -2679,12 +2679,12 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID2) {
   SEncParamExt   sParam2;
   encoder_->GetDefaultParams (&sParam1);
   prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate, &sParam1);
-  sParam1.iSpsPpsIdStrategy = MAPPING_AND_INCREASING_ID;
+  sParam1.iSpsPpsIdStrategy = SPS_LISTING_AND_PPS_INCREASING;
   sParam1.iTemporalLayerNum = 1;
   //prepare param2
   memcpy (&sParam2, &sParam1, sizeof (SEncParamExt));
   prepareParam (iSpatialLayerNum, iSliceNum, sParam2.iPicWidth, sParam2.iPicHeight, fFrameRate, &sParam2);
-  sParam2.iSpsPpsIdStrategy = MAPPING_AND_INCREASING_ID;
+  sParam2.iSpsPpsIdStrategy = SPS_LISTING_AND_PPS_INCREASING;
   sParam2.iTemporalLayerNum = 3;
 
   //prepare output if needed
@@ -2720,7 +2720,7 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID2) {
 #endif
 }
 
-TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID3) {
+TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_SPS_LISTING_AND_PPS_INCREASING3) {
 
   int iWidth       = GetRandWidth();
   int iHeight      = GetRandHeight();
@@ -2734,7 +2734,7 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID3) {
   SEncParamExt   sParam2;
   encoder_->GetDefaultParams (&sParam1);
   prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate, &sParam1);
-  sParam1.iSpsPpsIdStrategy = MAPPING_AND_INCREASING_ID;
+  sParam1.iSpsPpsIdStrategy = SPS_LISTING_AND_PPS_INCREASING;
 
   //prepare output if needed
   FILE* fEnc =  NULL;
@@ -2760,7 +2760,7 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID3) {
     } while (vWidthTableIt == vWidthTable.end());
     vWidthTable.push_back (sParam2.iPicWidth);
     prepareParam (iSpatialLayerNum, iSliceNum, sParam2.iPicWidth, sParam2.iPicHeight, fFrameRate, &sParam2);
-    sParam2.iSpsPpsIdStrategy = MAPPING_AND_INCREASING_ID;
+    sParam2.iSpsPpsIdStrategy = SPS_LISTING_AND_PPS_INCREASING;
 
     rv = encoder_->SetOption (ENCODER_OPTION_SVC_ENCODE_PARAM_EXT, &sParam2);
     ASSERT_TRUE (rv == cmResultSuccess) << "SetOption Failed sParam2: rv = " << rv << ", sParam2.iPicWidth=" <<
@@ -2777,7 +2777,7 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_INCREASING_ID3) {
 }
 
 //#define DEBUG_FILE_SAVE6
-TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_LIST1) {
+TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_SPS_PPS_LISTING1) {
   //usage 1: 1 resolution Params, encode IDR0, P1, IDR2;
   //the bs will show same SPS and different PPS
   // PPS: pic_parameter_set_id                                     1 (  0)
@@ -2801,7 +2801,7 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_LIST1) {
   SEncParamExt   sParam1;
   encoder_->GetDefaultParams (&sParam1);
   prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate, &sParam1);
-  sParam1.iSpsPpsIdStrategy = MAPPING_AND_LIST;
+  sParam1.iSpsPpsIdStrategy = SPS_PPS_LISTING;
 
   //prepare output if needed
   FILE* fEnc =  NULL;
@@ -2829,7 +2829,7 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_LIST1) {
 #endif
 }
 
-TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_LIST2) {
+TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_SPS_PPS_LISTING2) {
   //usage 2: 2 resolution Params, encode IDR0, IDR1, IDR2;
   //the bs will show two SPS and different PPS
   // === SPS LIST ===
@@ -2866,14 +2866,14 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_LIST2) {
   SEncParamExt   sParam2;
   encoder_->GetDefaultParams (&sParam1);
   prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate, &sParam1);
-  sParam1.iSpsPpsIdStrategy = MAPPING_AND_LIST;
+  sParam1.iSpsPpsIdStrategy = SPS_PPS_LISTING;
   //prepare param2
   memcpy (&sParam2, &sParam1, sizeof (SEncParamExt));
   while (sParam2.iPicWidth == sParam1.iPicWidth) {
     sParam2.iPicWidth = GetRandWidth();
   }
   prepareParam (iSpatialLayerNum, iSliceNum, sParam2.iPicWidth, sParam2.iPicHeight, fFrameRate, &sParam2);
-  sParam2.iSpsPpsIdStrategy = MAPPING_AND_LIST;
+  sParam2.iSpsPpsIdStrategy = SPS_PPS_LISTING;
 
   //prepare output if needed
   FILE* fEnc =  NULL;
@@ -2910,7 +2910,7 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_LIST2) {
 #endif
 }
 
-TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_LIST3) {
+TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_SPS_PPS_LISTING3) {
 
   int iWidth       = GetRandWidth();
   int iHeight      = GetRandHeight();
@@ -2925,21 +2925,21 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_LIST3) {
   SEncParamExt   sParam3;
   encoder_->GetDefaultParams (&sParam1);
   prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate, &sParam1);
-  sParam1.iSpsPpsIdStrategy = MAPPING_AND_LIST;
+  sParam1.iSpsPpsIdStrategy = SPS_PPS_LISTING;
   //prepare param2
   memcpy (&sParam2, &sParam1, sizeof (SEncParamExt));
   while (sParam2.iPicWidth == sParam1.iPicWidth) {
     sParam2.iPicWidth = GetRandWidth();
   }
   prepareParam (iSpatialLayerNum, iSliceNum, sParam2.iPicWidth, sParam2.iPicHeight, fFrameRate, &sParam2);
-  sParam2.iSpsPpsIdStrategy = MAPPING_AND_LIST;
+  sParam2.iSpsPpsIdStrategy = SPS_PPS_LISTING;
   //prepare param3
   memcpy (&sParam3, &sParam1, sizeof (SEncParamExt));
   while (sParam3.iPicWidth == sParam1.iPicWidth || sParam3.iPicWidth == sParam2.iPicWidth) {
     sParam3.iPicWidth = GetRandWidth();
   }
   prepareParam (iSpatialLayerNum, iSliceNum, sParam3.iPicWidth, sParam3.iPicHeight, fFrameRate, &sParam3);
-  sParam3.iSpsPpsIdStrategy = MAPPING_AND_LIST;
+  sParam3.iSpsPpsIdStrategy = SPS_PPS_LISTING;
 
   //prepare output if needed
   FILE* fEnc =  NULL;
@@ -2956,7 +2956,7 @@ TEST_F (EncodeDecodeTestAPI, ParameterSetStrategy_MAPPING_AND_LIST3) {
   EncDecOneFrame (sParam2.iPicWidth, sParam2.iPicHeight, iEncFrameNum++, fEnc);
 
   // step#2: set strategy for success
-  int32_t iNewStra = MAPPING_AND_LIST;
+  int32_t iNewStra = SPS_PPS_LISTING;
   rv = encoder_->SetOption (ENCODER_OPTION_ENABLE_SPS_PPS_ID_ADDITION, &iNewStra);
   ASSERT_TRUE (rv == cmResultSuccess) << "rv = " << rv << " iNewStra=" << iNewStra;
 

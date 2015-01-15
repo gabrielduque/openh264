@@ -46,7 +46,7 @@ void ParameterSetStrategyTest::GenerateParam (SWelsSvcCodingParam* pParam) {
   //TODO: consider randomize it
   sEncParamBase.iUsageType = CAMERA_VIDEO_REAL_TIME;
   sEncParamBase.iPicWidth = 1280;
-  sEncParamBase.iPicWidth = 720;
+  sEncParamBase.iPicHeight = 720;
   sEncParamBase.iTargetBitrate = 1000000;
   sEncParamBase.iRCMode = RC_BITRATE_MODE;
   sEncParamBase.fMaxFrameRate = 30.0f;

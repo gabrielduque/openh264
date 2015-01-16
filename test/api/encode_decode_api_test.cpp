@@ -2993,7 +2993,7 @@ TEST_F (EncodeDecodeTestAPI, SimulcastSVC) {
   int iEncFrameNum = WelsClip3 ((rand() % ENCODE_FRAME_NUM) + 1, 1, ENCODE_FRAME_NUM);
   int iSliceNum        = 1;
   encoder_->GetDefaultParams (&param_);
-  prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate);
+  prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate, &param_);
 
   int rv = encoder_->InitializeExt (&param_);
   ASSERT_TRUE (rv == cmResultSuccess);
@@ -3106,7 +3106,7 @@ TEST_F (EncodeDecodeTestAPI, SimulcastAVC) {
   int iEncFrameNum = WelsClip3 ((rand() % ENCODE_FRAME_NUM) + 1, 1, ENCODE_FRAME_NUM);
   int iSliceNum        = 1;
   encoder_->GetDefaultParams (&param_);
-  prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate);
+  prepareParam (iSpatialLayerNum, iSliceNum, iWidth, iHeight, fFrameRate, &param_);
 
   //set flag of bSimulcastAVC
   //param_.bSimulcastAVC = true;
@@ -3220,3 +3220,5 @@ TEST_F (EncodeDecodeTestAPI, SimulcastAVC) {
     fclose (fEnc[i]);
 #endif
   }
+}
+

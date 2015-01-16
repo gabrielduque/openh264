@@ -3095,6 +3095,17 @@ void ParasetIdAdditionIdAdjust (SParaSetOffsetVariable* sParaSetOffsetVariable, 
   sParaSetOffsetVariable->uiNextParaSetIdToUseInBs = uiNextIdInBs;
 }
 
+int32_t WelsWriteOneSPS (sWelsEncCtx* pCtx, const int32_t kiSpsIdx, int32_t& iNalSize) {
+
+  
+  return ENC_RETURN_SUCCESS;
+}
+int32_t WelsWriteOnePPS (sWelsEncCtx* pCtx, const int32_t kiPpsIdx, int32_t& iNalSize) {
+    //TODO
+
+  return ENC_RETURN_SUCCESS;
+}
+  
 /*!
  * \brief	write all parameter sets introduced in SVC extension
  * \return	writing results, success or error
@@ -3415,15 +3426,6 @@ int32_t WriteSsvcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
   ++ iLayerNum;
   iFrameSize += iNonVclSize;
   return iReturn;
-}
-
-int32_t WelsWriteOneSPS (sWelsEncCtx* pCtx, int32_t& iNalSize) {
-  //TODO
-  return ENC_RETURN_SUCCESS;
-}
-int32_t WelsWriteOnePPS (sWelsEncCtx* pCtx, int32_t& iNalSize) {
-  //TODO
-  return ENC_RETURN_SUCCESS;
 }
 
 int32_t WriteSavcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,

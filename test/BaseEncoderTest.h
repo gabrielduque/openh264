@@ -16,6 +16,7 @@ class BaseEncoderTest {
   void TearDown();
   void EncodeFile (const char* fileName, SEncParamExt* pEncParamExt, Callback* cbk);
   void EncodeStream (InputStream* in,  SEncParamExt* pEncParamExt, Callback* cbk);
+  void CopyEncoderOutputToBuffer (const SFrameBSInfo& frameInfo, unsigned char*  pBsBuf, int& iLen);
 
   ISVCEncoder* encoder_;
  private:

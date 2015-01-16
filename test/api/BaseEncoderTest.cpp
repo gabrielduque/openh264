@@ -75,8 +75,22 @@ void BaseEncoderTest::TearDown() {
   }
 }
 
-void BaseEncoderTest::EncodeStream (InputStream* in, SEncParamExt* pEncParamExt, Callback* cbk) {
+void BaseEncoderTest::CopyEncoderOutputToBuffer (const SFrameBSInfo& info, unsigned char*  pBsBuf, int32_t& iLen){
+	int32_t iTotalLen = 0, k=0, len;
+	    for (int i = 0; i < info.iLayerNum; ++i) {
+      len = 0;
+      const SLayerBSInfo& layerInfo = info.sLayerInfo[i];
+      for (int j = 0; j < layerInfo.iNalCount; ++j) {
+        len += layerInfo.pNalLengthInByte[j];
+      }
+      memcpy ((pBsBuf + iTotalLen), layerInfo.pBsBuf, len * sizeof (unsigned char));
+      iTotalLen += len;
+    }
+		iLen = iTotalLen;
+}
 
+void BaseEncoderTest::EncodeStream (InputStream* in, SEncParamExt* pEncParamExt, Callback* cbk) {
+//#define DEBUG_FILE_SAVE_BASE
   ASSERT_TRUE (NULL != pEncParamExt);
 
   int rv = InitWithParam (encoder_, pEncParamExt);
@@ -92,6 +106,12 @@ void BaseEncoderTest::EncodeStream (InputStream* in, SEncParamExt* pEncParamExt,
   SFrameBSInfo info;
   memset (&info, 0, sizeof (SFrameBSInfo));
 
+#ifdef DEBUG_FILE_SAVE_BASE
+  FILE* fEnc = fopen ("base.264", "wb");
+  unsigned char*  pBsBuf = static_cast<unsigned char*> (malloc (frameSize * sizeof (unsigned char)));
+  int32_t iLen=0;
+#endif
+
   SSourcePicture pic;
   memset (&pic, 0, sizeof (SSourcePicture));
   pic.iPicWidth    = pEncParamExt->iPicWidth;
@@ -105,10 +125,18 @@ void BaseEncoderTest::EncodeStream (InputStream* in, SEncParamExt* pEncParamExt,
   while (in->read (buf.data(), frameSize) == frameSize) {
     rv = encoder_->EncodeFrame (&pic, &info);
     ASSERT_TRUE (rv == cmResultSuccess);
+
+#ifdef DEBUG_FILE_SAVE_BASE
+	CopyEncoderOutputToBuffer(info, pBsBuf, iLen);
+     fwrite (pBsBuf, iLen, 1, fEnc);
+#endif
     if (info.eFrameType != videoFrameTypeSkip && cbk != NULL) {
       cbk->onEncodeFrame (info);
     }
   }
+#ifdef DEBUG_FILE_SAVE_BASE
+  free (pBsBuf);
+#endif
 }
 
 void BaseEncoderTest::EncodeFile (const char* fileName, SEncParamExt* pEncParamExt, Callback* cbk) {

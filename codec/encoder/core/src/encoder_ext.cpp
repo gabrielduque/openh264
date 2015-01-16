@@ -242,7 +242,14 @@ int32_t ParamValidation (SLogContext* pLogCtx, SWelsSvcCodingParam* pCfg) {
                  "bEnableFrameSkip = %d,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.",
                  pCfg->bEnableFrameSkip);
   }
-  return WelsCheckRefFrameLimitation (pLogCtx, pCfg);
+  // ref-frames validation
+  if (((pCfg->iUsageType == CAMERA_VIDEO_REAL_TIME) || (pCfg->iUsageType == SCREEN_CONTENT_REAL_TIME))
+      ? WelsCheckRefFrameLimitationNumRefFirst (pLogCtx, pCfg)
+      : WelsCheckRefFrameLimitationLevelIdcFirst (pLogCtx, pCfg)) {
+    WelsLog (pLogCtx, WELS_LOG_ERROR, "WelsCheckRefFrameLimitation failed");
+    return ENC_RETURN_INVALIDINPUT;
+  }
+  return ENC_RETURN_SUCCESS;
 }
 
 
@@ -695,7 +702,7 @@ static  void  InitMbInfo (sWelsEncCtx* pEnc, SMB*   pList, SDqLayer* pLayer, con
     bool     bLeftTop;
     bool     bRightTop;
     int32_t  iLeftXY, iTopXY, iLeftTopXY, iRightTopXY;
-    uint16_t  uiSliceIdc;
+    uint16_t  uiSliceIdc; //[0..65535] > 36864 of LEVEL5.2
 
     pList[iIdx].iMbX = pEnc->pStrideTab->pMbIndexX[kiDlayerId][iIdx];
     pList[iIdx].iMbY = pEnc->pStrideTab->pMbIndexY[kiDlayerId][iIdx];
@@ -3240,7 +3247,6 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   pFbi->uiTimeStamp = pSrcPic->uiTimeStamp;
   // perform csc/denoise/downsample/padding, generate spatial layers
   iSpatialNum = pCtx->pVpp->BuildSpatialPicList (pCtx, pSrcPic);
-
   if (pCtx->pFuncList->pfRc.pfWelsUpdateMaxBrWindowStatus) {
     pCtx->pFuncList->pfRc.pfWelsUpdateMaxBrWindowStatus (pCtx, iSpatialNum, pSrcPic->uiTimeStamp);
   }
@@ -3393,15 +3399,16 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
 #ifdef LONG_TERM_REF_DUMP
     DumpRef (pCtx);
 #endif
-    if ((pSvcParam->iRCMode != RC_OFF_MODE))
+
+    if (pSvcParam->iRCMode != RC_OFF_MODE)
       pCtx->pVpp->AnalyzePictureComplexity (pCtx, pCtx->pEncPic, ((pCtx->eSliceType == P_SLICE)
                                             && (pCtx->iNumRef0 > 0)) ? pCtx->pRefList0[0] : NULL,
-                                            iCurDid, (pCtx->eSliceType == P_SLICE) && (pSvcParam->bEnableBackgroundDetection));
+                                            iCurDid, (pCtx->eSliceType == P_SLICE) && pSvcParam->bEnableBackgroundDetection);
     WelsUpdateRefSyntax (pCtx,  pCtx->iPOC,
                          eFrameType);	//get reordering syntax used for writing slice header and transmit to encoder.
     PrefetchReferencePicture (pCtx, eFrameType);	// update reference picture for current pDq layer
 
-    pCtx->pFuncList->pfRc.pfWelsRcPictureInit (pCtx);
+    pCtx->pFuncList->pfRc.pfWelsRcPictureInit (pCtx, pSrcPic->uiTimeStamp);
     PreprocessSliceCoding (pCtx);	// MUST be called after pfWelsRcPictureInit() and WelsInitCurrentLayer()
 
     //TODO Complexity Calculation here for screen content
@@ -3808,11 +3815,6 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
       WelsSwapDqLayers (pCtx);
     }
 
-    if (pSvcParam->bEnableLongTermReference && (pCtx->pLtr[pCtx->uiDependencyId].bLTRMarkingFlag
-        && (pCtx->pLtr[pCtx->uiDependencyId].iLTRMarkMode == LTR_DELAY_MARK))) {
-      pCtx->bLongTermRefFlag[iDidIdx][0] = true;
-    }
-
     if (pCtx->pVpp->UpdateSpatialPictures (pCtx, pSvcParam, iCurTid, iDidIdx) != 0) {
       ForceCodingIDR (pCtx);
       WelsLog (pLogCtx, WELS_LOG_WARNING, "WelsEncoderEncodeExt(), Logic Error Found in temporal level. ForceCodingIDR!");
@@ -3823,7 +3825,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
 
     if (pSvcParam->bEnableLongTermReference && ((pCtx->pLtr[pCtx->uiDependencyId].bLTRMarkingFlag
         && (pCtx->pLtr[pCtx->uiDependencyId].iLTRMarkMode == LTR_DIRECT_MARK)) || eFrameType == videoFrameTypeIDR)) {
-      pCtx->bLongTermRefFlag[iDidIdx][iCurTid] = true;
+      pCtx->bRefOfCurTidIsLtr[iDidIdx][iCurTid] = true;
     }
   }
 
@@ -3906,7 +3908,9 @@ int32_t WelsEncoderParamAdjust (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pNewPa
                  || pOldParam->SUsedPicRect.iHeight != pNewParam->SUsedPicRect.iHeight) ||
                 (pOldParam->bEnableLongTermReference != pNewParam->bEnableLongTermReference) ||
                 (pOldParam->iLTRRefNum != pNewParam->iLTRRefNum) ||
-                (pOldParam->iMultipleThreadIdc != pNewParam->iMultipleThreadIdc);
+                (pOldParam->iMultipleThreadIdc != pNewParam->iMultipleThreadIdc) ||
+                (pOldParam->bEnableBackgroundDetection != pNewParam->bEnableBackgroundDetection) ||
+                (pOldParam->bEnableAdaptiveQuant != pNewParam->bEnableAdaptiveQuant);
   if (pNewParam->iMaxNumRefFrame > pOldParam->iMaxNumRefFrame) {
     bNeedReset = true;
   }
@@ -4096,12 +4100,20 @@ int32_t WelsEncoderApplyLTR (SLogContext* pLogCtx, sWelsEncCtx** ppCtx, SLTRConf
     iNumRefFrame		= WELS_CLIP3 (iNumRefFrame, MIN_REF_PIC_COUNT, MAX_REFERENCE_PICTURE_COUNT_NUM_CAMERA);
 
   }
-  if (sConfig.iNumRefFrame < iNumRefFrame)
-    sConfig.iNumRefFrame = iNumRefFrame;
-  if (sConfig.iNumRefFrame > sConfig.iMaxNumRefFrame)
-    sConfig.iMaxNumRefFrame = sConfig.iNumRefFrame;
+  if (iNumRefFrame > sConfig.iMaxNumRefFrame) {
+    WelsLog (pLogCtx, WELS_LOG_WARNING,
+             " CWelsH264SVCEncoder::SetOption LTR flag = %d and number = %d: Required number of reference increased to %d and iMaxNumRefFrame is adjusted (from %d)",
+             sConfig.bEnableLongTermReference, sConfig.iLTRRefNum, iNumRefFrame, sConfig.iMaxNumRefFrame);
+    sConfig.iMaxNumRefFrame = iNumRefFrame;
+  }
 
-  WelsLog (pLogCtx, WELS_LOG_INFO, " CWelsH264SVCEncoder::SetOption enable LTR = %d,ltrnum = %d",
+  if (sConfig.iNumRefFrame < iNumRefFrame) {
+    WelsLog (pLogCtx, WELS_LOG_WARNING,
+             " CWelsH264SVCEncoder::SetOption LTR flag = %d and number = %d, Required number of reference increased from Old = %d to New = %d because of LTR setting",
+             sConfig.bEnableLongTermReference, sConfig.iLTRRefNum, sConfig.iNumRefFrame, iNumRefFrame);
+    sConfig.iNumRefFrame = iNumRefFrame;
+  }
+  WelsLog (pLogCtx, WELS_LOG_INFO, "CWelsH264SVCEncoder::SetOption enable LTR = %d,ltrnum = %d",
            sConfig.bEnableLongTermReference, sConfig.iLTRRefNum);
   iRet = WelsEncoderParamAdjust (ppCtx, &sConfig);
   return iRet;
@@ -4187,13 +4199,13 @@ int32_t DynSliceRealloc (sWelsEncCtx* pCtx,
   pMA->WelsFree (pCurLayer->sLayerInfo.pSliceInLayer, "Slice");
   pCurLayer->sLayerInfo.pSliceInLayer = pSlice;
 
-  int16_t* pFirstMbInSlice = (int16_t*)pMA->WelsMalloc (iMaxSliceNum * sizeof (int16_t), "pSliceSeg->pFirstMbInSlice");
+  int32_t* pFirstMbInSlice = (int32_t*)pMA->WelsMalloc (iMaxSliceNum * sizeof (int32_t), "pSliceSeg->pFirstMbInSlice");
   if (NULL == pFirstMbInSlice) {
     WelsLog (& (pCtx->sLogCtx), WELS_LOG_ERROR, "CWelsH264SVCEncoder::DynSliceRealloc: pFirstMbInSlice is NULL");
     return ENC_RETURN_MEMALLOCERR;
   }
-  memset (pFirstMbInSlice, 0, sizeof (int16_t) * iMaxSliceNum);
-  memcpy (pFirstMbInSlice, pCurLayer->pSliceEncCtx->pFirstMbInSlice, sizeof (int16_t) * iMaxSliceNumOld);
+  memset (pFirstMbInSlice, 0, sizeof (int32_t) * iMaxSliceNum);
+  memcpy (pFirstMbInSlice, pCurLayer->pSliceEncCtx->pFirstMbInSlice, sizeof (int32_t) * iMaxSliceNumOld);
   pMA->WelsFree (pCurLayer->pSliceEncCtx->pFirstMbInSlice, "pSliceSeg->pFirstMbInSlice");
   pCurLayer->pSliceEncCtx->pFirstMbInSlice = pFirstMbInSlice;
 

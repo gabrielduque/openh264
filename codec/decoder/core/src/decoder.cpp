@@ -306,7 +306,7 @@ void WelsDecoderDefaults (PWelsDecoderContext pCtx, SLogContext* pLogCtx) {
   pCtx->pPicBuff[LIST_1]		= NULL;
 
   pCtx->bAvcBasedFlag			= true;
-  pCtx->eErrorConMethod = ERROR_CON_SLICE_COPY_CROSS_IDR_FREEZE_RES_CHANGE;
+  pCtx->eErrorConMethod = ERROR_CON_SLICE_MV_COPY_CROSS_IDR_FREEZE_RES_CHANGE;
   pCtx->pPreviousDecodedPictureInDpb = NULL;
   pCtx->sDecoderStatistics.iAvgLumaQp = -1;
   pCtx->bSpsLatePps = false;
@@ -516,9 +516,11 @@ int32_t DecoderConfigParam (PWelsDecoderContext pCtx, const SDecodingParam* kpPa
 
   memcpy (pCtx->pParam, kpParam, sizeof (SDecodingParam));
   pCtx->eOutputColorFormat	= pCtx->pParam->eOutputColorFormat;
-  int32_t iRet = DecoderSetCsp (pCtx, pCtx->pParam->eOutputColorFormat);
-  if (iRet)
-    return iRet;
+  if (!pCtx->bParseOnly) {
+    int32_t iRet = DecoderSetCsp (pCtx, pCtx->pParam->eOutputColorFormat);
+    if (iRet)
+      return iRet;
+  }
   pCtx->eErrorConMethod = pCtx->pParam->eEcActiveIdc;
 
   if (pCtx->bParseOnly) //parse only, disable EC method
@@ -715,6 +717,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     iConsumedBytes = 0;
     pDstNal[iDstIdx] = pDstNal[iDstIdx + 1] = pDstNal[iDstIdx + 2] = pDstNal[iDstIdx + 3] =
                          0; // set 4 reserved bytes to zero
+    pRawData->pCurPos = pDstNal + iDstIdx + 4; //init, increase 4 reserved zero bytes, used to store the next NAL
     pNalPayload = ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
     if (pNalPayload) { //parse correct
       if (IS_VCL_NAL (pCtx->sCurNalHead.eNalUnitType, 1)) {
@@ -747,7 +750,6 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       }
       return pCtx->iErrorCode;
     }
-    pRawData->pCurPos = pDstNal + iDstIdx + 4; //init, increase 4 reserved zero bytes, used to store the next NAL
   } else { /* no supplementary picture payload input, but stored a picture */
     PAccessUnit pCurAu	=
       pCtx->pAccessUnitList;	// current access unit, it will never point to NULL after decode's successful initialization

@@ -87,6 +87,15 @@ static inline int32_t DecodeFrameConstruction (PWelsDecoderContext pCtx, uint8_t
 
   pCtx->iTotalNumMbRec = 0;
 
+  if (pCtx->bParseOnly) { //should exit for parse only to prevent access NULL pDstInfo
+    if (bFrameCompleteFlag)
+      return 0;
+    else { //incomplete frame
+      pCtx->pDec->bIsComplete = false;
+      return -1;
+    }
+  }
+
   //////output:::normal path
   pDstInfo->uiOutYuvTimeStamp = pPic->uiTimeStamp;
   ppDst[0]      = pPic->pData[0];
@@ -1290,7 +1299,7 @@ void UninitialDqLayersContext (PWelsDecoderContext pCtx) {
 
 void ResetCurrentAccessUnit (PWelsDecoderContext pCtx) {
   PAccessUnit pCurAu = pCtx->pAccessUnitList;
-
+  pCurAu->uiStartPos            = 0;
   pCurAu->uiEndPos		= 0;
   pCurAu->bCompletedAuFlag	= false;
   if (pCurAu->uiActualUnitsNum > 0) {
@@ -1335,6 +1344,7 @@ void ForceResetCurrentAccessUnit (PAccessUnit pAu) {
   else
     pAu->uiAvailUnitsNum	= 0;
   pAu->uiActualUnitsNum	= 0;
+  pAu->uiStartPos       = 0;
   pAu->uiEndPos		= 0;
   pAu->bCompletedAuFlag	= false;
 }
@@ -1738,6 +1748,10 @@ int32_t ConstructAccessUnit (PWelsDecoderContext pCtx, uint8_t** ppDst, SBufferI
     ForceResetCurrentAccessUnit (pCtx->pAccessUnitList);
     if (!pCtx->bParseOnly)
       pDstInfo->iBufferStatus = 0;
+    pCtx->bNewSeqBegin = pCtx->bNewSeqBegin || pCtx->bNextNewSeqBegin;
+    pCtx->bNextNewSeqBegin = false; // reset it
+    if (pCtx->bNewSeqBegin)
+      ResetActiveSPSForEachLayer (pCtx);
     return iErr;
   }
 
@@ -1755,11 +1769,10 @@ int32_t ConstructAccessUnit (PWelsDecoderContext pCtx, uint8_t** ppDst, SBufferI
     }
   }
 
-
   iErr = DecodeCurrentAccessUnit (pCtx, ppDst, pDstInfo);
 
   if (pCtx->bParseOnly) {
-    if (dsErrorFree == pCtx->iErrorCode) {
+    if ((dsErrorFree == pCtx->iErrorCode) && (iErr == 0)) { //frame complete, output
       SParserBsInfo* pParser = pCtx->pParserBsInfo;
       uint8_t* pDstBuf = pParser->pDstBuff;
       SNalUnit* pCurNal = NULL;
@@ -1803,6 +1816,9 @@ int32_t ConstructAccessUnit (PWelsDecoderContext pCtx, uint8_t** ppDst, SBufferI
       pCtx->pParserBsInfo->iNalNum = 0;
       pCtx->pParserBsInfo->iSpsWidthInPixel = 0;
       pCtx->pParserBsInfo->iSpsHeightInPixel = 0;
+      if (dsErrorFree == pCtx->iErrorCode) { //frame not complete
+        pCtx->iErrorCode |= dsFramePending;
+      }
     }
   }
 
@@ -2062,6 +2078,8 @@ int32_t DecodeCurrentAccessUnit (PWelsDecoderContext pCtx, uint8_t** ppDst, SBuf
                      "reference picture introduced by this frame is lost during transmission! uiTId: %d",
                      pNalCur->sNalHeaderExt.uiTemporalId);
             if (pCtx->eErrorConMethod == ERROR_CON_DISABLE) {
+              if (pCtx->iTotalNumMbRec == 0)
+                pCtx->pDec = NULL;
               return iRet;
             }
           }
@@ -2077,16 +2095,16 @@ int32_t DecodeCurrentAccessUnit (PWelsDecoderContext pCtx, uint8_t** ppDst, SBuf
           bAllRefComplete = false;
           HandleReferenceLostL0 (pCtx, pNalCur);
           if (pCtx->eErrorConMethod == ERROR_CON_DISABLE) {
+            if (pCtx->iTotalNumMbRec == 0)
+              pCtx->pDec = NULL;
             return iRet;
           }
         }
 
-        if (!pCtx->bParseOnly) {
-          if (bReconstructSlice) {
-            if (WelsDecodeConstructSlice (pCtx, pNalCur)) {
-              pCtx->pDec->bIsComplete = false; // reconstruction error, directly set the flag false
-              return -1;
-            }
+        if (bReconstructSlice) {
+          if (WelsDecodeConstructSlice (pCtx, pNalCur)) {
+            pCtx->pDec->bIsComplete = false; // reconstruction error, directly set the flag false
+            return -1;
           }
         }
         if (bAllRefComplete && pCtx->eSliceType != I_SLICE) {
@@ -2133,8 +2151,8 @@ int32_t DecodeCurrentAccessUnit (PWelsDecoderContext pCtx, uint8_t** ppDst, SBuf
 #endif//#if !CODEC_FOR_TESTBED
 
     if (dq_cur->uiLayerDqId == kuiTargetLayerDqId) {
-      if (!pCtx->bParseOnly) {
-        if (!pCtx->bInstantDecFlag) {
+      if (!pCtx->bInstantDecFlag) {
+        if (!pCtx->bParseOnly) {
           //Do error concealment here
           if ((NeedErrorCon (pCtx)) && (pCtx->eErrorConMethod != ERROR_CON_DISABLE)) {
             ImplementErrorCon (pCtx);
@@ -2143,11 +2161,12 @@ int32_t DecodeCurrentAccessUnit (PWelsDecoderContext pCtx, uint8_t** ppDst, SBuf
             pCtx->pDec->iPpsId = pCtx->pPps->iPpsId;
           }
         }
-
-        if (DecodeFrameConstruction (pCtx, ppDst, pDstInfo)) {
-          return ERR_NONE;
-        }
       }
+
+      iRet = DecodeFrameConstruction (pCtx, ppDst, pDstInfo);
+      if (iRet)
+        return iRet;
+
       pCtx->pPreviousDecodedPictureInDpb = pCtx->pDec; //store latest decoded picture for EC
       if (uiNalRefIdc > 0) {
         iRet = WelsMarkAsRef (pCtx);
@@ -2157,9 +2176,10 @@ int32_t DecodeCurrentAccessUnit (PWelsDecoderContext pCtx, uint8_t** ppDst, SBuf
             return iRet;
           }
         }
-        ExpandReferencingPicture (pCtx->pDec->pData, pCtx->pDec->iWidthInPixel, pCtx->pDec->iHeightInPixel,
-                                  pCtx->pDec->iLinesize,
-                                  pCtx->sExpandPicFunc.pfExpandLumaPicture, pCtx->sExpandPicFunc.pfExpandChromaPicture);
+        if (!pCtx->bParseOnly)
+          ExpandReferencingPicture (pCtx->pDec->pData, pCtx->pDec->iWidthInPixel, pCtx->pDec->iHeightInPixel,
+                                    pCtx->pDec->iLinesize,
+                                    pCtx->sExpandPicFunc.pfExpandLumaPicture, pCtx->sExpandPicFunc.pfExpandChromaPicture);
       }
       pCtx->pDec = NULL; //after frame decoding, always set to NULL
     }

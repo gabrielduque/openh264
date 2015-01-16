@@ -258,6 +258,11 @@ long CWelsDecoder::SetOption (DECODER_OPTION eOptID, void* pOption) {
     return dsInitialOptExpected;
 
   if (eOptID == DECODER_OPTION_DATAFORMAT) { // Set color space of decoding output frame
+    if (m_pDecContext->bParseOnly) {
+      WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_WARNING,
+               "CWelsDecoder::SetOption for data format meaningless for parseonly.");
+      return cmResultSuccess;
+    }
     if (pOption == NULL)
       return cmInitParaError;
 
@@ -280,6 +285,12 @@ long CWelsDecoder::SetOption (DECODER_OPTION eOptID, void* pOption) {
     iVal	= * ((int*)pOption);	// int value for error concealment idc
     iVal = WELS_CLIP3 (iVal, (int32_t) ERROR_CON_DISABLE, (int32_t) ERROR_CON_SLICE_MV_COPY_CROSS_IDR_FREEZE_RES_CHANGE);
     m_pDecContext->eErrorConMethod = (ERROR_CON_IDC) iVal;
+    if ((m_pDecContext->bParseOnly) && (m_pDecContext->eErrorConMethod != ERROR_CON_DISABLE)) {
+      WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO,
+               "CWelsDecoder::SetOption for ERROR_CON_IDC = %d not allowd for parse only!.", iVal);
+      return cmInitParaError;
+    }
+
     InitErrorCon (m_pDecContext);
     WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO,
              "CWelsDecoder::SetOption for ERROR_CON_IDC = %d.", iVal);
@@ -381,6 +392,22 @@ long CWelsDecoder::GetOption (DECODER_OPTION eOptID, void* pOption) {
   }
 
   return cmInitParaError;
+}
+
+DECODING_STATE CWelsDecoder::DecodeFrameNoDelay (const unsigned char* kpSrc,
+    const int kiSrcLen,
+    unsigned char** ppDst,
+    SBufferInfo* pDstInfo) {
+  int iRet;
+  SBufferInfo sTmpBufferInfo;
+  iRet = (int) DecodeFrame2 (kpSrc, kiSrcLen, ppDst, pDstInfo);
+  memcpy (&sTmpBufferInfo, pDstInfo, sizeof (SBufferInfo));
+  iRet |= DecodeFrame2 (NULL, 0, ppDst, pDstInfo);
+  if ((pDstInfo->iBufferStatus == 0) && (sTmpBufferInfo.iBufferStatus == 1)) {
+    memcpy (pDstInfo, &sTmpBufferInfo, sizeof (SBufferInfo));
+  }
+
+  return (DECODING_STATE) iRet;
 }
 
 DECODING_STATE CWelsDecoder::DecodeFrame2 (const unsigned char* kpSrc,
@@ -546,6 +573,7 @@ DECODING_STATE CWelsDecoder::DecodeParser (const unsigned char* kpSrc,
   }
 
   m_pDecContext->iErrorCode = dsErrorFree; //initialize at the starting of AU decoding.
+  m_pDecContext->eErrorConMethod = ERROR_CON_DISABLE; //add protection to disable EC here.
   m_pDecContext->pParserBsInfo = pDstInfo;
   pDstInfo->iNalNum = 0;
   pDstInfo->iSpsWidthInPixel = pDstInfo->iSpsHeightInPixel = 0;
@@ -556,6 +584,7 @@ DECODING_STATE CWelsDecoder::DecodeParser (const unsigned char* kpSrc,
     m_pDecContext->uiTimeStamp = 0;
   }
   WelsDecodeBs (m_pDecContext, kpSrc, kiSrcLen, NULL, NULL, pDstInfo);
+  m_pDecContext->bInstantDecFlag = false; //reset no-delay flag
 
   return (DECODING_STATE) m_pDecContext->iErrorCode;
 }

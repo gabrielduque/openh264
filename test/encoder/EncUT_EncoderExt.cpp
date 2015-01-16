@@ -138,6 +138,7 @@ void EncoderInterfaceTest::InitializeParamExt() {
   pParamExt->iTargetBitrate = 50000;
   pParamExt->iTemporalLayerNum = 3;
   pParamExt->iSpatialLayerNum = 1;
+  pParamExt->iNumRefFrame = AUTO_REF_PIC_COUNT;
   pParamExt->sSpatialLayers[0].iVideoHeight = pParamExt->iPicHeight;
   pParamExt->sSpatialLayers[0].iVideoWidth = pParamExt->iPicWidth;
   pParamExt->sSpatialLayers[0].iSpatialBitrate = 50000;
@@ -278,6 +279,7 @@ TEST_F (EncoderInterfaceTest, TemporalLayerSettingTest) {
   pParamExt->sSpatialLayers[0].iSpatialBitrate = 50000;
   pParamExt->iTemporalLayerNum = 1;
   pParamExt->iSpatialLayerNum = 1;
+  pParamExt->iNumRefFrame = AUTO_REF_PIC_COUNT;
 
   for (int i = 0; i < 2; i++) {
     pParamExt->iUsageType = ((i == 0) ? SCREEN_CONTENT_REAL_TIME : CAMERA_VIDEO_REAL_TIME);
@@ -323,6 +325,21 @@ TEST_F (EncoderInterfaceTest, TemporalLayerSettingTest) {
     iResult = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
     EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
     EXPECT_EQ (sFbi.eFrameType, static_cast<int> (videoFrameTypeP));
+
+    //change backgrouddetection and qp
+    pOption ->bEnableBackgroundDetection = !pOption ->bEnableBackgroundDetection;
+    iResult = pPtrEnc->SetOption (eOptionId, pOption);
+    EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
+    pSrcPic->uiTimeStamp = 150;
+    iResult = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
+    EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
+
+    pOption ->bEnableAdaptiveQuant = !pOption ->bEnableAdaptiveQuant;
+    iResult = pPtrEnc->SetOption (eOptionId, pOption);
+    EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
+    pSrcPic->uiTimeStamp = 180;
+    iResult = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
+    EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
 
     iResult = pPtrEnc->Uninitialize();
     EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
@@ -456,7 +473,8 @@ void GetValidEncParamBase (SEncParamBase* pEncParamBase) {
   pEncParamBase->iPicHeight = VALID_SIZE (pEncParamBase->iPicHeight);
   pEncParamBase->iTargetBitrate = rand() + 1; //!=0
   // Force a bitrate of at least w*h/50, otherwise we will only get skipped frames
-  pEncParamBase->iTargetBitrate = WELS_CLIP3 (pEncParamBase->iTargetBitrate, pEncParamBase->iPicWidth * pEncParamBase->iPicHeight / 50, 100000000);
+  pEncParamBase->iTargetBitrate = WELS_CLIP3 (pEncParamBase->iTargetBitrate,
+                                  pEncParamBase->iPicWidth * pEncParamBase->iPicHeight / 50, 100000000);
   int32_t iLevelMaxBitrate = WelsCommon::g_ksLevelLimits[LEVEL_5_0 - 1].uiMaxBR * CpbBrNalFactor;
   if (pEncParamBase->iTargetBitrate > iLevelMaxBitrate)
     pEncParamBase->iTargetBitrate = iLevelMaxBitrate;
@@ -644,7 +662,8 @@ TEST_F (EncoderInterfaceTest, ForceIntraFrameWithTemporal) {
   sEncParamExt.iPicHeight = MB_SIZE + abs ((rand() * 2) % (MAX_HEIGHT - MB_SIZE));
   sEncParamExt.iTargetBitrate = rand() + 1; //!=0
   // Force a bitrate of at least w*h/50, otherwise we will only get skipped frames
-  sEncParamExt.iTargetBitrate = WELS_CLIP3 (sEncParamExt.iTargetBitrate, sEncParamExt.iPicWidth * sEncParamExt.iPicHeight / 50, 100000000);
+  sEncParamExt.iTargetBitrate = WELS_CLIP3 (sEncParamExt.iTargetBitrate,
+                                sEncParamExt.iPicWidth * sEncParamExt.iPicHeight / 50, 100000000);
   int32_t iLevelMaxBitrate = WelsCommon::g_ksLevelLimits[LEVEL_5_0 - 1].uiMaxBR * CpbBrNalFactor;
   if (sEncParamExt.iTargetBitrate > iLevelMaxBitrate)
     sEncParamExt.iTargetBitrate = iLevelMaxBitrate;

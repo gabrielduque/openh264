@@ -3096,16 +3096,41 @@ void ParasetIdAdditionIdAdjust (SParaSetOffsetVariable* sParaSetOffsetVariable, 
 }
 
 int32_t WelsWriteOneSPS (sWelsEncCtx* pCtx, const int32_t kiSpsIdx, int32_t& iNalSize) {
+  int    iNal	= pCtx->pOut->iNalIndex;
+  WelsLoadNal (pCtx->pOut, NAL_UNIT_SPS, NRI_PRI_HIGHEST);
 
-  
+  WelsWriteSpsNal (&pCtx->pSpsArray[kiSpsIdx], &pCtx->pOut->sBsWrite,
+                   & (pCtx->sPSOVector.sParaSetOffsetVariable[PARA_SET_TYPE_AVCSPS].iParaSetIdDelta[0]));
+  WelsUnloadNal (pCtx->pOut);
+
+  int32_t iReturn = WelsEncodeNal (&pCtx->pOut->sNalList[iNal], NULL,
+                                   pCtx->iFrameBsSize - pCtx->iPosBsBuffer,//available buffer to be written, so need to substract the used length
+                                   pCtx->pFrameBs + pCtx->iPosBsBuffer,
+                                   &iNalSize);
+  WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
+
+  pCtx->iPosBsBuffer	+= iNalSize;
   return ENC_RETURN_SUCCESS;
 }
 int32_t WelsWriteOnePPS (sWelsEncCtx* pCtx, const int32_t kiPpsIdx, int32_t& iNalSize) {
-    //TODO
+  //TODO
+  int32_t iNal	= pCtx->pOut->iNalIndex;
+  /* generate picture parameter set */
+  WelsLoadNal (pCtx->pOut, NAL_UNIT_PPS, NRI_PRI_HIGHEST);
+  WelsWritePpsSyntax (&pCtx->pPPSArray[kiPpsIdx], &pCtx->pOut->sBsWrite,
+                      ((SPS_PPS_LISTING != pCtx->pSvcParam->iSpsPpsIdStrategy)) ? (& (pCtx->sPSOVector)) : NULL);
+  WelsUnloadNal (pCtx->pOut);
 
+  int32_t iReturn = WelsEncodeNal (&pCtx->pOut->sNalList[iNal], NULL,
+                                   pCtx->iFrameBsSize - pCtx->iPosBsBuffer,
+                                   pCtx->pFrameBs + pCtx->iPosBsBuffer,
+                                   &iNalSize);
+  WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
+
+  pCtx->iPosBsBuffer	+= iNalSize;
   return ENC_RETURN_SUCCESS;
 }
-  
+
 /*!
  * \brief	write all parameter sets introduced in SVC extension
  * \return	writing results, success or error
@@ -3126,8 +3151,7 @@ int32_t WelsWriteParameterSets (sWelsEncCtx* pCtx, int32_t* pNalLen, int32_t* pN
   /* write all SPS */
   iIdx = 0;
   while (iIdx < pCtx->iSpsNum) {
-    iNal	= pCtx->pOut->iNalIndex;
-
+    // TODO (Sijia) wrap different operation of iSpsPpsIdStrategy to classes to hide the details
     if (INCREASING_ID == pCtx->pSvcParam->iSpsPpsIdStrategy) {
 #if _DEBUG
       pCtx->sPSOVector.iSpsPpsIdStrategy = INCREASING_ID;
@@ -3144,19 +3168,9 @@ int32_t WelsWriteParameterSets (sWelsEncCtx* pCtx, int32_t* pNalLen, int32_t* pN
     /* generate sequence parameters set */
     iId	= (SPS_LISTING & pCtx->pSvcParam->iSpsPpsIdStrategy) ? iIdx : 0;
 
-    WelsLoadNal (pCtx->pOut, NAL_UNIT_SPS, NRI_PRI_HIGHEST);
-    WelsWriteSpsNal (&pCtx->pSpsArray[iId], &pCtx->pOut->sBsWrite,
-                     & (pCtx->sPSOVector.sParaSetOffsetVariable[PARA_SET_TYPE_AVCSPS].iParaSetIdDelta[0]));
-    WelsUnloadNal (pCtx->pOut);
+    WelsWriteOneSPS (pCtx, iId, iNalLength);
 
-    iReturn = WelsEncodeNal (&pCtx->pOut->sNalList[iNal], NULL,
-                             pCtx->iFrameBsSize - pCtx->iPosBsBuffer,//available buffer to be written, so need to substract the used length
-                             pCtx->pFrameBs + pCtx->iPosBsBuffer,
-                             &iNalLength);
-    WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
     pNalLen[iCountNal] = iNalLength;
-
-    pCtx->iPosBsBuffer	+= iNalLength;
     iSize				+= iNalLength;
 
     ++ iIdx;
@@ -3233,20 +3247,9 @@ int32_t WelsWriteParameterSets (sWelsEncCtx* pCtx, int32_t* pNalLen, int32_t* pN
                                  MAX_PPS_COUNT);
     }
 
-    iNal	= pCtx->pOut->iNalIndex;
-    /* generate picture parameter set */
-    WelsLoadNal (pCtx->pOut, NAL_UNIT_PPS, NRI_PRI_HIGHEST);
-    WelsWritePpsSyntax (&pCtx->pPPSArray[iIdx], &pCtx->pOut->sBsWrite,
-                        ((SPS_PPS_LISTING != pCtx->pSvcParam->iSpsPpsIdStrategy)) ? (& (pCtx->sPSOVector)) : NULL);
-    WelsUnloadNal (pCtx->pOut);
+    WelsWriteOnePPS (pCtx, iIdx, iNalLength);
 
-    iReturn = WelsEncodeNal (&pCtx->pOut->sNalList[iNal], NULL,
-                             pCtx->iFrameBsSize - pCtx->iPosBsBuffer,
-                             pCtx->pFrameBs + pCtx->iPosBsBuffer,
-                             &iNalLength);
-    WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
     pNalLen[iCountNal] = iNalLength;
-    pCtx->iPosBsBuffer	+= iNalLength;
     iSize				+= iNalLength;
 
     ++ iIdx;
@@ -3437,11 +3440,10 @@ int32_t WriteSavcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
   for (int32_t k = 0; k < kiSpatialNum; k++, iCountNal++) {
     for (int32_t iIdx = 0; iIdx < pCtx->iSpsNum; iIdx++) {
       int32_t iNalSize = 0;
-      iReturn = WelsWriteOneSPS (pCtx, iNalSize);
+      iReturn = WelsWriteOneSPS (pCtx, iIdx, iNalSize);
       WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
 
       pLayerBsInfo->pNalLengthInByte[iCountNal] = iNalSize;
-      pCtx->iPosBsBuffer += iNalSize;
       iNonVclSize += iNalSize;
     }
 
@@ -3461,17 +3463,16 @@ int32_t WriteSavcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
   }
 
   // write PPS
-  
+
   //TODO: under new strategy, will PPS be correctly updated?
 
   for (int32_t k = 0; k < kiSpatialNum; k++, iCountNal++) {
     for (int32_t iIdx = 0; iIdx < pCtx->iPpsNum; iIdx++) {
       int32_t iNalSize = 0;
-      iReturn = WelsWriteOnePPS (pCtx, iNalSize);
+      iReturn = WelsWriteOnePPS (pCtx, iIdx, iNalSize);
       WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
 
       pLayerBsInfo->pNalLengthInByte[iCountNal] = iNalSize;
-      pCtx->iPosBsBuffer += iNalSize;
       iNonVclSize += iNalSize;
     }
 

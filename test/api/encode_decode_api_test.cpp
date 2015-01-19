@@ -260,7 +260,27 @@ void EncodeDecodeTestAPI::RandomParamExtCombination() {
   param_.iNumRefFrame       = AUTO_REF_PIC_COUNT;
   param_.iMultipleThreadIdc = rand();
 
-  param_.eSpsPpsIdStrategy   = rand() % 3;
+  int iValue   = rand() % 7;
+  switch (iValue) {
+    case 0:
+      param_.eSpsPpsIdStrategy  = CONSTANT_ID;
+      break;
+    case 0x01:
+      param_.eSpsPpsIdStrategy  = INCREASING_ID;
+      break;
+    case 0x02:
+      param_.eSpsPpsIdStrategy  = SPS_LISTING;
+      break;
+    case 0x03:
+      param_.eSpsPpsIdStrategy  = SPS_LISTING_AND_PPS_INCREASING;
+      break;
+    case 0x06:
+      param_.eSpsPpsIdStrategy  = SPS_PPS_LISTING;
+      break;
+    default:
+      param_.eSpsPpsIdStrategy  = CONSTANT_ID;
+      break;
+  }
   param_.bPrefixNalAddingCtrl      = (rand() % 2 == 0) ? false : true;
   param_.bEnableSSEI               = (rand() % 2 == 0) ? false : true;
   param_.iPaddingFlag              = rand() % 2;

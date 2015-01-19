@@ -350,9 +350,17 @@ typedef struct TagWelsSvcCodingParam: SEncParamExt {
 
     bPrefixNalAddingCtrl	= pCodingParam.bPrefixNalAddingCtrl;
 
+    if ( (CONSTANT_ID == pCodingParam.eSpsPpsIdStrategy)
+        || (INCREASING_ID == pCodingParam.eSpsPpsIdStrategy)
+        || (SPS_LISTING == pCodingParam.eSpsPpsIdStrategy)
+        || (SPS_LISTING_AND_PPS_INCREASING == pCodingParam.eSpsPpsIdStrategy)
+        || (SPS_PPS_LISTING == pCodingParam.eSpsPpsIdStrategy)) {
     eSpsPpsIdStrategy =
       pCodingParam.eSpsPpsIdStrategy;//For SVC meeting application, to avoid mosaic issue caused by cross-IDR reference.
     //SHOULD enable this feature.
+    } else {
+      // keep the default value
+    }
 
     SSpatialLayerInternal* pDlp		= &sDependencyLayers[0];
     SSpatialLayerConfig* pSpatialLayer = &sSpatialLayers[0];

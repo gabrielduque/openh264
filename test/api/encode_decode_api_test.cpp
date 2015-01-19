@@ -3120,7 +3120,7 @@ TEST_F (EncodeDecodeTestAPI, SimulcastSVC) {
 }
 
 TEST_F (EncodeDecodeTestAPI, SimulcastAVC) {
-#define DEBUG_FILE_SAVE3
+//#define DEBUG_FILE_SAVE3
 #define LAYER_NUM (4)
   int iSpatialLayerNum = WelsClip3 ((rand() % LAYER_NUM), 2, LAYER_NUM);;
   int iWidth       = WelsClip3 ((((rand() % MAX_WIDTH) >> 1)  + 1) << 1, 1 << iSpatialLayerNum, MAX_WIDTH);

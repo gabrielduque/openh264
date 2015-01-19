@@ -1172,29 +1172,36 @@ static inline int32_t InitDqLayers (sWelsEncCtx** ppCtx, SExistingParasetList* p
 
   // for dynamically malloc for parameter sets memory instead of maximal items for standard to reduce size, 3/18/2010
   // SPS
-  if (! (SPS_LISTING & pParam->iSpsPpsIdStrategy)) {
-    (*ppCtx)->pSpsArray	= (SWelsSPS*)pMa->WelsMalloc (sizeof (SWelsSPS), "pSpsArray");
-    WELS_VERIFY_RETURN_PROC_IF (1, (NULL == (*ppCtx)->pSpsArray), FreeMemorySvc (ppCtx))
-    if (iDlayerCount > 1) {
-      (*ppCtx)->pSubsetArray	= (SSubsetSps*)pMa->WelsMalloc ((iDlayerCount - 1) * sizeof (SSubsetSps), "pSubsetArray");
+  if (!pParam->bSimulcastAVC) {
+    if (! (SPS_LISTING & pParam->iSpsPpsIdStrategy)) {
+      (*ppCtx)->pSpsArray	= (SWelsSPS*)pMa->WelsMalloc (sizeof (SWelsSPS), "pSpsArray");
+      WELS_VERIFY_RETURN_PROC_IF (1, (NULL == (*ppCtx)->pSpsArray), FreeMemorySvc (ppCtx))
+      if (iDlayerCount > 1) {
+        (*ppCtx)->pSubsetArray	= (SSubsetSps*)pMa->WelsMalloc ((iDlayerCount - 1) * sizeof (SSubsetSps), "pSubsetArray");
+        WELS_VERIFY_RETURN_PROC_IF (1, (NULL == (*ppCtx)->pSubsetArray), FreeMemorySvc (ppCtx))
+      }
+    } else {
+      // pParam->iSpsPpsIdStrategy == SPS_LISTING_AND_PPS_INCREASING
+      // new memory
+      (*ppCtx)->pSpsArray	= (SWelsSPS*)pMa->WelsMalloc (MAX_SPS_COUNT * sizeof (SWelsSPS), "pSpsArray");
+      WELS_VERIFY_RETURN_PROC_IF (1, (NULL == (*ppCtx)->pSpsArray), FreeMemorySvc (ppCtx))
+
+      (*ppCtx)->pSubsetArray	= (SSubsetSps*)pMa->WelsMalloc (MAX_SPS_COUNT * sizeof (SSubsetSps), "pSubsetArray");
       WELS_VERIFY_RETURN_PROC_IF (1, (NULL == (*ppCtx)->pSubsetArray), FreeMemorySvc (ppCtx))
+
+      // copy from existing if the pointer exists
+      if (NULL != pExistingParasetList) {
+        (*ppCtx)->sPSOVector.uiInUseSpsNum = pExistingParasetList->uiInUseSpsNum;
+        (*ppCtx)->sPSOVector.uiInUseSubsetSpsNum = pExistingParasetList->uiInUseSubsetSpsNum;
+        memcpy ((*ppCtx)->pSpsArray, pExistingParasetList->sSps, MAX_SPS_COUNT * sizeof (SWelsSPS));
+        memcpy ((*ppCtx)->pSubsetArray, pExistingParasetList->sSubsetSps, MAX_SPS_COUNT * sizeof (SSubsetSps));
+      }
     }
   } else {
-    // pParam->iSpsPpsIdStrategy == SPS_LISTING_AND_PPS_INCREASING
-    // new memory
-    (*ppCtx)->pSpsArray	= (SWelsSPS*)pMa->WelsMalloc (MAX_SPS_COUNT * sizeof (SWelsSPS), "pSpsArray");
+    //bSimulcastAVC
+    (*ppCtx)->pSpsArray	= (SWelsSPS*)pMa->WelsMalloc (iDlayerCount * sizeof (SWelsSPS), "pSpsArray");
     WELS_VERIFY_RETURN_PROC_IF (1, (NULL == (*ppCtx)->pSpsArray), FreeMemorySvc (ppCtx))
-
-    (*ppCtx)->pSubsetArray	= (SSubsetSps*)pMa->WelsMalloc (MAX_SPS_COUNT * sizeof (SSubsetSps), "pSubsetArray");
-    WELS_VERIFY_RETURN_PROC_IF (1, (NULL == (*ppCtx)->pSubsetArray), FreeMemorySvc (ppCtx))
-
-    // copy from existing if the pointer exists
-    if (NULL != pExistingParasetList) {
-      (*ppCtx)->sPSOVector.uiInUseSpsNum = pExistingParasetList->uiInUseSpsNum;
-      (*ppCtx)->sPSOVector.uiInUseSubsetSpsNum = pExistingParasetList->uiInUseSubsetSpsNum;
-      memcpy ((*ppCtx)->pSpsArray, pExistingParasetList->sSps, MAX_SPS_COUNT * sizeof (SWelsSPS));
-      memcpy ((*ppCtx)->pSubsetArray, pExistingParasetList->sSubsetSps, MAX_SPS_COUNT * sizeof (SSubsetSps));
-    }
+    (*ppCtx)->pSubsetArray = NULL;
   }
   // PPS
   if (! (SPS_PPS_LISTING == pParam->iSpsPpsIdStrategy)) {
@@ -1224,7 +1231,7 @@ static inline int32_t InitDqLayers (sWelsEncCtx** ppCtx, SExistingParasetList* p
   iDlayerIndex	= 0;
   while (iDlayerIndex < iDlayerCount) {
     SDqIdc* pDqIdc		= & (*ppCtx)->pDqIdcMap[iDlayerIndex];
-    const bool bUseSubsetSps			= (iDlayerIndex > BASE_DEPENDENCY_ID);
+    const bool bUseSubsetSps			= (!pParam->bSimulcastAVC) && (iDlayerIndex > BASE_DEPENDENCY_ID);
     SSpatialLayerConfig* pDlayerParam	= &pParam->sSpatialLayers[iDlayerIndex];
 
     pDqIdc->uiSpatialId	= iDlayerIndex;
@@ -1324,7 +1331,7 @@ static inline int32_t InitDqLayers (sWelsEncCtx** ppCtx, SExistingParasetList* p
 
     (*ppCtx)->sPSOVector.bPpsIdMappingIntoSubsetsps[iPpsId] = bUseSubsetSps;
 
-    if (bUseSubsetSps)
+    if ((pParam->bSimulcastAVC) || (bUseSubsetSps))
       ++ iSpsId;
     ++ iPpsId;
     if (bUseSubsetSps) {
@@ -2776,7 +2783,7 @@ void WelsInitCurrentLayer (sWelsEncCtx* pCtx,
   SSlice* pBaseSlice				= &pCurDq->sLayerInfo.pSliceInLayer[0];
   SSlice* pSlice					= NULL;
   const uint8_t kiCurDid			= pCtx->uiDependencyId;
-  const bool kbUseSubsetSpsFlag = (kiCurDid > BASE_DEPENDENCY_ID);
+  const bool kbUseSubsetSpsFlag = (!pParam->bSimulcastAVC) && (kiCurDid > BASE_DEPENDENCY_ID);
   SSpatialLayerConfig* fDlp				= &pParam->sSpatialLayers[kiCurDid];
   SNalUnitHeaderExt* pNalHdExt	= &pCurDq->sLayerInfo.sNalHeaderExt;
   SNalUnitHeader* pNalHd			= &pNalHdExt->sNalHeader;
@@ -3437,17 +3444,21 @@ int32_t WriteSavcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
 
   // write SPS
   iNonVclSize = 0;
-  for (int32_t k = 0; k < kiSpatialNum; k++, iCountNal++) {
-    for (int32_t iIdx = 0; iIdx < pCtx->iSpsNum; iIdx++) {
-      int32_t iNalSize = 0;
-      iReturn = WelsWriteOneSPS (pCtx, iIdx, iNalSize);
-      WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
+  assert (kiSpatialNum == pCtx->iSpsNum);
 
-      pLayerBsInfo->pNalLengthInByte[iCountNal] = iNalSize;
-      iNonVclSize += iNalSize;
-    }
+  for (int32_t iIdx = 0; iIdx < pCtx->iSpsNum; iIdx++) {
+    //writing one NAL
+    int32_t iNalSize = 0;
+    iReturn = WelsWriteOneSPS (pCtx, iIdx, iNalSize);
+    WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
 
-    pLayerBsInfo->uiSpatialId		= k;
+    pLayerBsInfo->pNalLengthInByte[iCountNal] = iNalSize;
+    iNonVclSize += iNalSize;
+    iCountNal = 1;
+    //finish writing one NAL
+
+
+    pLayerBsInfo->uiSpatialId		= iIdx;
     pLayerBsInfo->uiTemporalId	= 0;
     pLayerBsInfo->uiQualityId		= 0;
     pLayerBsInfo->uiLayerType		= NON_VIDEO_CODING_LAYER;
@@ -3458,6 +3469,7 @@ int32_t WriteSavcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
     pLayerBsInfo->pBsBuf			= pCtx->pFrameBs + pCtx->iPosBsBuffer;
     pLayerBsInfo->pNalLengthInByte = (pLayerBsInfo - 1)->pNalLengthInByte + iCountNal;
     //update for external countings
+    iCountNal = 0;
     ++ iLayerNum;
 
   }
@@ -3466,17 +3478,19 @@ int32_t WriteSavcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
 
   //TODO: under new strategy, will PPS be correctly updated?
 
-  for (int32_t k = 0; k < kiSpatialNum; k++, iCountNal++) {
-    for (int32_t iIdx = 0; iIdx < pCtx->iPpsNum; iIdx++) {
-      int32_t iNalSize = 0;
-      iReturn = WelsWriteOnePPS (pCtx, iIdx, iNalSize);
-      WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
+  for (int32_t iIdx = 0; iIdx < pCtx->iPpsNum; iIdx++) {
+    //writing one NAL
+    int32_t iNalSize = 0;
+    iReturn = WelsWriteOnePPS (pCtx, iIdx, iNalSize);
+    WELS_VERIFY_RETURN_IFNEQ (iReturn, ENC_RETURN_SUCCESS)
 
-      pLayerBsInfo->pNalLengthInByte[iCountNal] = iNalSize;
-      iNonVclSize += iNalSize;
-    }
+    pLayerBsInfo->pNalLengthInByte[iCountNal] = iNalSize;
+    iNonVclSize += iNalSize;
+    iCountNal = 1;
+    //finish writing one NAL
 
-    pLayerBsInfo->uiSpatialId		= k;
+
+    pLayerBsInfo->uiSpatialId		= iIdx;
     pLayerBsInfo->uiTemporalId	= 0;
     pLayerBsInfo->uiQualityId		= 0;
     pLayerBsInfo->uiLayerType		= NON_VIDEO_CODING_LAYER;
@@ -3487,6 +3501,7 @@ int32_t WriteSavcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
     pLayerBsInfo->pBsBuf			= pCtx->pFrameBs + pCtx->iPosBsBuffer;
     pLayerBsInfo->pNalLengthInByte = (pLayerBsInfo - 1)->pNalLengthInByte + iCountNal;
     //update for external countings
+    iCountNal = 0;
     ++ iLayerNum;
   }
 
@@ -3592,7 +3607,10 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   if (eFrameType == videoFrameTypeIDR) {
     ++ pCtx->uiIdrPicId;
     // write parameter sets bitstream or SEI/SSEI (if any) here
-    pCtx->iEncoderError = WriteSsvcParaset (pCtx, iSpatialNum, pLayerBsInfo, iLayerNum, iFrameSize);
+    // TODO: use function pointer instead
+    pCtx->iEncoderError = ((!pSvcParam->bSimulcastAVC)
+                           ? (WriteSsvcParaset (pCtx, iSpatialNum, pLayerBsInfo, iLayerNum, iFrameSize))
+                           : (WriteSavcParaset (pCtx, iSpatialNum, pLayerBsInfo, iLayerNum, iFrameSize)));
     WELS_VERIFY_RETURN_IFNEQ (pCtx->iEncoderError, ENC_RETURN_SUCCESS)
   }
 

@@ -886,3 +886,77 @@ TEST_F (EncoderInterfaceTest, FrameSizeCheck) {
   // finish
   pPtrEnc->Uninitialize();
 }
+
+TEST_F (EncoderInterfaceTest, SkipFrameCheck) {
+  SEncParamExt sEncParamExt;
+  int iResult = pPtrEnc->GetDefaultParams (&sEncParamExt);
+  EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
+
+  //01-21 08:41:19.344 I/Log     ( 8047): PID[8047]TID[2086857728]:[WSE] Info: CWseH264SvcEncoder::UpdateEncodeParam() input encode param: spatial 0: encode_width=360, encode_height=640, encode_frame_rate=30.000000, max_target_bitrate=573000, max_bitrate=895839855,this=0x7c62ee48
+  //01-21 08:41:19.344 I/Log     ( 8047): PID[8047]TID[2086857728]:[WSE] Info: CWseH264SvcEncoder::UpdateEncodeParam() actual encode param: iUsageType = 0, spatial_layer_num = 1, temporal_layer_num = 3, frame_rate = 28.248587, target_bitrate = 573000, denoise =0, background_detection = 1, adaptive_quant = 1, enable_crop_pic = 1, scenechange_detection = 0, enable_long_term_reference = 0, ltr_mark_period = 30, ltr_ref_num = 0, enable_multiple_slice = 1, padding = 0, rc_mode = 1, enable_frame_skip = 1, max_bitrate = 573000, max_nalu_size = 0,[Video],this=0x7c62ee48
+  //01-21 08:41:19.344 I/Log     ( 8047): PID[8047]TID[2086857728]:[WSE] Info: CWseH264SvcEncoder::UpdateEncodeParam() actual encode param: spatial 0: width=360, height=640, frame_rate=28.248587, spatial_bitrate=573000, max_layer_bitrate =895839855, max_nalu_size=0, slice_mode=1,this=0x7c62ee48
+  sEncParamExt.iUsageType = CAMERA_VIDEO_REAL_TIME;
+  sEncParamExt.iPicWidth = 360;
+  sEncParamExt.iPicHeight = 640;
+  sEncParamExt.iTargetBitrate = 573000;
+  sEncParamExt.iRCMode = RC_BITRATE_MODE;
+  sEncParamExt.fMaxFrameRate = 28.248587;
+
+  sEncParamExt.iTemporalLayerNum = 3;
+  sEncParamExt.iSpatialLayerNum = 1;
+  sEncParamExt.bEnableLongTermReference = 0;
+  sEncParamExt.bEnableSceneChangeDetect = 0;
+  sEncParamExt.bEnableFrameSkip = 1;
+  sEncParamExt.iMaxBitrate = 895839855;
+  sEncParamExt.uiMaxNalSize = 0;
+
+  sEncParamExt.sSpatialLayers[0].uiLevelIdc = LEVEL_5_0;
+  sEncParamExt.sSpatialLayers[0].iVideoWidth = 360;
+  sEncParamExt.sSpatialLayers[0].iVideoHeight = 640;
+  sEncParamExt.sSpatialLayers[0].fFrameRate = 28.248587;
+  sEncParamExt.sSpatialLayers[0].iSpatialBitrate = 573000;
+  sEncParamExt.sSpatialLayers[0].iMaxSpatialBitrate = 895839855;
+  sEncParamExt.sSpatialLayers[0].sSliceCfg.uiSliceMode = SM_FIXEDSLCNUM_SLICE;
+
+  pParamExt->iPicWidth = sEncParamExt.sSpatialLayers[0].iVideoWidth;
+  pParamExt->iPicHeight = sEncParamExt.sSpatialLayers[0].iVideoHeight;
+
+  iResult = pPtrEnc->InitializeExt (&sEncParamExt);
+  EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
+  if (iResult != cmResultSuccess) {
+    fprintf (stderr, "Unexpected sEncParamExt? \
+             iUsageType=%d, Pic=%dx%d, TargetBitrate=%d, iRCMode=%d, fMaxFrameRate=%.1f\n",
+             sEncParamExt.iUsageType, sEncParamExt.iPicWidth, sEncParamExt.iPicHeight,
+             sEncParamExt.iTargetBitrate, sEncParamExt.iRCMode, sEncParamExt.fMaxFrameRate);
+  }
+
+  int iInterval = 300;
+  iResult = pPtrEnc->SetOption (ENCODER_OPTION_STATISTICS_LOG_INTERVAL, &iInterval);
+  EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
+
+
+  SEncoderStatistics sEncoderStatistics;
+  for (int i = 0; i < 300; i++) {
+    PrepareOneSrcFrame();
+    pSrcPic->uiTimeStamp = i * 33;
+    iResult = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
+
+    if (i == 8) {
+      sEncParamExt.fMaxFrameRate = 28;
+      sEncParamExt.sSpatialLayers[0].fFrameRate = 28;
+      sEncParamExt.sSpatialLayers[0].iSpatialBitrate = 500000;
+      iResult = pPtrEnc->SetOption (ENCODER_OPTION_SVC_ENCODE_PARAM_EXT, &sEncParamExt);
+      EXPECT_EQ (iResult, static_cast<int> (cmResultSuccess));
+    }
+
+    if (i > 0 && i % 30 == 0) {
+      iResult = pPtrEnc->GetOption (ENCODER_OPTION_GET_STATISTICS, &sEncoderStatistics);
+      EXPECT_TRUE (sEncoderStatistics.uiInputFrameCount - sEncoderStatistics.uiSkippedFrameCount > 1)
+          << "uiInputFrameCount = " << sEncoderStatistics.uiInputFrameCount << ", uiSkippedFrameCount = " <<
+          sEncoderStatistics.uiSkippedFrameCount;
+    }
+  }
+
+  // finish
+  pPtrEnc->Uninitialize();
+}

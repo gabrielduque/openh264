@@ -216,7 +216,8 @@ void RcUpdateBitrateFps (sWelsEncCtx* pEncCtx) {
   SSpatialLayerInternal* pDLayerParamInternal     = &pEncCtx->pSvcParam->sDependencyLayers[pEncCtx->uiDependencyId];
   const int32_t kiGopSize	= (1 << pDLayerParamInternal->iDecompositionStages);
   const int32_t kiHighestTid = pDLayerParamInternal->iHighestTemporalId;
-  const int64_t input_iBitsPerFrame = WELS_DIV_ROUND64 (pDLayerParam->iSpatialBitrate, pDLayerParamInternal->fOutputFrameRate);
+  const int64_t input_iBitsPerFrame = WELS_DIV_ROUND64 (pDLayerParam->iSpatialBitrate,
+                                      pDLayerParamInternal->fOutputFrameRate);
   const int64_t kiGopBits	= input_iBitsPerFrame * kiGopSize;
   int32_t i;
 
@@ -240,7 +241,8 @@ void RcUpdateBitrateFps (sWelsEncCtx* pEncCtx) {
 
 //change remaining bits
   if (pWelsSvcRc->iBitsPerFrame > REMAIN_BITS_TH) {
-    pWelsSvcRc->iRemainingBits = (int64_t) (pWelsSvcRc->iRemainingBits * input_iBitsPerFrame / pWelsSvcRc->iBitsPerFrame);
+    pWelsSvcRc->iRemainingBits = WELS_DIV_ROUND64 (pWelsSvcRc->iRemainingBits * input_iBitsPerFrame,
+                                 pWelsSvcRc->iBitsPerFrame);
   }
   pWelsSvcRc->iBitsPerFrame = input_iBitsPerFrame;
   pWelsSvcRc->iMaxBitsPerFrame = WELS_DIV_ROUND64 (pDLayerParam->iMaxSpatialBitrate,
@@ -541,8 +543,8 @@ void RcDecideTargetBits (sWelsEncCtx* pEncCtx) {
     pWelsSvcRc->iTargetBits = pWelsSvcRc->iBitsPerFrame * IDR_BITRATE_RATIO;
   } else {
     if (pWelsSvcRc->iRemainingWeights > pTOverRc->iTlayerWeight)
-      pWelsSvcRc->iTargetBits = (pWelsSvcRc->iRemainingBits * pTOverRc->iTlayerWeight /
-                                           pWelsSvcRc->iRemainingWeights);
+      pWelsSvcRc->iTargetBits = WELS_DIV_ROUND64 (pWelsSvcRc->iRemainingBits * pTOverRc->iTlayerWeight,
+                                pWelsSvcRc->iRemainingWeights);
     else //this case should be not hit. needs to more test case to verify this
       pWelsSvcRc->iTargetBits = pWelsSvcRc->iRemainingBits;
     if ((pWelsSvcRc->iTargetBits <= 0) && ((pEncCtx->pSvcParam->iRCMode == RC_BITRATE_MODE)
@@ -1151,7 +1153,7 @@ void WelRcPictureInitScc (sWelsEncCtx* pEncCtx, long long uiTimeStamp) {
 
     pEncCtx->iGlobalQp = WELS_CLIP3 (iQp, MIN_IDR_QP, MAX_IDR_QP);
   } else {
-    int32_t iTargetBits = WELS_ROUND (((float)iBitRate / pDLayerParamInternal->fOutputFrameRate)); //iBitRate / 10;
+    int64_t iTargetBits = WELS_ROUND (((float)iBitRate / pDLayerParamInternal->fOutputFrameRate)); //iBitRate / 10;
     int32_t iQstep = (int32_t) (WELS_DIV_ROUND64 (iFrameCplx * pWelsSvcRc->iAvgCost2Bits, iTargetBits));
     int32_t iQp = RcConvertQStep2Qp (iQstep);
     iDeltaQp = iQp - iBaseQp;
@@ -1288,8 +1290,8 @@ void  WelsRcPictureInitGomTimeStamp (sWelsEncCtx* pEncCtx, long long uiTimeStamp
       pWelsSvcRc->iInitialQp = WELS_CLIP3 (pWelsSvcRc->iInitialQp, MIN_IDR_QP, MAX_IDR_QP);
 
       iLumaQp = pWelsSvcRc->iInitialQp;
-      pWelsSvcRc->iTargetBits = (int32_t) ((double) (pDLayerParam->iSpatialBitrate) / (double) (pDLayerParam->fFrameRate) *
-                                IDR_BITRATE_RATIO);
+      pWelsSvcRc->iTargetBits = static_cast<int64_t>( ((double) (pDLayerParam->iSpatialBitrate) / (double) (pDLayerParam->fFrameRate) *
+                                           IDR_BITRATE_RATIO));
 
       WelsLog (& (pEncCtx->sLogCtx), WELS_LOG_DEBUG,
                "[Rc] First IDR iSpatialBitrate = %d,iBufferFullnessSkip = %lld,iTargetBits= %lld,dBpp = %f,initQp = %d",
@@ -1300,8 +1302,8 @@ void  WelsRcPictureInitGomTimeStamp (sWelsEncCtx* pEncCtx, long long uiTimeStamp
 
       int64_t iMaxTh = pWelsSvcRc->iBufferSizeSkip - pWelsSvcRc->iBufferFullnessSkip;
       int64_t iMinTh = iMaxTh / 2;
-      pWelsSvcRc->iTargetBits = (int32_t) ((double) (pDLayerParam->iSpatialBitrate) / (double) (pDLayerParam->fFrameRate) *
-                                IDR_BITRATE_RATIO);
+      pWelsSvcRc->iTargetBits = static_cast<int64_t>( ((double) (pDLayerParam->iSpatialBitrate) / (double) (pDLayerParam->fFrameRate) *
+                                           IDR_BITRATE_RATIO));
       if (iMaxTh > 0) {
         pWelsSvcRc->iTargetBits = WELS_CLIP3 (pWelsSvcRc->iTargetBits, iMinTh, iMaxTh);
 

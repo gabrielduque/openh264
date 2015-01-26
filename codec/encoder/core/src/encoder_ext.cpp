@@ -71,9 +71,10 @@ int32_t WelsCodeOnePicPartition (sWelsEncCtx* pCtx,
 
 
 int32_t WelsBitRateVerification (SLogContext* pLogCtx, SSpatialLayerConfig* pLayerParam, int32_t iLayerId) {
-  if (pLayerParam->iSpatialBitrate <= 0) {
-    WelsLog (pLogCtx, WELS_LOG_ERROR, "Invalid bitrate settings in layer %d, bitrate= %d", iLayerId,
-             pLayerParam->iSpatialBitrate);
+  if ((pLayerParam->iSpatialBitrate <= 0)
+      || (static_cast<float> (pLayerParam->iSpatialBitrate) < pLayerParam->fFrameRate)) {
+    WelsLog (pLogCtx, WELS_LOG_ERROR, "Invalid bitrate settings in layer %d, bitrate= %d at FrameRate(%f)", iLayerId,
+             pLayerParam->iSpatialBitrate, pLayerParam->fFrameRate);
     return ENC_RETURN_UNSUPPORTED_PARA;
   }
 
@@ -488,7 +489,7 @@ int32_t ParamValidationExt (SLogContext* pLogCtx, SWelsSvcCodingParam* pCodingPa
       iMbHeight	= (kiPicHeight + 15) >> 4;
       iMaxSliceNum = MAX_SLICES_NUM;
       if (iMbHeight > iMaxSliceNum) {
-        WelsLog (pLogCtx, WELS_LOG_ERROR, "ParamValidationExt(), invalid uiSliceNum (%d) settings more than MAX!", iMbHeight);
+        WelsLog (pLogCtx, WELS_LOG_ERROR, "ParamValidationExt(), invalid uiSliceNum (%d) settings more than MAX(%d)!", iMbHeight, MAX_SLICES_NUM);
         return ENC_RETURN_UNSUPPORTED_PARA;
       }
       pSpatialLayer->sSliceCfg.sSliceArgument.uiSliceNum	= iMbHeight;
@@ -524,7 +525,7 @@ int32_t ParamValidationExt (SLogContext* pLogCtx, SWelsSvcCodingParam* pCodingPa
       if (pSpatialLayer->sSliceCfg.sSliceArgument.uiSliceSizeConstraint > (pCodingParam->uiMaxNalSize -
           NAL_HEADER_ADD_0X30BYTES)) {
         WelsLog (pLogCtx, WELS_LOG_WARNING,
-                 "ParamValidationExt(), slice mode = SM_DYN_SLICE, uiSliceSizeConstraint = %d ,uiMaxNalsize = %d!",
+                 "ParamValidationExt(), slice mode = SM_DYN_SLICE, uiSliceSizeConstraint = %d ,uiMaxNalsize = %d, will take uiMaxNalsize!",
                  pSpatialLayer->sSliceCfg.sSliceArgument.uiSliceSizeConstraint, pCodingParam->uiMaxNalSize);
         pSpatialLayer->sSliceCfg.sSliceArgument.uiSliceSizeConstraint =  pCodingParam->uiMaxNalSize - NAL_HEADER_ADD_0X30BYTES;
       }
@@ -4118,8 +4119,12 @@ int32_t WelsEncoderParamAdjust (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pNewPa
     return iReturn;
   }
 
-
   pOldParam	= (*ppCtx)->pSvcParam;
+
+  if (pOldParam->iUsageType != pNewParam->iUsageType) {
+    WelsLog (& (*ppCtx)->sLogCtx, WELS_LOG_ERROR, "WelsEncoderParamAdjust(), does not expect in-middle change of iUsgaeType from %d to %d", pOldParam->iUsageType, pNewParam->iUsageType);
+    return ENC_RETURN_UNSUPPORTED_PARA;
+  }
 
   /* Decide whether need reset for IDR frame based on adjusting prarameters changed */
   /* Temporal levels, spatial settings and/ or quality settings changed need update parameter sets related. */

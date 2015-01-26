@@ -719,6 +719,7 @@ void WelsRcFrameDelayJudge (sWelsEncCtx* pEncCtx, EVideoFrameType eFrameType, lo
     return;
   const int32_t iSentBits = pWelsSvcRc->iBitsPerFrame;
   const int32_t kiOutputMaxBits = pWelsSvcRc->iMaxBitsPerFrame;
+  const int64_t kiMaxSpatialBitRate = pDLayerParam->iMaxSpatialBitrate;
 
 //estimate allowed continual skipped frames in the sequence
   const int32_t iPredSkipFramesTarBr = (WELS_DIV_ROUND (pWelsSvcRc->iBufferFullnessSkip, iSentBits) + 1) >> 1;
@@ -727,10 +728,9 @@ void WelsRcFrameDelayJudge (sWelsEncCtx* pEncCtx, EVideoFrameType eFrameType, lo
 
 //calculate the remaining bits in TIME_CHECK_WINDOW
   const int32_t iAvailableBitsInTimeWindow = WELS_DIV_ROUND ((TIME_CHECK_WINDOW - pEncCtx->iCheckWindowInterval) *
-      pDLayerParam->iMaxSpatialBitrate, 1000);
+      kiMaxSpatialBitRate, 1000);
   const int32_t iAvailableBitsInShiftTimeWindow = WELS_DIV_ROUND ((TIME_CHECK_WINDOW - pEncCtx->iCheckWindowIntervalShift)
-      *
-      pDLayerParam->iMaxSpatialBitrate, 1000);
+      * kiMaxSpatialBitRate, 1000);
 
   bool bJudgeMaxBRbSkip[TIME_WINDOW_TOTAL];//0: EVEN_TIME_WINDOW; 1: ODD_TIME_WINDOW
 
@@ -891,7 +891,7 @@ void RcTraceFrameBits (sWelsEncCtx* pEncCtx, long long uiTimeStamp) {
 
   WelsLog (& (pEncCtx->sLogCtx), WELS_LOG_DEBUG,
            "[Rc] Frame timestamp = %lld, Frame type =%d, encoding_qp = %d, average qp = %3d, max qp = %3d, min qp = %3d, index = %8d,\
-    iTid = %1d, used = %8d, bitsperframe = %8d, target = %8d, remaingbits = %8d, skipbuffersize = %8d",
+    iTid = %1d, used = %8d, bitsperframe = %8lld, target = %8lld, remaingbits = %8lld, skipbuffersize = %8d",
            uiTimeStamp, pEncCtx->eSliceType, pEncCtx->iGlobalQp, pWelsSvcRc->iAverageFrameQp, pWelsSvcRc->iMaxFrameQp,
            pWelsSvcRc->iMinFrameQp,
            pEncCtx->iFrameIndex, pEncCtx->uiTemporalId, pWelsSvcRc->iFrameDqBits, pWelsSvcRc->iBitsPerFrame,

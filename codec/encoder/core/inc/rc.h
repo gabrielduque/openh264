@@ -180,8 +180,8 @@ int32_t   iMaxBitsPerFrame;
 double    dPreviousFps;
 
 // bits allocation and status
-int32_t   iRemainingBits;
-int32_t   iTargetBits;
+int64_t   iRemainingBits;
+int64_t   iTargetBits;
 int32_t   iCurrentBitsLevel;//0:normal; 1:limited; 2:exceeded.
 
 int32_t   iIdrNum;

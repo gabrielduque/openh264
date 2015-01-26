@@ -226,8 +226,8 @@ int32_t   iLastCalculatedQScale;
 
 //for skip frame and padding
 int32_t   iBufferSizeSkip;
-int32_t   iBufferFullnessSkip;
-int32_t   iBufferMaxBRFullness[TIME_WINDOW_TOTAL];//0: EVEN_TIME_WINDOW; 1: ODD_TIME_WINDOW
+int64_t   iBufferFullnessSkip;
+int64_t   iBufferMaxBRFullness[TIME_WINDOW_TOTAL];//0: EVEN_TIME_WINDOW; 1: ODD_TIME_WINDOW
 int32_t   iPredFrameBit;
 bool      bNeedShiftWindowCheck[TIME_WINDOW_TOTAL];
 int32_t   iBufferSizePadding;

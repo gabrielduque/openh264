@@ -429,8 +429,8 @@ void RcCalculateIdrQp (sWelsEncCtx* pEncCtx) {
     pWelsSvcRc->iIntraComplexity = pWelsSvcRc->iIntraComplexity * pWelsSvcRc->iNumberMbFrame /
                                    pWelsSvcRc->iIntraMbCount;
   }
-  pWelsSvcRc->iInitialQp = RcConvertQStep2Qp (pWelsSvcRc->iIntraComplexity /
-                           pWelsSvcRc->iTargetBits);
+  pWelsSvcRc->iInitialQp = RcConvertQStep2Qp ( static_cast<int32_t>(pWelsSvcRc->iIntraComplexity /
+                           pWelsSvcRc->iTargetBits) );
   pWelsSvcRc->iInitialQp = WELS_CLIP3 (pWelsSvcRc->iInitialQp, MIN_IDR_QP, MAX_IDR_QP);
   pEncCtx->iGlobalQp = pWelsSvcRc->iInitialQp;
   pWelsSvcRc->iQStep = RcConvertQp2QStep (pEncCtx->iGlobalQp);
@@ -698,7 +698,7 @@ void   RcVBufferCalculationSkip (sWelsEncCtx* pEncCtx) {
   WelsLog (& (pEncCtx->sLogCtx), WELS_LOG_DEBUG, "[Rc] bits in buffer = %"PRId64", bits in Max bitrate buffer = %"PRId64,
            pWelsSvcRc->iBufferFullnessSkip, pWelsSvcRc->iBufferMaxBRFullness[EVEN_TIME_WINDOW]);
 //condition 2: VGOP bits constraint
-  int32_t iVGopBitsPred = 0;
+  int64_t iVGopBitsPred = 0;
   for (int32_t i = pWelsSvcRc->iFrameCodedInVGop + 1; i < VGOP_SIZE; i++)
     iVGopBitsPred += pTOverRc[pWelsSvcRc->iTlOfFrames[i]].iMinBitsTl;
   iVGopBitsPred -= pWelsSvcRc->iRemainingBits;

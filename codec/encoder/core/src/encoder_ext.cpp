@@ -3525,6 +3525,13 @@ int32_t WriteSavcParaset (sWelsEncCtx* pCtx, const int32_t kiSpatialNum,
     ++ iLayerNum;
   }
 
+  // to check number of layers / nals / slices dependencies
+  if (iLayerNum > MAX_LAYER_NUM_OF_FRAME) {
+    WelsLog (& pCtx->sLogCtx, WELS_LOG_ERROR, "WriteSavcParaset(), iLayerNum(%d) > MAX_LAYER_NUM_OF_FRAME(%d)!",
+             iLayerNum, MAX_LAYER_NUM_OF_FRAME);
+    return 1;
+  }
+
   iFrameSize += iNonVclSize;
   return iReturn;
 }
@@ -4185,6 +4192,13 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   pCtx->bRecFlag = true;
 
 #endif//ENABLE_FRAME_DUMP
+
+  // to check number of layers / nals / slices dependencies
+  if (iLayerNum > MAX_LAYER_NUM_OF_FRAME) {
+    WelsLog (& pCtx->sLogCtx, WELS_LOG_ERROR, "WelsEncoderEncodeExt(), iLayerNum(%d) > MAX_LAYER_NUM_OF_FRAME(%d)!",
+             iLayerNum, MAX_LAYER_NUM_OF_FRAME);
+    return 1;
+  }
 
   ++ pCtx->iCodingIndex;
   pCtx->eLastNalPriority	= eNalRefIdc;

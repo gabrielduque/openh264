@@ -717,6 +717,7 @@ void WelsRcFrameDelayJudge (sWelsEncCtx* pEncCtx, EVideoFrameType eFrameType, lo
     return;
   const int64_t iSentBits = pWelsSvcRc->iBitsPerFrame;
   const int64_t kiOutputMaxBits = pWelsSvcRc->iMaxBitsPerFrame;
+  const int64_t kiMaxSpatialBitRate = pDLayerParam->iMaxSpatialBitrate;
 
 //estimate allowed continual skipped frames in the sequence
   const int32_t iPredSkipFramesTarBr = (WELS_DIV_ROUND (pWelsSvcRc->iBufferFullnessSkip, iSentBits) + 1) >> 1;
@@ -725,10 +726,9 @@ void WelsRcFrameDelayJudge (sWelsEncCtx* pEncCtx, EVideoFrameType eFrameType, lo
 
 //calculate the remaining bits in TIME_CHECK_WINDOW
   const int32_t iAvailableBitsInTimeWindow = WELS_DIV_ROUND ((TIME_CHECK_WINDOW - pEncCtx->iCheckWindowInterval) *
-      pEncCtx->pSvcParam->sSpatialLayers[pEncCtx->uiDependencyId].iMaxSpatialBitrate, 1000);
+      kiMaxSpatialBitRate, 1000);
   const int32_t iAvailableBitsInShiftTimeWindow = WELS_DIV_ROUND ((TIME_CHECK_WINDOW - pEncCtx->iCheckWindowIntervalShift)
-      *
-      pEncCtx->pSvcParam->sSpatialLayers[pEncCtx->uiDependencyId].iMaxSpatialBitrate, 1000);
+      * kiMaxSpatialBitRate, 1000);
 
   bool bJudgeMaxBRbSkip[TIME_WINDOW_TOTAL];//0: EVEN_TIME_WINDOW; 1: ODD_TIME_WINDOW
 

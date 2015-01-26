@@ -2378,7 +2378,7 @@ const uint32_t kiFrameRate = 12; //DO NOT CHANGE!
 const uint32_t kiFrameNum = 100; //DO NOT CHANGE!
 const uint32_t kiMaxBsSize = 10000000; //DO NOT CHANGE!
 const char* pHashStr[] = { //DO NOT CHANGE!
-  "adb1513673053e9d228a4ab5429c8cfdadca3eb0",
+  "d1c255a57aa2c5e1192a90680c00e6ee3e73fe59",
   "e5d2db6f404acd13c420279927c1453b3a559a6e",
   "24ac736048cc85c672b4b8516eb26215ca80f2c4"
 };

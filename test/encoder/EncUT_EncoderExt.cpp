@@ -936,7 +936,7 @@ TEST_F (EncoderInterfaceTest, SkipFrameCheck) {
 
 
   SEncoderStatistics sEncoderStatistics;
-  for (int i = 0; i < 300; i++) {
+  for (int i = 0; i < 50; i++) {
     PrepareOneSrcFrame();
     pSrcPic->uiTimeStamp = i * 33;
     iResult = pPtrEnc->EncodeFrame (pSrcPic, &sFbi);
